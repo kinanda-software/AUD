@@ -73,7 +73,170 @@ type ApiRiskPoint = {
   updated_at?: string;
 };
 
-const API_BASE_URL = "http://127.0.0.1:8000/api";
+const API_BASE_URL = "http://localhost:8000/api";
+
+/*
+ * ============================================================
+ * CSRF COOKIE HELPER
+ * ============================================================
+ */
+
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const cookies = document.cookie.split(";");
+
+  for (const cookie of cookies) {
+    const trimmedCookie = cookie.trim();
+
+    if (trimmedCookie.startsWith(`${name}=`)) {
+      return decodeURIComponent(
+        trimmedCookie.substring(name.length + 1)
+      );
+    }
+  }
+
+  return null;
+};
+
+/*
+ * ============================================================
+ * API RESPONSE HELPER
+ * ============================================================
+ */
+
+const parseResponse = async (
+  response: Response
+): Promise<any> => {
+  const contentType =
+    response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const text = await response.text();
+
+    return text || null;
+  } catch {
+    return null;
+  }
+};
+
+/*
+ * ============================================================
+ * API ERROR FORMATTER
+ * ============================================================
+ */
+
+const formatApiError = (
+  data: any,
+  status: number
+): string => {
+  if (!data) {
+    return `Request failed (${status}).`;
+  }
+
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (data.detail) {
+    return String(data.detail);
+  }
+
+  if (data.message) {
+    return String(data.message);
+  }
+
+  if (data.error) {
+    return String(data.error);
+  }
+
+  if (typeof data === "object") {
+    const messages: string[] = [];
+
+    Object.entries(data).forEach(
+      ([field, value]) => {
+        if (Array.isArray(value)) {
+          messages.push(
+            `${field}: ${value.join(", ")}`
+          );
+        } else if (
+          typeof value === "string"
+        ) {
+          messages.push(`${field}: ${value}`);
+        } else if (value !== null) {
+          messages.push(
+            `${field}: ${JSON.stringify(value)}`
+          );
+        }
+      }
+    );
+
+    if (messages.length > 0) {
+      return messages.join(" | ");
+    }
+
+    try {
+      return JSON.stringify(data);
+    } catch {
+      return `Request failed (${status}).`;
+    }
+  }
+
+  return `Request failed (${status}).`;
+};
+
+/*
+ * ============================================================
+ * AUTHENTICATED FETCH
+ * ============================================================
+ */
+
+const authenticatedFetch = async (
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const csrfToken = getCookie("csrftoken");
+
+  const headers = new Headers(
+    options.headers || {}
+  );
+
+  headers.set("Accept", "application/json");
+
+  if (options.body) {
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
+  }
+
+  if (csrfToken) {
+    headers.set("X-CSRFToken", csrfToken);
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+    cache: "no-store",
+  });
+};
+
+/*
+ * ============================================================
+ * ASSERTIONS
+ * ============================================================
+ */
 
 const assertionOptions: Assertion[] = [
   "Existence",
@@ -86,6 +249,12 @@ const assertionOptions: Assertion[] = [
   "Presentation & Disclosure",
 ];
 
+/*
+ * ============================================================
+ * RISK LEVELS
+ * ============================================================
+ */
+
 const riskLevelOptions: RiskLevel[] = [
   "Low",
   "Medium",
@@ -93,7 +262,15 @@ const riskLevelOptions: RiskLevel[] = [
   "Significant",
 ];
 
-const createEmptyRisk = (id: number): RiskItem => ({
+/*
+ * ============================================================
+ * EMPTY RISK
+ * ============================================================
+ */
+
+const createEmptyRisk = (
+  id: number
+): RiskItem => ({
   id,
   account: "",
   riskDescription: "",
@@ -110,10 +287,19 @@ const createEmptyRisk = (id: number): RiskItem => ({
   rationale: "",
 });
 
-const apiToRiskItem = (risk: ApiRiskPoint): RiskItem => ({
+/*
+ * ============================================================
+ * API -> FRONTEND
+ * ============================================================
+ */
+
+const apiToRiskItem = (
+  risk: ApiRiskPoint
+): RiskItem => ({
   id: risk.id,
   account: risk.account || "",
-  riskDescription: risk.risk_description || "",
+  riskDescription:
+    risk.risk_description || "",
   assertions: Array.isArray(risk.assertions)
     ? risk.assertions
     : [],
@@ -121,13 +307,26 @@ const apiToRiskItem = (risk: ApiRiskPoint): RiskItem => ({
   complexity: Boolean(risk.complexity),
   subjectivity: Boolean(risk.subjectivity),
   uncertainty: Boolean(risk.uncertainty),
-  managementBias: Boolean(risk.management_bias),
-  likelihood: risk.likelihood || "Medium",
-  magnitude: risk.magnitude || "Medium",
-  significantRisk: Boolean(risk.significant_risk),
-  controlResponse: risk.control_response || "",
+  managementBias: Boolean(
+    risk.management_bias
+  ),
+  likelihood:
+    risk.likelihood || "Medium",
+  magnitude:
+    risk.magnitude || "Medium",
+  significantRisk: Boolean(
+    risk.significant_risk
+  ),
+  controlResponse:
+    risk.control_response || "",
   rationale: risk.rationale || "",
 });
+
+/*
+ * ============================================================
+ * FRONTEND -> API
+ * ============================================================
+ */
 
 const riskItemToApi = (
   item: RiskItem,
@@ -137,7 +336,8 @@ const riskItemToApi = (
   engagement: engagementId,
   sort_order: sortOrder,
   account: item.account.trim(),
-  risk_description: item.riskDescription.trim(),
+  risk_description:
+    item.riskDescription.trim(),
   assertions: item.assertions,
   fraud_risk: item.fraudRisk,
   complexity: item.complexity,
@@ -146,10 +346,18 @@ const riskItemToApi = (
   management_bias: item.managementBias,
   likelihood: item.likelihood,
   magnitude: item.magnitude,
-  significant_risk: item.significantRisk,
-  control_response: item.controlResponse.trim(),
+  significant_risk:
+    item.significantRisk,
+  control_response:
+    item.controlResponse.trim(),
   rationale: item.rationale.trim(),
 });
+
+/*
+ * ============================================================
+ * PAGE
+ * ============================================================
+ */
 
 export default function RiskPointsPage() {
   const params = useParams();
@@ -157,14 +365,22 @@ export default function RiskPointsPage() {
 
   const engagementId = Number(params.id);
 
-  const [riskItems, setRiskItems] = useState<RiskItem[]>([
-    createEmptyRisk(1),
-  ]);
+  const [riskItems, setRiskItems] =
+    useState<RiskItem[]>([
+      createEmptyRisk(1),
+    ]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [saved, setSaved] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
   /*
    * ============================================================
@@ -173,72 +389,102 @@ export default function RiskPointsPage() {
    */
 
   useEffect(() => {
-    if (!engagementId || Number.isNaN(engagementId)) {
-      setError("Invalid engagement ID.");
+    if (
+      !engagementId ||
+      Number.isNaN(engagementId)
+    ) {
+      setError(
+        "Invalid engagement ID."
+      );
+
       setLoading(false);
+
       return;
     }
 
-    const loadRiskPoints = async () => {
-      try {
-        setLoading(true);
-        setError("");
+    const loadRiskPoints =
+      async () => {
+        try {
+          setLoading(true);
+          setError("");
 
-        const response = await fetch(
-          `${API_BASE_URL}/risk-points/?engagement=${engagementId}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
+          const response =
+            await authenticatedFetch(
+              `${API_BASE_URL}/risk-points/?engagement=${engagementId}`,
+              {
+                method: "GET",
+              }
+            );
+
+          const data =
+            await parseResponse(
+              response
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              `Failed to load risk points (${response.status}): ${formatApiError(
+                data,
+                response.status
+              )}`
+            );
           }
-        );
 
-        if (!response.ok) {
-          throw new Error(
-            `Failed to load risk points (${response.status}).`
+          /*
+           * DRF can return:
+           *
+           * 1. Array
+           * 2. Paginated response:
+           *    { results: [] }
+           */
+
+          const records: ApiRiskPoint[] =
+            Array.isArray(data)
+              ? data
+              : Array.isArray(
+                  data?.results
+                )
+              ? data.results
+              : [];
+
+          const mappedRisks =
+            records
+              .sort(
+                (a, b) =>
+                  (a.sort_order ?? 0) -
+                    (b.sort_order ?? 0) ||
+                  a.id - b.id
+              )
+              .map(apiToRiskItem);
+
+          if (
+            mappedRisks.length > 0
+          ) {
+            setRiskItems(
+              mappedRisks
+            );
+          } else {
+            setRiskItems([
+              createEmptyRisk(1),
+            ]);
+          }
+
+          setSaved(false);
+        } catch (err) {
+          console.error(
+            "Error loading risk points:",
+            err
           );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load risk points."
+          );
+        } finally {
+          setLoading(false);
         }
-
-        const data = await response.json();
-
-        /*
-         * DRF normally returns an array for a standard ModelViewSet.
-         * This also safely handles a paginated response.
-         */
-        const records: ApiRiskPoint[] = Array.isArray(data)
-          ? data
-          : Array.isArray(data.results)
-          ? data.results
-          : [];
-
-        const mappedRisks = records
-          .sort(
-            (a, b) =>
-              (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
-              a.id - b.id
-          )
-          .map(apiToRiskItem);
-
-        if (mappedRisks.length > 0) {
-          setRiskItems(mappedRisks);
-        } else {
-          setRiskItems([createEmptyRisk(1)]);
-        }
-
-        setSaved(false);
-      } catch (err) {
-        console.error("Error loading risk points:", err);
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load risk points."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
     loadRiskPoints();
   }, [engagementId]);
@@ -258,18 +504,21 @@ export default function RiskPointsPage() {
       | Assertion[]
       | RiskLevel
   ) => {
-    setRiskItems((currentItems) =>
-      currentItems.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item
-      )
+    setRiskItems(
+      (currentItems) =>
+        currentItems.map(
+          (item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  [field]: value,
+                }
+              : item
+        )
     );
 
     setSaved(false);
+    setError("");
   };
 
   /*
@@ -282,27 +531,41 @@ export default function RiskPointsPage() {
     id: number,
     assertion: Assertion
   ) => {
-    setRiskItems((currentItems) =>
-      currentItems.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
+    setRiskItems(
+      (currentItems) =>
+        currentItems.map(
+          (item) => {
+            if (item.id !== id) {
+              return item;
+            }
 
-        const alreadySelected =
-          item.assertions.includes(assertion);
+            const alreadySelected =
+              item.assertions.includes(
+                assertion
+              );
 
-        return {
-          ...item,
-          assertions: alreadySelected
-            ? item.assertions.filter(
-                (existing) => existing !== assertion
-              )
-            : [...item.assertions, assertion],
-        };
-      })
+            return {
+              ...item,
+              assertions:
+                alreadySelected
+                  ? item.assertions.filter(
+                      (
+                        existing
+                      ) =>
+                        existing !==
+                        assertion
+                    )
+                  : [
+                      ...item.assertions,
+                      assertion,
+                    ],
+            };
+          }
+        )
     );
 
     setSaved(false);
+    setError("");
   };
 
   /*
@@ -312,16 +575,20 @@ export default function RiskPointsPage() {
    */
 
   const addRiskItem = () => {
-    const newRisk = createEmptyRisk(
-      Date.now()
+    const newRisk =
+      createEmptyRisk(
+        Date.now()
+      );
+
+    setRiskItems(
+      (currentItems) => [
+        ...currentItems,
+        newRisk,
+      ]
     );
 
-    setRiskItems((currentItems) => [
-      ...currentItems,
-      newRisk,
-    ]);
-
     setSaved(false);
+    setError("");
   };
 
   /*
@@ -330,33 +597,46 @@ export default function RiskPointsPage() {
    * ============================================================
    */
 
-  const removeRiskItem = async (id: number) => {
+  const removeRiskItem = async (
+    id: number
+  ) => {
     if (riskItems.length === 1) {
       alert(
         "At least one risk point must remain."
       );
+
       return;
     }
 
     /*
-     * Existing database records have positive integer IDs.
-     * Newly created frontend-only records use Date.now().
+     * Existing database records
+     * have normal PostgreSQL integer IDs.
      *
-     * Therefore only delete from the API when this is
-     * an existing database record.
+     * Temporary frontend records
+     * use Date.now().
      */
+
     if (id < 1000000000000) {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/risk-points/${id}/`,
-          {
-            method: "DELETE",
-          }
-        );
+        const response =
+          await authenticatedFetch(
+            `${API_BASE_URL}/risk-points/${id}/`,
+            {
+              method: "DELETE",
+            }
+          );
+
+        const data =
+          await parseResponse(
+            response
+          );
 
         if (!response.ok) {
           throw new Error(
-            `Failed to delete risk point (${response.status}).`
+            `Failed to delete risk point (${response.status}): ${formatApiError(
+              data,
+              response.status
+            )}`
           );
         }
       } catch (err) {
@@ -375,13 +655,16 @@ export default function RiskPointsPage() {
       }
     }
 
-    setRiskItems((currentItems) =>
-      currentItems.filter(
-        (item) => item.id !== id
-      )
+    setRiskItems(
+      (currentItems) =>
+        currentItems.filter(
+          (item) =>
+            item.id !== id
+        )
     );
 
     setSaved(false);
+    setError("");
   };
 
   /*
@@ -390,25 +673,28 @@ export default function RiskPointsPage() {
    * ============================================================
    */
 
-  const validateRiskItems = () => {
-    const incompleteRisk = riskItems.some(
-      (item) =>
-        !item.account.trim() ||
-        !item.riskDescription.trim() ||
-        item.assertions.length === 0 ||
-        !item.rationale.trim()
-    );
+  const validateRiskItems =
+    () => {
+      const incompleteRisk =
+        riskItems.some(
+          (item) =>
+            !item.account.trim() ||
+            !item.riskDescription.trim() ||
+            item.assertions.length ===
+              0 ||
+            !item.rationale.trim()
+        );
 
-    if (incompleteRisk) {
-      alert(
-        "Please complete Account / Disclosure, Risk Description, at least one Assertion, and Auditor Rationale for every risk."
-      );
+      if (incompleteRisk) {
+        alert(
+          "Please complete Account / Disclosure, Risk Description, at least one Assertion, and Auditor Rationale for every risk."
+        );
 
-      return false;
-    }
+        return false;
+      }
 
-    return true;
-  };
+      return true;
+    };
 
   /*
    * ============================================================
@@ -416,148 +702,167 @@ export default function RiskPointsPage() {
    * ============================================================
    */
 
-  const handleSave = async (): Promise<boolean> => {
-    if (!validateRiskItems()) {
-      return false;
-    }
-
-    if (
-      !engagementId ||
-      Number.isNaN(engagementId)
-    ) {
-      alert("Invalid engagement ID.");
-      return false;
-    }
-
-    try {
-      setSaving(true);
-      setSaved(false);
-      setError("");
-
-      /*
-       * We process each risk individually.
-       *
-       * Existing DB records -> PATCH
-       * New frontend records -> POST
-       */
-      const savedItems: RiskItem[] = [];
-
-      for (
-        let index = 0;
-        index < riskItems.length;
-        index++
-      ) {
-        const item = riskItems[index];
-
-        const payload = riskItemToApi(
-          item,
-          engagementId,
-          index
-        );
-
-        const isExistingDatabaseRecord =
-          item.id < 1000000000000;
-
-        let response: Response;
-
-        if (isExistingDatabaseRecord) {
-          response = await fetch(
-            `${API_BASE_URL}/risk-points/${item.id}/`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type":
-                  "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify(payload),
-            }
-          );
-        } else {
-          response = await fetch(
-            `${API_BASE_URL}/risk-points/`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-                Accept: "application/json",
-              },
-              body: JSON.stringify(payload),
-            }
-          );
-        }
-
-        if (!response.ok) {
-          let errorMessage =
-            `Failed to save risk point (${response.status}).`;
-
-          try {
-            const errorData =
-              await response.json();
-
-            console.error(
-              "Risk point API error:",
-              errorData
-            );
-
-            errorMessage =
-              typeof errorData === "string"
-                ? errorData
-                : JSON.stringify(
-                    errorData
-                  );
-          } catch {
-            // Keep default error message.
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        const savedRisk: ApiRiskPoint =
-          await response.json();
-
-        savedItems.push(
-          apiToRiskItem(savedRisk)
-        );
+  const handleSave =
+    async (): Promise<boolean> => {
+      if (!validateRiskItems()) {
+        return false;
       }
 
-      /*
-       * Replace frontend temporary IDs with
-       * real PostgreSQL IDs returned by Django.
-       */
-      setRiskItems(savedItems);
+      if (
+        !engagementId ||
+        Number.isNaN(engagementId)
+      ) {
+        alert(
+          "Invalid engagement ID."
+        );
 
-      setSaved(true);
+        return false;
+      }
 
-      console.log(
-        "Risk Points Workpaper saved:",
-        savedItems
-      );
+      try {
+        setSaving(true);
+        setSaved(false);
+        setError("");
 
-      return true;
-    } catch (err) {
-      console.error(
-        "Error saving risk points:",
-        err
-      );
+        const savedItems: RiskItem[] =
+          [];
 
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to save risk points.";
+        for (
+          let index = 0;
+          index <
+            riskItems.length;
+          index++
+        ) {
+          const item =
+            riskItems[index];
 
-      setError(message);
+          const payload =
+            riskItemToApi(
+              item,
+              engagementId,
+              index
+            );
 
-      alert(
-        `Could not save Risk Points.\n\n${message}`
-      );
+          const isExistingDatabaseRecord =
+            item.id <
+            1000000000000;
 
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+          let response: Response;
+
+          /*
+           * ==================================================
+           * UPDATE EXISTING RECORD
+           * ==================================================
+           */
+
+          if (
+            isExistingDatabaseRecord
+          ) {
+            response =
+              await authenticatedFetch(
+                `${API_BASE_URL}/risk-points/${item.id}/`,
+                {
+                  method: "PATCH",
+                  body: JSON.stringify(
+                    payload
+                  ),
+                }
+              );
+          }
+
+          /*
+           * ==================================================
+           * CREATE NEW RECORD
+           * ==================================================
+           */
+
+          else {
+            response =
+              await authenticatedFetch(
+                `${API_BASE_URL}/risk-points/`,
+                {
+                  method: "POST",
+                  body: JSON.stringify(
+                    payload
+                  ),
+                }
+              );
+          }
+
+          const data =
+            await parseResponse(
+              response
+            );
+
+          if (!response.ok) {
+            console.error(
+              "Risk point API error:",
+              data
+            );
+
+            throw new Error(
+              `Failed to save risk point (${response.status}): ${formatApiError(
+                data,
+                response.status
+              )}`
+            );
+          }
+
+          if (!data) {
+            throw new Error(
+              "The server returned an empty response after saving the risk point."
+            );
+          }
+
+          const savedRisk =
+            data as ApiRiskPoint;
+
+          savedItems.push(
+            apiToRiskItem(
+              savedRisk
+            )
+          );
+        }
+
+        /*
+         * Replace temporary frontend IDs
+         * with real PostgreSQL IDs.
+         */
+
+        setRiskItems(
+          savedItems
+        );
+
+        setSaved(true);
+
+        console.log(
+          "Risk Points Workpaper saved:",
+          savedItems
+        );
+
+        return true;
+      } catch (err) {
+        console.error(
+          "Error saving risk points:",
+          err
+        );
+
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to save risk points.";
+
+        setError(message);
+
+        alert(
+          `Could not save Risk Points.\n\n${message}`
+        );
+
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    };
 
   /*
    * ============================================================
@@ -565,17 +870,19 @@ export default function RiskPointsPage() {
    * ============================================================
    */
 
-  const handleContinue = async () => {
-    const success = await handleSave();
+  const handleContinue =
+    async () => {
+      const success =
+        await handleSave();
 
-    if (!success) {
-      return;
-    }
+      if (!success) {
+        return;
+      }
 
-    router.push(
-      `/engagements/${engagementId}/risk-assessment/2.4`
-    );
-  };
+      router.push(
+        `/engagements/${engagementId}/risk-assessment/2.4`
+      );
+    };
 
   /*
    * ============================================================
@@ -591,7 +898,7 @@ export default function RiskPointsPage() {
 
   /*
    * ============================================================
-   * BADGE
+   * RISK BADGE
    * ============================================================
    */
 
@@ -622,23 +929,28 @@ export default function RiskPointsPage() {
    * ============================================================
    */
 
-  const totalRisks = riskItems.length;
+  const totalRisks =
+    riskItems.length;
 
   const significantRisks =
     riskItems.filter(
-      (item) => item.significantRisk
+      (item) =>
+        item.significantRisk
     ).length;
 
   const highLikelihood =
     riskItems.filter(
       (item) =>
-        item.likelihood === "High" ||
-        item.likelihood === "Significant"
+        item.likelihood ===
+          "High" ||
+        item.likelihood ===
+          "Significant"
     ).length;
 
   const fraudRisks =
     riskItems.filter(
-      (item) => item.fraudRisk
+      (item) =>
+        item.fraudRisk
     ).length;
 
   /*
@@ -677,13 +989,16 @@ export default function RiskPointsPage() {
     <AppLayout>
       <div className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-7xl px-6 py-8">
+
           {/* ================================================= */}
           {/* HEADER */}
           {/* ================================================= */}
 
           <div className="mb-8">
             <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
-              <span>Phase 2</span>
+              <span>
+                Phase 2
+              </span>
 
               <span>/</span>
 
@@ -780,410 +1095,467 @@ export default function RiskPointsPage() {
           {/* ================================================= */}
 
           <div className="space-y-6">
-            {riskItems.map((item, index) => (
-              <div
-                key={item.id}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-              >
-                {/* =========================================== */}
-                {/* RISK HEADER */}
-                {/* =========================================== */}
+            {riskItems.map(
+              (item, index) => (
+                <div
+                  key={item.id}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
 
-                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                  {/* ======================================= */}
+                  {/* RISK HEADER */}
+                  {/* ======================================= */}
+
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                      </div>
+
+                      <div>
+                        <h2 className="font-semibold text-slate-900">
+                          Risk Point{" "}
+                          {index + 1}
+                        </h2>
+
+                        <p className="text-xs text-slate-500">
+                          Document the identified risk
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <h2 className="font-semibold text-slate-900">
-                        Risk Point {index + 1}
-                      </h2>
-
-                      <p className="text-xs text-slate-500">
-                        Document the identified risk
-                      </p>
-                    </div>
-                  </div>
-
-                  {riskItems.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeRiskItem(item.id)
-                      }
-                      className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-
-                      Remove
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-8 p-6">
-                  {/* ========================================= */}
-                  {/* ACCOUNT */}
-                  {/* ========================================= */}
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-800">
-                      Relevant Account / Disclosure
-                    </label>
-
-                    <input
-                      type="text"
-                      value={item.account}
-                      onChange={(e) =>
-                        updateRiskItem(
-                          item.id,
-                          "account",
-                          e.target.value
-                        )
-                      }
-                      placeholder="e.g. Revenue, Trade Receivables, Inventory"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-
-                  {/* ========================================= */}
-                  {/* RISK DESCRIPTION */}
-                  {/* ========================================= */}
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-800">
-                      What Could Go Wrong?
-                    </label>
-
-                    <textarea
-                      rows={4}
-                      value={item.riskDescription}
-                      onChange={(e) =>
-                        updateRiskItem(
-                          item.id,
-                          "riskDescription",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Describe the potential misstatement, error, omission or fraud risk..."
-                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
-
-                  {/* ========================================= */}
-                  {/* ASSERTIONS */}
-                  {/* ========================================= */}
-
-                  <div>
-                    <div className="mb-3">
-                      <label className="block text-sm font-semibold text-slate-800">
-                        Financial Statement Assertions
-                      </label>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        Select all assertions relevant to
-                        this risk.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      {assertionOptions.map(
-                        (assertion) => {
-                          const selected =
-                            item.assertions.includes(
-                              assertion
-                            );
-
-                          return (
-                            <button
-                              key={assertion}
-                              type="button"
-                              onClick={() =>
-                                toggleAssertion(
-                                  item.id,
-                                  assertion
-                                )
-                              }
-                              className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
-                                selected
-                                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span>
-                                  {assertion}
-                                </span>
-
-                                {selected && (
-                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
-                                )}
-                              </div>
-                            </button>
-                          );
+                    {riskItems.length >
+                      1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeRiskItem(
+                            item.id
+                          )
                         }
-                      )}
-                    </div>
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+
+                        Remove
+                      </button>
+                    )}
                   </div>
 
-                  {/* ========================================= */}
-                  {/* INHERENT RISK FACTORS */}
-                  {/* ========================================= */}
+                  <div className="space-y-8 p-6">
 
-                  <div>
-                    <div className="mb-3 flex items-center gap-2">
-                      <ShieldAlert className="h-5 w-5 text-slate-600" />
-
-                      <label className="text-sm font-semibold text-slate-800">
-                        Inherent Risk Factors
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
-                      {[
-                        {
-                          field:
-                            "fraudRisk" as const,
-                          label: "Fraud Risk",
-                        },
-                        {
-                          field:
-                            "complexity" as const,
-                          label: "Complexity",
-                        },
-                        {
-                          field:
-                            "subjectivity" as const,
-                          label: "Subjectivity",
-                        },
-                        {
-                          field:
-                            "uncertainty" as const,
-                          label:
-                            "Estimation Uncertainty",
-                        },
-                        {
-                          field:
-                            "managementBias" as const,
-                          label:
-                            "Management Bias",
-                        },
-                      ].map(
-                        ({
-                          field,
-                          label,
-                        }) => (
-                          <label
-                            key={field}
-                            className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${
-                              item[field]
-                                ? "border-orange-300 bg-orange-50"
-                                : "border-slate-200 bg-white hover:bg-slate-50"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={item[field]}
-                              onChange={(e) =>
-                                updateRiskItem(
-                                  item.id,
-                                  field,
-                                  e.target.checked
-                                )
-                              }
-                              className="h-4 w-4 rounded border-slate-300"
-                            />
-
-                            <span className="text-sm font-medium text-slate-700">
-                              {label}
-                            </span>
-                          </label>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ========================================= */}
-                  {/* LIKELIHOOD / MAGNITUDE */}
-                  {/* ========================================= */}
-
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    {/* LIKELIHOOD */}
+                    {/* ===================================== */}
+                    {/* ACCOUNT */}
+                    {/* ===================================== */}
 
                     <div>
                       <label className="mb-2 block text-sm font-semibold text-slate-800">
-                        Likelihood
+                        Relevant Account / Disclosure
                       </label>
 
-                      <div className="relative">
-                        <select
-                          value={item.likelihood}
-                          onChange={(e) =>
-                            updateRiskItem(
-                              item.id,
-                              "likelihood",
-                              e.target
-                                .value as RiskLevel
-                            )
-                          }
-                          className={`w-full appearance-none rounded-xl border px-4 py-3 pr-10 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 ${getRiskBadgeClass(
-                            item.likelihood
-                          )}`}
-                        >
-                          {riskLevelOptions.map(
-                            (level) => (
-                              <option
-                                key={level}
-                                value={level}
-                              >
-                                {level}
-                              </option>
-                            )
-                          )}
-                        </select>
-
-                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                      </div>
-                    </div>
-
-                    {/* MAGNITUDE */}
-
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-800">
-                        Magnitude
-                      </label>
-
-                      <div className="relative">
-                        <select
-                          value={item.magnitude}
-                          onChange={(e) =>
-                            updateRiskItem(
-                              item.id,
-                              "magnitude",
-                              e.target
-                                .value as RiskLevel
-                            )
-                          }
-                          className={`w-full appearance-none rounded-xl border px-4 py-3 pr-10 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 ${getRiskBadgeClass(
-                            item.magnitude
-                          )}`}
-                        >
-                          {riskLevelOptions.map(
-                            (level) => (
-                              <option
-                                key={level}
-                                value={level}
-                              >
-                                {level}
-                              </option>
-                            )
-                          )}
-                        </select>
-
-                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ========================================= */}
-                  {/* SIGNIFICANT RISK */}
-                  {/* ========================================= */}
-
-                  <div
-                    className={`rounded-xl border p-4 ${
-                      item.significantRisk
-                        ? "border-red-300 bg-red-50"
-                        : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <label className="flex cursor-pointer items-start gap-3">
                       <input
-                        type="checkbox"
-                        checked={
-                          item.significantRisk
+                        type="text"
+                        value={
+                          item.account
                         }
                         onChange={(e) =>
                           updateRiskItem(
                             item.id,
-                            "significantRisk",
-                            e.target.checked
+                            "account",
+                            e.target.value
                           )
                         }
-                        className="mt-1 h-4 w-4 rounded border-slate-300"
+                        placeholder="e.g. Revenue, Trade Receivables, Inventory"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       />
+                    </div>
 
-                      <div>
-                        <p
-                          className={`text-sm font-semibold ${
-                            item.significantRisk
-                              ? "text-red-800"
-                              : "text-slate-800"
-                          }`}
-                        >
-                          Significant Risk
-                        </p>
+                    {/* ===================================== */}
+                    {/* RISK DESCRIPTION */}
+                    {/* ===================================== */}
 
-                        <p className="mt-1 text-xs leading-5 text-slate-600">
-                          Select this when the risk requires
-                          specific audit consideration due to
-                          its nature, likelihood, magnitude,
-                          fraud risk, complexity or other
-                          relevant factors.
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-800">
+                        What Could Go Wrong?
+                      </label>
+
+                      <textarea
+                        rows={4}
+                        value={
+                          item.riskDescription
+                        }
+                        onChange={(e) =>
+                          updateRiskItem(
+                            item.id,
+                            "riskDescription",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Describe the potential misstatement, error, omission or fraud risk..."
+                        className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* ASSERTIONS */}
+                    {/* ===================================== */}
+
+                    <div>
+                      <div className="mb-3">
+                        <label className="block text-sm font-semibold text-slate-800">
+                          Financial Statement Assertions
+                        </label>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          Select all assertions relevant to
+                          this risk.
                         </p>
                       </div>
-                    </label>
-                  </div>
 
-                  {/* ========================================= */}
-                  {/* CONTROL RESPONSE */}
-                  {/* ========================================= */}
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {assertionOptions.map(
+                          (
+                            assertion
+                          ) => {
+                            const selected =
+                              item.assertions.includes(
+                                assertion
+                              );
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-800">
-                      Related Control / Audit Response
-                    </label>
+                            return (
+                              <button
+                                key={
+                                  assertion
+                                }
+                                type="button"
+                                onClick={() =>
+                                  toggleAssertion(
+                                    item.id,
+                                    assertion
+                                  )
+                                }
+                                className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+                                  selected
+                                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span>
+                                    {
+                                      assertion
+                                    }
+                                  </span>
 
-                    <textarea
-                      rows={4}
-                      value={item.controlResponse}
-                      onChange={(e) =>
-                        updateRiskItem(
-                          item.id,
-                          "controlResponse",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Describe the relevant control and/or planned audit response..."
-                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
-                  </div>
+                                  {selected && (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
+                    </div>
 
-                  {/* ========================================= */}
-                  {/* RATIONALE */}
-                  {/* ========================================= */}
+                    {/* ===================================== */}
+                    {/* INHERENT RISK FACTORS */}
+                    {/* ===================================== */}
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-800">
-                      Auditor Rationale / Conclusion
-                    </label>
+                    <div>
+                      <div className="mb-3 flex items-center gap-2">
+                        <ShieldAlert className="h-5 w-5 text-slate-600" />
 
-                    <textarea
-                      rows={4}
-                      value={item.rationale}
-                      onChange={(e) =>
-                        updateRiskItem(
-                          item.id,
-                          "rationale",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Explain why this risk assessment and conclusion are appropriate..."
-                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    />
+                        <label className="text-sm font-semibold text-slate-800">
+                          Inherent Risk Factors
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+                        {[
+                          {
+                            field:
+                              "fraudRisk" as const,
+                            label:
+                              "Fraud Risk",
+                          },
+                          {
+                            field:
+                              "complexity" as const,
+                            label:
+                              "Complexity",
+                          },
+                          {
+                            field:
+                              "subjectivity" as const,
+                            label:
+                              "Subjectivity",
+                          },
+                          {
+                            field:
+                              "uncertainty" as const,
+                            label:
+                              "Estimation Uncertainty",
+                          },
+                          {
+                            field:
+                              "managementBias" as const,
+                            label:
+                              "Management Bias",
+                          },
+                        ].map(
+                          ({
+                            field,
+                            label,
+                          }) => (
+                            <label
+                              key={
+                                field
+                              }
+                              className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${
+                                item[field]
+                                  ? "border-orange-300 bg-orange-50"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  item[
+                                    field
+                                  ]
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  updateRiskItem(
+                                    item.id,
+                                    field,
+                                    e.target
+                                      .checked
+                                  )
+                                }
+                                className="h-4 w-4 rounded border-slate-300"
+                              />
+
+                              <span className="text-sm font-medium text-slate-700">
+                                {
+                                  label
+                                }
+                              </span>
+                            </label>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* LIKELIHOOD / MAGNITUDE */}
+                    {/* ===================================== */}
+
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                      {/* LIKELIHOOD */}
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-800">
+                          Likelihood
+                        </label>
+
+                        <div className="relative">
+                          <select
+                            value={
+                              item.likelihood
+                            }
+                            onChange={(e) =>
+                              updateRiskItem(
+                                item.id,
+                                "likelihood",
+                                e.target
+                                  .value as RiskLevel
+                              )
+                            }
+                            className={`w-full appearance-none rounded-xl border px-4 py-3 pr-10 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 ${getRiskBadgeClass(
+                              item.likelihood
+                            )}`}
+                          >
+                            {riskLevelOptions.map(
+                              (
+                                level
+                              ) => (
+                                <option
+                                  key={
+                                    level
+                                  }
+                                  value={
+                                    level
+                                  }
+                                >
+                                  {
+                                    level
+                                  }
+                                </option>
+                              )
+                            )}
+                          </select>
+
+                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                        </div>
+                      </div>
+
+                      {/* MAGNITUDE */}
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-800">
+                          Magnitude
+                        </label>
+
+                        <div className="relative">
+                          <select
+                            value={
+                              item.magnitude
+                            }
+                            onChange={(e) =>
+                              updateRiskItem(
+                                item.id,
+                                "magnitude",
+                                e.target
+                                  .value as RiskLevel
+                              )
+                            }
+                            className={`w-full appearance-none rounded-xl border px-4 py-3 pr-10 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100 ${getRiskBadgeClass(
+                              item.magnitude
+                            )}`}
+                          >
+                            {riskLevelOptions.map(
+                              (
+                                level
+                              ) => (
+                                <option
+                                  key={
+                                    level
+                                  }
+                                  value={
+                                    level
+                                  }
+                                >
+                                  {
+                                    level
+                                  }
+                                </option>
+                              )
+                            )}
+                          </select>
+
+                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* SIGNIFICANT RISK */}
+                    {/* ===================================== */}
+
+                    <div
+                      className={`rounded-xl border p-4 ${
+                        item.significantRisk
+                          ? "border-red-300 bg-red-50"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={
+                            item.significantRisk
+                          }
+                          onChange={(e) =>
+                            updateRiskItem(
+                              item.id,
+                              "significantRisk",
+                              e.target.checked
+                            )
+                          }
+                          className="mt-1 h-4 w-4 rounded border-slate-300"
+                        />
+
+                        <div>
+                          <p
+                            className={`text-sm font-semibold ${
+                              item.significantRisk
+                                ? "text-red-800"
+                                : "text-slate-800"
+                            }`}
+                          >
+                            Significant Risk
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-slate-600">
+                            Select this when the risk requires
+                            specific audit consideration due to
+                            its nature, likelihood, magnitude,
+                            fraud risk, complexity or other
+                            relevant factors.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* CONTROL RESPONSE */}
+                    {/* ===================================== */}
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-800">
+                        Related Control / Audit Response
+                      </label>
+
+                      <textarea
+                        rows={4}
+                        value={
+                          item.controlResponse
+                        }
+                        onChange={(e) =>
+                          updateRiskItem(
+                            item.id,
+                            "controlResponse",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Describe the relevant control and/or planned audit response..."
+                        className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    {/* ===================================== */}
+                    {/* RATIONALE */}
+                    {/* ===================================== */}
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-800">
+                        Auditor Rationale / Conclusion
+                      </label>
+
+                      <textarea
+                        rows={4}
+                        value={
+                          item.rationale
+                        }
+                        onChange={(e) =>
+                          updateRiskItem(
+                            item.id,
+                            "rationale",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Explain why this risk assessment and conclusion are appropriate..."
+                        className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
 
           {/* ================================================= */}
@@ -1192,7 +1564,9 @@ export default function RiskPointsPage() {
 
           <button
             type="button"
-            onClick={addRiskItem}
+            onClick={
+              addRiskItem
+            }
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-6 py-5 text-sm font-semibold text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
           >
             <Plus className="h-5 w-5" />
@@ -1214,13 +1588,16 @@ export default function RiskPointsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   Total Risks
                 </p>
 
                 <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {totalRisks}
+                  {
+                    totalRisks
+                  }
                 </p>
               </div>
 
@@ -1230,7 +1607,9 @@ export default function RiskPointsPage() {
                 </p>
 
                 <p className="mt-2 text-3xl font-bold text-red-700">
-                  {significantRisks}
+                  {
+                    significantRisks
+                  }
                 </p>
               </div>
 
@@ -1240,7 +1619,9 @@ export default function RiskPointsPage() {
                 </p>
 
                 <p className="mt-2 text-3xl font-bold text-orange-700">
-                  {highLikelihood}
+                  {
+                    highLikelihood
+                  }
                 </p>
               </div>
 
@@ -1250,9 +1631,12 @@ export default function RiskPointsPage() {
                 </p>
 
                 <p className="mt-2 text-3xl font-bold text-purple-700">
-                  {fraudRisks}
+                  {
+                    fraudRisks
+                  }
                 </p>
               </div>
+
             </div>
           </div>
 
@@ -1262,9 +1646,12 @@ export default function RiskPointsPage() {
 
           <div className="sticky bottom-0 mt-10 border-t border-slate-200 bg-slate-50/95 py-5 backdrop-blur">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
               <button
                 type="button"
-                onClick={handleBack}
+                onClick={
+                  handleBack
+                }
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -1273,10 +1660,15 @@ export default function RiskPointsPage() {
               </button>
 
               <div className="flex flex-col gap-3 sm:flex-row">
+
                 <button
                   type="button"
-                  onClick={() => handleSave()}
-                  disabled={saving}
+                  onClick={() =>
+                    handleSave()
+                  }
+                  disabled={
+                    saving
+                  }
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? (
@@ -1302,17 +1694,23 @@ export default function RiskPointsPage() {
 
                 <button
                   type="button"
-                  onClick={handleContinue}
-                  disabled={saving}
+                  onClick={
+                    handleContinue
+                  }
+                  disabled={
+                    saving
+                  }
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Continue to 2.4
 
                   <ArrowRight className="h-4 w-4" />
                 </button>
+
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </AppLayout>

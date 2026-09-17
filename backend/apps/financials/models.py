@@ -140,14 +140,14 @@ class TrialBalance(models.Model):
     @property
     def total_debit(self):
         return sum(
-            (line.debit for line in self.lines.all()),
+            (line.debit for line in self.lines.all()),  # type: ignore
             Decimal("0.00"),
         )
 
     @property
     def total_credit(self):
         return sum(
-            (line.credit for line in self.lines.all()),
+            (line.credit for line in self.lines.all()),  # type: ignore
             Decimal("0.00"),
         )
 
@@ -233,4 +233,113 @@ class TrialBalanceLine(models.Model):
     def __str__(self):
         return f"{self.account_code} - {self.account_name}"
 
-    
+
+class Adjustment(models.Model):
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposed"
+        POSTED = "posted", "Posted"
+        REJECTED = "rejected", "Rejected"
+
+    engagement = models.ForeignKey(
+        "engagements.Engagement",
+        on_delete=models.CASCADE,
+        related_name="adjustments",
+    )
+
+    adjustment_number = models.CharField(
+        max_length=50,
+    )
+
+    description = models.TextField()
+
+    debit_account = models.ForeignKey(
+        ChartOfAccount,
+        on_delete=models.PROTECT,
+        related_name="debit_adjustments",
+    )
+
+    credit_account = models.ForeignKey(
+        ChartOfAccount,
+        on_delete=models.PROTECT,
+        related_name="credit_adjustments",
+    )
+
+    amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PROPOSED,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "engagement",
+                    "adjustment_number",
+                ],
+                name="unique_adjustment_number_per_engagement",
+            )
+        ]
+
+    def clean(self):
+        if self.amount <= Decimal("0.00"):
+            raise ValidationError(
+                {
+                    "amount": (
+                        "Adjustment amount must be greater than zero."
+                    )
+                }
+            )
+
+        if self.debit_account_id == self.credit_account_id:  # type: ignore
+            raise ValidationError(
+                "Debit and credit accounts must be different."
+            )
+
+        if (
+            self.debit_account
+            and self.debit_account.engagement.pk != self.engagement.pk
+        ):
+            raise ValidationError(
+                {
+                    "debit_account": (
+                        "Debit account must belong to the selected engagement."
+                    )
+                }
+            )
+
+        if (
+            self.credit_account
+            and self.credit_account.engagement.pk != self.engagement.pk
+        ):
+            raise ValidationError(
+                {
+                    "credit_account": (
+                        "Credit account must belong to the selected engagement."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.adjustment_number} - "
+            f"{self.description}"
+        )

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -119,11 +120,123 @@ export default function FraudJournalEntryProceduresPage() {
   const [error, setError] = useState("");
 
   // ==========================================================
+  // GET AUTHENTICATION TOKEN
+  // ==========================================================
+
+  const getAuthToken = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    /*
+     * Try the common token names used by the AUD application.
+     *
+     * This makes the page compatible with the existing
+     * authentication implementation if the token was stored
+     * under one of these names.
+     */
+
+    const tokenKeys = [
+      "access_token",
+      "accessToken",
+      "token",
+      "authToken",
+      "jwt",
+    ];
+
+    for (const key of tokenKeys) {
+      const value =
+        localStorage.getItem(key);
+
+      if (value) {
+        return value;
+      }
+    }
+
+    /*
+     * Some applications store the complete user/auth object.
+     */
+
+    const possibleObjects = [
+      "auth",
+      "user",
+      "currentUser",
+      "userData",
+    ];
+
+    for (const key of possibleObjects) {
+      const raw =
+        localStorage.getItem(key);
+
+      if (!raw) {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+
+        if (parsed?.access) {
+          return parsed.access;
+        }
+
+        if (parsed?.access_token) {
+          return parsed.access_token;
+        }
+
+        if (parsed?.accessToken) {
+          return parsed.accessToken;
+        }
+
+        if (parsed?.token) {
+          return parsed.token;
+        }
+
+        if (parsed?.jwt) {
+          return parsed.jwt;
+        }
+      } catch {
+        // Ignore invalid JSON and continue.
+      }
+    }
+
+    return null;
+  };
+
+  // ==========================================================
+  // AUTHENTICATED HEADERS
+  // ==========================================================
+
+  const getHeaders = (
+    includeContentType = false
+  ): HeadersInit => {
+    const token = getAuthToken();
+
+    const headers: HeadersInit = {
+      Accept: "application/json",
+    };
+
+    if (includeContentType) {
+      headers["Content-Type"] =
+        "application/json";
+    }
+
+    if (token) {
+      headers["Authorization"] =
+        `Bearer ${token}`;
+    }
+
+    return headers;
+  };
+
+  // ==========================================================
   // LOAD EXISTING WORKPAPER
   // ==========================================================
 
   useEffect(() => {
-    if (!engagementId || Number.isNaN(engagementId)) {
+    if (
+      !engagementId ||
+      Number.isNaN(engagementId)
+    ) {
       setError("Invalid engagement ID.");
       setLoading(false);
       return;
@@ -133,27 +246,97 @@ export default function FraudJournalEntryProceduresPage() {
       try {
         setLoading(true);
         setError("");
+        setSuccessMessage("");
+
+        const token = getAuthToken();
+
+        if (!token) {
+          setError(
+            "Authentication token was not found. Please log in again."
+          );
+
+          setLoading(false);
+          return;
+        }
+
+        const url =
+          `${API_BASE_URL}/fraud-journal-entry-assessments/` +
+          `?engagement=${engagementId}`;
+
+        console.log(
+          "Loading Phase 3.3:",
+          url
+        );
 
         const response = await fetch(
-          `${API_BASE_URL}/fraud-journal-entry-assessments/?engagement=${engagementId}`,
+          url,
           {
             method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
+            headers: getHeaders(),
+            cache: "no-store",
           }
         );
 
-        if (!response.ok) {
+        const responseText =
+          await response.text();
+
+        let data: any = null;
+
+        try {
+          data = responseText
+            ? JSON.parse(responseText)
+            : null;
+        } catch {
+          data = responseText;
+        }
+
+        console.log(
+          "Phase 3.3 LOAD RESPONSE:",
+          {
+            status: response.status,
+            statusText:
+              response.statusText,
+            data,
+          }
+        );
+
+        if (response.status === 401 ||
+            response.status === 403) {
           throw new Error(
-            `HTTP ${response.status}`
+            "Authentication failed. Please log out and log in again."
           );
         }
 
-        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status} ${response.statusText}: ` +
+              `${
+                typeof data === "string"
+                  ? data
+                  : JSON.stringify(data)
+              }`
+          );
+        }
 
-        if (Array.isArray(data) && data.length > 0) {
-          const existing = data[0];
+        let records: any[] = [];
+
+        if (Array.isArray(data)) {
+          records = data;
+        } else if (
+          data &&
+          Array.isArray(data.results)
+        ) {
+          records = data.results;
+        } else if (
+          data &&
+          typeof data === "object" &&
+          data.id
+        ) {
+          records = [data];
+        }
+
+        if (records.length > 0) {
+          const existing = records[0];
 
           setAssessment({
             ...emptyAssessment,
@@ -161,17 +344,33 @@ export default function FraudJournalEntryProceduresPage() {
             engagement: engagementId,
           });
 
-          setAssessmentId(existing.id);
+          setAssessmentId(
+            existing.id ?? null
+          );
+
           setSaved(true);
+        } else {
+          setAssessment({
+            ...emptyAssessment,
+            engagement: engagementId,
+          });
+
+          setAssessmentId(null);
+          setSaved(false);
         }
       } catch (err) {
         console.error(
-          "Error loading fraud/journal entry assessment:",
+          "Error loading Phase 3.3:",
           err
         );
 
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unknown error";
+
         setError(
-          "Failed to load the Phase 3.3 workpaper."
+          `Failed to load the Phase 3.3 workpaper. ${message}`
         );
       } finally {
         setLoading(false);
@@ -198,6 +397,7 @@ export default function FraudJournalEntryProceduresPage() {
 
     setSaved(false);
     setSuccessMessage("");
+    setError("");
   };
 
   // ==========================================================
@@ -205,6 +405,8 @@ export default function FraudJournalEntryProceduresPage() {
   // ==========================================================
 
   const validateForm = () => {
+    setError("");
+
     if (!assessment.selection_method) {
       setError(
         "Please select a journal entry selection method."
@@ -266,21 +468,29 @@ export default function FraudJournalEntryProceduresPage() {
         assessment.population_period,
 
       total_population:
-        assessment.total_population === null ||
-        assessment.total_population === undefined ||
+        assessment.total_population ===
+          null ||
+        assessment.total_population ===
+          undefined ||
         assessment.total_population === 0
           ? null
-          : Number(assessment.total_population),
+          : Number(
+              assessment.total_population
+            ),
 
       selection_method:
         assessment.selection_method,
 
       selected_entries:
-        assessment.selected_entries === null ||
-        assessment.selected_entries === undefined ||
+        assessment.selected_entries ===
+          null ||
+        assessment.selected_entries ===
+          undefined ||
         assessment.selected_entries === 0
           ? null
-          : Number(assessment.selected_entries),
+          : Number(
+              assessment.selected_entries
+            ),
 
       selection_rationale:
         assessment.selection_rationale,
@@ -319,7 +529,9 @@ export default function FraudJournalEntryProceduresPage() {
         assessment.exceptions,
 
       exceptions_count:
-        Number(assessment.exceptions_count) || 0,
+        Number(
+          assessment.exceptions_count
+        ) || 0,
 
       exception_resolution:
         assessment.exception_resolution,
@@ -349,7 +561,18 @@ export default function FraudJournalEntryProceduresPage() {
       setError("");
       setSuccessMessage("");
 
-      const payload = buildPayload();
+      const token = getAuthToken();
+
+      if (!token) {
+        setError(
+          "Authentication token was not found. Please log in again."
+        );
+
+        return false;
+      }
+
+      const payload =
+        buildPayload();
 
       const isUpdating =
         assessmentId !== null;
@@ -358,36 +581,104 @@ export default function FraudJournalEntryProceduresPage() {
         ? `${API_BASE_URL}/fraud-journal-entry-assessments/${assessmentId}/`
         : `${API_BASE_URL}/fraud-journal-entry-assessments/`;
 
-      const response = await fetch(url, {
-        method: isUpdating ? "PATCH" : "POST",
+      console.log(
+        "Saving Phase 3.3:",
+        {
+          method: isUpdating
+            ? "PATCH"
+            : "POST",
+          url,
+          payload,
+        }
+      );
 
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+      const response =
+        await fetch(url, {
+          method: isUpdating
+            ? "PATCH"
+            : "POST",
 
-        body: JSON.stringify(payload),
-      });
+          headers:
+            getHeaders(true),
 
-      const responseData = await response.json();
+          body: JSON.stringify(
+            payload
+          ),
+        });
 
-      if (!response.ok) {
-        console.error(
-          "3.3 API error:",
-          responseData
-        );
+      const responseText =
+        await response.text();
 
+      let responseData: any = null;
+
+      try {
+        responseData =
+          responseText
+            ? JSON.parse(
+                responseText
+              )
+            : null;
+      } catch {
+        responseData =
+          responseText;
+      }
+
+      console.log(
+        "Phase 3.3 SAVE RESPONSE:",
+        {
+          status:
+            response.status,
+          statusText:
+            response.statusText,
+          data:
+            responseData,
+        }
+      );
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
         throw new Error(
-          JSON.stringify(responseData)
+          "Authentication failed. Please log out and log in again."
         );
       }
 
-      setAssessmentId(responseData.id);
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status} ${response.statusText}: ` +
+            `${
+              typeof responseData ===
+              "string"
+                ? responseData
+                : JSON.stringify(
+                    responseData
+                  )
+            }`
+        );
+      }
+
+      if (
+        !responseData ||
+        typeof responseData !==
+          "object"
+      ) {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
+
+      if (responseData.id) {
+        setAssessmentId(
+          responseData.id
+        );
+      }
 
       setAssessment({
         ...emptyAssessment,
         ...responseData,
-        engagement: engagementId,
+        engagement:
+          engagementId,
       });
 
       setSaved(true);
@@ -405,8 +696,13 @@ export default function FraudJournalEntryProceduresPage() {
         err
       );
 
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unknown error";
+
       setError(
-        "Failed to save the Phase 3.3 workpaper. Make sure the Django backend is running and the API is available."
+        `Failed to save the Phase 3.3 workpaper. ${message}`
       );
 
       return false;
@@ -419,17 +715,19 @@ export default function FraudJournalEntryProceduresPage() {
   // CONTINUE
   // ==========================================================
 
-  const handleContinue = async () => {
-    const success = await saveAssessment();
+  const handleContinue =
+    async () => {
+      const success =
+        await saveAssessment();
 
-    if (!success) {
-      return;
-    }
+      if (!success) {
+        return;
+      }
 
-    router.push(
-      `/engagements/${engagementId}/execution/3.4`
-    );
-  };
+      router.push(
+        `/engagements/${engagementId}/execution/3.4`
+      );
+    };
 
   // ==========================================================
   // LOADING
@@ -451,30 +749,32 @@ export default function FraudJournalEntryProceduresPage() {
     );
   }
 
+  // ==========================================================
+  // PAGE
+  // ==========================================================
+
   return (
     <AppLayout>
       <div className="mx-auto max-w-7xl px-6 py-8">
 
-        {/* ================================================== */}
         {/* HEADER */}
-        {/* ================================================== */}
 
         <div className="mb-8">
-
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() =>
+              router.back()
+            }
             className="mb-5 flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft size={17} />
-
+            <ArrowLeft
+              size={17}
+            />
             Back
           </button>
 
           <div className="flex items-start justify-between gap-6">
-
             <div>
-
               <div className="mb-2 flex items-center gap-3">
 
                 <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
@@ -483,12 +783,12 @@ export default function FraudJournalEntryProceduresPage() {
 
                 {saved && (
                   <span className="flex items-center gap-1 text-xs font-medium text-green-600">
-                    <CheckCircle2 size={14} />
-
+                    <CheckCircle2
+                      size={14}
+                    />
                     Saved
                   </span>
                 )}
-
               </div>
 
               <h1 className="text-3xl font-bold tracking-tight text-gray-900">
@@ -501,15 +801,11 @@ export default function FraudJournalEntryProceduresPage() {
                 risks, anomalies, exceptions, and required
                 follow-up procedures.
               </p>
-
             </div>
-
           </div>
         </div>
 
-        {/* ================================================== */}
         {/* ERROR */}
-        {/* ================================================== */}
 
         {error && (
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
@@ -519,47 +815,60 @@ export default function FraudJournalEntryProceduresPage() {
               className="mt-0.5 shrink-0"
             />
 
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold">
-                Unable to save
+                Unable to load or save
               </p>
 
-              <p className="mt-1 text-sm">
+              <p className="mt-1 break-words text-sm">
                 {error}
               </p>
-            </div>
 
+              {error.includes(
+                "log in again"
+              ) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/login"
+                    )
+                  }
+                  className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
+                >
+                  Go to Login
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* ================================================== */}
         {/* SUCCESS */}
-        {/* ================================================== */}
 
         {successMessage && (
           <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
 
-            <CheckCircle2 size={20} />
+            <CheckCircle2
+              size={20}
+            />
 
             <p className="text-sm font-medium">
               {successMessage}
             </p>
-
           </div>
         )}
 
-        {/* ================================================== */}
         {/* JOURNAL ENTRY POPULATION */}
-        {/* ================================================== */}
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <Database size={20} />
+                <Database
+                  size={20}
+                />
               </div>
 
               <div>
@@ -574,13 +883,11 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="grid gap-6 p-6 md:grid-cols-2">
 
             <div className="md:col-span-2">
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Population Description
               </label>
@@ -599,11 +906,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Describe the journal entry population obtained and the source of the population..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Population Period
               </label>
@@ -622,11 +927,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="e.g. 1 July 2025 – 30 June 2026"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Total Journal Entries
               </label>
@@ -635,24 +938,25 @@ export default function FraudJournalEntryProceduresPage() {
                 type="number"
                 min="0"
                 value={
-                  assessment.total_population ?? ""
+                  assessment.total_population ??
+                  ""
                 }
                 onChange={(e) =>
                   updateField(
                     "total_population",
                     e.target.value === ""
                       ? null
-                      : Number(e.target.value)
+                      : Number(
+                          e.target.value
+                        )
                   )
                 }
                 placeholder="0"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Selection Method
               </label>
@@ -689,11 +993,9 @@ export default function FraudJournalEntryProceduresPage() {
                   Judgmental
                 </option>
               </select>
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Selected Entries
               </label>
@@ -702,24 +1004,25 @@ export default function FraudJournalEntryProceduresPage() {
                 type="number"
                 min="0"
                 value={
-                  assessment.selected_entries ?? ""
+                  assessment.selected_entries ??
+                  ""
                 }
                 onChange={(e) =>
                   updateField(
                     "selected_entries",
                     e.target.value === ""
                       ? null
-                      : Number(e.target.value)
+                      : Number(
+                          e.target.value
+                        )
                   )
                 }
                 placeholder="0"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div className="md:col-span-2">
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Selection Rationale
               </label>
@@ -738,24 +1041,22 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Explain why this selection method was considered appropriate..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* JOURNAL ENTRY TESTING */}
-        {/* ================================================== */}
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <FileSearch size={20} />
+                <FileSearch
+                  size={20}
+                />
               </div>
 
               <div>
@@ -770,7 +1071,6 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="space-y-6 p-6">
@@ -778,7 +1078,6 @@ export default function FraudJournalEntryProceduresPage() {
             <div className="grid gap-6 md:grid-cols-2">
 
               <div>
-
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Testing Period
                 </label>
@@ -797,11 +1096,9 @@ export default function FraudJournalEntryProceduresPage() {
                   placeholder="Period covered by testing"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
                 />
-
               </div>
 
               <div>
-
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Testing Criteria
                 </label>
@@ -820,13 +1117,11 @@ export default function FraudJournalEntryProceduresPage() {
                   placeholder="Criteria used to identify entries"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
                 />
-
               </div>
 
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Journal Entry Testing
               </label>
@@ -845,11 +1140,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Describe the journal entry testing procedures performed, including unusual postings, manual entries, period-end entries, unusual accounts, preparer/approver considerations, and other relevant criteria..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Audit Evidence
               </label>
@@ -868,24 +1161,22 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Document evidence inspected and how the entries were substantiated..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* MANAGEMENT OVERRIDE */}
-        {/* ================================================== */}
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <ShieldAlert size={20} />
+                <ShieldAlert
+                  size={20}
+                />
               </div>
 
               <div>
@@ -900,13 +1191,11 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="space-y-6 p-6">
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Procedures Performed
               </label>
@@ -925,11 +1214,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Describe procedures performed to address management override risk..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Results
               </label>
@@ -948,24 +1235,22 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Document the results of management override procedures..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* DATA ANALYTICS */}
-        {/* ================================================== */}
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <BarChart3 size={20} />
+                <BarChart3
+                  size={20}
+                />
               </div>
 
               <div>
@@ -980,13 +1265,11 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="space-y-6 p-6">
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Data Analytics &amp; Anomalies
               </label>
@@ -1005,11 +1288,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Describe analytics performed and anomalies identified, such as unusual amounts, dates, users, accounts, descriptions, or posting patterns..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Anomaly Analysis
               </label>
@@ -1028,24 +1309,22 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Explain how identified anomalies were investigated and resolved..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* FRAUD INDICATORS */}
-        {/* ================================================== */}
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <AlertTriangle size={20} />
+                <AlertTriangle
+                  size={20}
+                />
               </div>
 
               <div>
@@ -1061,13 +1340,11 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="space-y-6 p-6">
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Possible Fraud Indicators
               </label>
@@ -1086,11 +1363,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Document any fraud indicators identified during journal entry testing..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Fraud Risk Assessment
               </label>
@@ -1109,24 +1384,22 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Assess the significance of identified fraud indicators..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* EXCEPTIONS */}
-        {/* ================================================== */}
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <CircleAlert size={20} />
+                <CircleAlert
+                  size={20}
+                />
               </div>
 
               <div>
@@ -1141,13 +1414,11 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="space-y-6 p-6">
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Number of Exceptions
               </label>
@@ -1161,16 +1432,16 @@ export default function FraudJournalEntryProceduresPage() {
                 onChange={(e) =>
                   updateField(
                     "exceptions_count",
-                    Number(e.target.value) || 0
+                    Number(
+                      e.target.value
+                    ) || 0
                   )
                 }
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200 md:max-w-sm"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Exceptions
               </label>
@@ -1189,11 +1460,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Describe exceptions, unusual transactions, unsupported entries, or other matters identified..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Exception Resolution
               </label>
@@ -1212,24 +1481,22 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Document how exceptions were investigated, resolved, or communicated..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* CONCLUSION */}
-        {/* ================================================== */}
 
         <section className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm">
 
           <div className="border-b border-gray-200 p-6">
-
             <div className="flex items-center gap-3">
 
               <div className="rounded-lg bg-gray-100 p-2">
-                <Scale size={20} />
+                <Scale
+                  size={20}
+                />
               </div>
 
               <div>
@@ -1244,13 +1511,11 @@ export default function FraudJournalEntryProceduresPage() {
               </div>
 
             </div>
-
           </div>
 
           <div className="space-y-6 p-6">
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Auditor Conclusion
               </label>
@@ -1269,11 +1534,9 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Document the auditor's overall conclusion from the procedures performed..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <div>
-
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Fraud Implication / Further Action
               </label>
@@ -1292,7 +1555,6 @@ export default function FraudJournalEntryProceduresPage() {
                 placeholder="Document any implications for the audit, fraud risk assessment, communication, or further audit procedures..."
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
-
             </div>
 
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-4">
@@ -1312,7 +1574,6 @@ export default function FraudJournalEntryProceduresPage() {
               />
 
               <div>
-
                 <p className="text-sm font-medium text-gray-800">
                   Further audit procedures required
                 </p>
@@ -1321,7 +1582,6 @@ export default function FraudJournalEntryProceduresPage() {
                   Select if the results require additional
                   audit work or follow-up.
                 </p>
-
               </div>
 
             </label>
@@ -1329,9 +1589,7 @@ export default function FraudJournalEntryProceduresPage() {
           </div>
         </section>
 
-        {/* ================================================== */}
         {/* ACTION BAR */}
-        {/* ================================================== */}
 
         <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-white/95 px-1 py-4 backdrop-blur">
 
@@ -1339,11 +1597,14 @@ export default function FraudJournalEntryProceduresPage() {
 
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() =>
+                router.back()
+              }
               className="flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              <ArrowLeft size={17} />
-
+              <ArrowLeft
+                size={17}
+              />
               Back
             </button>
 
@@ -1351,11 +1612,15 @@ export default function FraudJournalEntryProceduresPage() {
 
               <button
                 type="button"
-                onClick={saveAssessment}
+                onClick={
+                  saveAssessment
+                }
                 disabled={saving}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Save size={17} />
+                <Save
+                  size={17}
+                />
 
                 {saving
                   ? "Saving..."
@@ -1364,13 +1629,17 @@ export default function FraudJournalEntryProceduresPage() {
 
               <button
                 type="button"
-                onClick={handleContinue}
+                onClick={
+                  handleContinue
+                }
                 disabled={saving}
                 className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Continue
 
-                <ChevronRight size={17} />
+                <ChevronRight
+                  size={17}
+                />
               </button>
 
             </div>
@@ -1382,3 +1651,4 @@ export default function FraudJournalEntryProceduresPage() {
     </AppLayout>
   );
 }
+

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import (
+    Adjustment,
     ChartOfAccount,
     TrialBalance,
     TrialBalanceLine,
@@ -147,5 +148,99 @@ class TrialBalanceSerializer(serializers.ModelSerializer):
                     "period_end": "Period end date cannot be before period start date."
                 }
             )
+
+        return attrs
+
+
+class AdjustmentSerializer(serializers.ModelSerializer):
+    debit_account_name = serializers.CharField(
+        source="debit_account.account_name",
+        read_only=True,
+    )
+
+    credit_account_name = serializers.CharField(
+        source="credit_account.account_name",
+        read_only=True,
+    )
+
+    debit_account_code = serializers.CharField(
+        source="debit_account.account_code",
+        read_only=True,
+    )
+
+    credit_account_code = serializers.CharField(
+        source="credit_account.account_code",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Adjustment
+        fields = [
+            "id",
+            "engagement",
+            "adjustment_number",
+            "description",
+            "debit_account",
+            "debit_account_code",
+            "debit_account_name",
+            "credit_account",
+            "credit_account_code",
+            "credit_account_name",
+            "amount",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "debit_account_code",
+            "debit_account_name",
+            "credit_account_code",
+            "credit_account_name",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        engagement = attrs.get("engagement")
+        debit_account = attrs.get("debit_account")
+        credit_account = attrs.get("credit_account")
+        amount = attrs.get("amount")
+
+        if amount is not None and amount <= 0:
+            raise serializers.ValidationError(
+                {
+                    "amount": "Adjustment amount must be greater than zero."
+                }
+            )
+
+        if (
+            debit_account
+            and credit_account
+            and debit_account.pk == credit_account.pk
+        ):
+            raise serializers.ValidationError(
+                "Debit and credit accounts must be different."
+            )
+
+        if engagement and debit_account:
+            if debit_account.engagement.pk != engagement.pk:
+                raise serializers.ValidationError(
+                    {
+                        "debit_account": (
+                            "Debit account must belong to the selected engagement."
+                        )
+                    }
+                )
+
+        if engagement and credit_account:
+            if credit_account.engagement.pk != engagement.pk:
+                raise serializers.ValidationError(
+                    {
+                        "credit_account": (
+                            "Credit account must belong to the selected engagement."
+                        )
+                    }
+                )
 
         return attrs

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
+import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,7 +20,7 @@ import {
   CircleAlert,
 } from "lucide-react";
 
-const API_BASE_URL = "http://127.0.0.1:8000/api";
+const API_BASE_URL = "http://localhost:8000/api";
 
 interface ProcessFlowWalkthrough {
   id: number;
@@ -55,60 +55,196 @@ interface ProcessFlowWalkthrough {
   updated_at?: string;
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const cookies = document.cookie.split("; ");
+
+  for (const cookie of cookies) {
+    const [key, ...valueParts] = cookie.split("=");
+
+    if (key === name) {
+      return decodeURIComponent(valueParts.join("="));
+    }
+  }
+
+  return null;
+}
+
+async function parseResponse(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const text = await response.text();
+
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+function formatApiError(
+  data: unknown,
+  fallback: string
+): string {
+  if (!data) {
+    return fallback;
+  }
+
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (
+    typeof data === "object" &&
+    data !== null
+  ) {
+    const objectData = data as Record<string, unknown>;
+
+    if (
+      typeof objectData.detail === "string" &&
+      objectData.detail.trim()
+    ) {
+      return objectData.detail;
+    }
+
+    if (
+      typeof objectData.message === "string" &&
+      objectData.message.trim()
+    ) {
+      return objectData.message;
+    }
+
+    const fieldErrors = Object.entries(objectData)
+      .map(([field, messages]) => {
+        if (Array.isArray(messages)) {
+          return `${field}: ${messages.join(", ")}`;
+        }
+
+        if (
+          typeof messages === "object" &&
+          messages !== null
+        ) {
+          return `${field}: ${JSON.stringify(messages)}`;
+        }
+
+        return `${field}: ${String(messages)}`;
+      })
+      .filter(Boolean)
+      .join(" | ");
+
+    if (fieldErrors) {
+      return fieldErrors;
+    }
+  }
+
+  return fallback;
+}
+
 export default function ProcessFlowWalkthroughsPage() {
   const params = useParams();
   const router = useRouter();
 
-  const engagementId = params.id as string;
+  const engagementId = Array.isArray(params.id)
+    ? params.id[0]
+    : params.id;
 
-  // ---------------------------------------------------------------------------
+  // =========================================================
   // FORM STATE
-  // ---------------------------------------------------------------------------
+  // =========================================================
 
   const [processName, setProcessName] = useState("");
   const [processOwner, setProcessOwner] = useState("");
   const [department, setDepartment] = useState("");
   const [walkthroughDate, setWalkthroughDate] = useState("");
 
-  const [processDescription, setProcessDescription] = useState("");
+  const [processDescription, setProcessDescription] =
+    useState("");
   const [processFlow, setProcessFlow] = useState("");
 
   const [keyControls, setKeyControls] = useState("");
-  const [controlObjectives, setControlObjectives] = useState("");
+  const [controlObjectives, setControlObjectives] =
+    useState("");
   const [controlOwner, setControlOwner] = useState("");
 
-  const [itApplications, setItApplications] = useState("");
-  const [itDependencies, setItDependencies] = useState("");
+  const [itApplications, setItApplications] =
+    useState("");
+  const [itDependencies, setItDependencies] =
+    useState("");
   const [interfaces, setInterfaces] = useState("");
 
-  const [walkthroughProcedure, setWalkthroughProcedure] = useState("");
-  const [evidenceObtained, setEvidenceObtained] = useState("");
+  const [walkthroughProcedure, setWalkthroughProcedure] =
+    useState("");
+  const [evidenceObtained, setEvidenceObtained] =
+    useState("");
 
   const [observations, setObservations] = useState("");
   const [exceptions, setExceptions] = useState("");
 
   const [conclusion, setConclusion] = useState("");
 
-  // ---------------------------------------------------------------------------
+  // =========================================================
   // PAGE STATE
-  // ---------------------------------------------------------------------------
+  // =========================================================
 
-  const [workpaperId, setWorkpaperId] = useState<number | null>(null);
+  const [workpaperId, setWorkpaperId] = useState<
+    number | null
+  >(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [continuing, setContinuing] = useState(false);
-
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  // ---------------------------------------------------------------------------
+  // =========================================================
+  // COMMON AUTHENTICATED REQUEST
+  // =========================================================
+
+  const authenticatedFetch = async (
+    url: string,
+    options: RequestInit = {}
+  ) => {
+    const csrfToken = getCookie("csrftoken");
+
+    const headers = new Headers(options.headers);
+
+    headers.set("Accept", "application/json");
+
+    if (options.body) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    if (csrfToken) {
+      headers.set("X-CSRFToken", csrfToken);
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  };
+
+  // =========================================================
   // LOAD EXISTING WORKPAPER
-  // ---------------------------------------------------------------------------
+  // =========================================================
 
   useEffect(() => {
     if (!engagementId) {
       setLoading(false);
+      setError("Invalid engagement ID.");
       return;
     }
 
@@ -117,50 +253,42 @@ export default function ProcessFlowWalkthroughsPage() {
       setError("");
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/process-flow-walkthroughs/?engagement=${encodeURIComponent(
-            engagementId
-          )}`,
-          {
+        const url =
+          `${API_BASE_URL}/process-flow-walkthroughs/` +
+          `?engagement=${encodeURIComponent(
+            String(engagementId)
+          )}`;
+
+        console.log(
+          "=== PHASE 2.2 LOAD START ==="
+        );
+        console.log("LOAD URL:", url);
+
+        const response =
+          await authenticatedFetch(url, {
             method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }
+          });
+
+        const data = await parseResponse(response);
+
+        console.log(
+          "PHASE 2.2 LOAD STATUS:",
+          response.status
+        );
+
+        console.log(
+          "PHASE 2.2 LOAD RESPONSE:",
+          data
         );
 
         if (!response.ok) {
-          let message = `Failed to load Phase 2.2 workpaper. HTTP ${response.status}.`;
-
-          try {
-            const errorData = await response.json();
-
-            if (errorData?.detail) {
-              message = errorData.detail;
-            }
-          } catch {
-            // Ignore JSON parsing error.
-          }
-
-          throw new Error(message);
+          throw new Error(
+            formatApiError(
+              data,
+              `Failed to load Phase 2.2 workpaper. HTTP ${response.status}.`
+            )
+          );
         }
-
-        // ---------------------------------------------------------------------
-        // DIAGNOSTIC: LOAD RESPONSE
-        // ---------------------------------------------------------------------
-
-        const data = await response.json();
-
-        console.log("=== PHASE 2.2 LOAD RESPONSE ===");
-        console.log("LOAD HTTP STATUS:", response.status);
-        console.log("LOAD RESPONSE:", data);
-
-        // ---------------------------------------------------------------------
-        // SUPPORT BOTH:
-        // 1. Normal DRF array response
-        // 2. Paginated DRF response { results: [...] }
-        // ---------------------------------------------------------------------
 
         let workpapers: ProcessFlowWalkthrough[] = [];
 
@@ -168,12 +296,34 @@ export default function ProcessFlowWalkthroughsPage() {
           workpapers = data;
         } else if (
           data &&
-          Array.isArray(data.results)
+          typeof data === "object" &&
+          Array.isArray(
+            (data as {
+              results?: ProcessFlowWalkthrough[];
+            }).results
+          )
         ) {
-          workpapers = data.results;
+          workpapers = (
+            data as {
+              results: ProcessFlowWalkthrough[];
+            }
+          ).results;
+        } else if (
+          data &&
+          typeof data === "object" &&
+          typeof (data as ProcessFlowWalkthrough).id ===
+            "number"
+        ) {
+          workpapers = [
+            data as ProcessFlowWalkthrough,
+          ];
         }
 
         if (workpapers.length === 0) {
+          console.log(
+            "No Phase 2.2 workpaper exists yet."
+          );
+
           setWorkpaperId(null);
           setSaved(false);
           return;
@@ -188,10 +338,21 @@ export default function ProcessFlowWalkthroughsPage() {
 
         setWorkpaperId(workpaper.id);
 
-        setProcessName(workpaper.process_name ?? "");
-        setProcessOwner(workpaper.process_owner ?? "");
-        setDepartment(workpaper.department ?? "");
-        setWalkthroughDate(workpaper.walkthrough_date ?? "");
+        setProcessName(
+          workpaper.process_name ?? ""
+        );
+
+        setProcessOwner(
+          workpaper.process_owner ?? ""
+        );
+
+        setDepartment(
+          workpaper.department ?? ""
+        );
+
+        setWalkthroughDate(
+          workpaper.walkthrough_date ?? ""
+        );
 
         setProcessDescription(
           workpaper.process_description ?? ""
@@ -265,9 +426,9 @@ export default function ProcessFlowWalkthroughsPage() {
     loadWorkpaper();
   }, [engagementId]);
 
-  // ---------------------------------------------------------------------------
+  // =========================================================
   // MARK FORM AS EDITED
-  // ---------------------------------------------------------------------------
+  // =========================================================
 
   const markAsEdited = () => {
     setSaved(false);
@@ -277,14 +438,15 @@ export default function ProcessFlowWalkthroughsPage() {
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // SAVE
-  // ---------------------------------------------------------------------------
+  // =========================================================
+  // SAVE WORKPAPER
+  // =========================================================
 
   const handleSave = async (): Promise<boolean> => {
-    // -------------------------------------------------------------------------
-    // REQUIRED FIELD VALIDATION
-    // -------------------------------------------------------------------------
+    if (!engagementId) {
+      setError("Invalid engagement ID.");
+      return false;
+    }
 
     if (
       !processName.trim() ||
@@ -309,10 +471,6 @@ export default function ProcessFlowWalkthroughsPage() {
     setSaved(false);
     setError("");
 
-    // -------------------------------------------------------------------------
-    // SAVE PAYLOAD
-    // -------------------------------------------------------------------------
-
     const workpaperData = {
       engagement: Number(engagementId),
 
@@ -323,88 +481,86 @@ export default function ProcessFlowWalkthroughsPage() {
 
       process_description:
         processDescription.trim(),
+      process_flow: processFlow.trim(),
 
-      process_flow:
-        processFlow.trim(),
-
-      key_controls:
-        keyControls.trim(),
-
+      key_controls: keyControls.trim(),
       control_objectives:
         controlObjectives.trim(),
-
-      control_owner:
-        controlOwner.trim(),
+      control_owner: controlOwner.trim(),
 
       it_applications:
         itApplications.trim(),
-
       it_dependencies:
         itDependencies.trim(),
-
-      interfaces:
-        interfaces.trim(),
+      interfaces: interfaces.trim(),
 
       walkthrough_procedure:
         walkthroughProcedure.trim(),
-
       evidence_obtained:
         evidenceObtained.trim(),
 
-      observations:
-        observations.trim(),
+      observations: observations.trim(),
+      exceptions: exceptions.trim(),
 
-      exceptions:
-        exceptions.trim(),
-
-      conclusion:
-        conclusion.trim(),
+      conclusion: conclusion.trim(),
     };
 
-    // -------------------------------------------------------------------------
-    // DIAGNOSTIC: SAVE START
-    // -------------------------------------------------------------------------
+    console.log(
+      "=== PHASE 2.2 SAVE START ==="
+    );
 
-    console.log("=== PHASE 2.2 SAVE START ===");
-    console.log("engagementId:", engagementId);
-    console.log("workpaperId:", workpaperId);
-    console.log("SAVE PAYLOAD:", workpaperData);
+    console.log(
+      "ENGAGEMENT ID:",
+      engagementId
+    );
+
+    console.log(
+      "WORKPAPER ID:",
+      workpaperId
+    );
+
+    console.log(
+      "SAVE PAYLOAD:",
+      workpaperData
+    );
 
     try {
       let response: Response;
 
-      // -----------------------------------------------------------------------
+      // =====================================================
       // UPDATE EXISTING WORKPAPER
-      // -----------------------------------------------------------------------
+      // =====================================================
 
       if (workpaperId !== null) {
+        const url =
+          `${API_BASE_URL}/process-flow-walkthroughs/` +
+          `${workpaperId}/`;
+
         console.log(
           "PHASE 2.2 SAVE METHOD: PATCH"
         );
 
         console.log(
           "PATCH URL:",
-          `${API_BASE_URL}/process-flow-walkthroughs/${workpaperId}/`
+          url
         );
 
-        response = await fetch(
-          `${API_BASE_URL}/process-flow-walkthroughs/${workpaperId}/`,
-          {
+        response =
+          await authenticatedFetch(url, {
             method: "PATCH",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Accept: "application/json",
-            },
             body: JSON.stringify(
               workpaperData
             ),
-          }
-        );
-      } else {
-        // ---------------------------------------------------------------------
-        // CREATE NEW WORKPAPER
-        // ---------------------------------------------------------------------
+          });
+      }
+
+      // =====================================================
+      // CREATE NEW WORKPAPER
+      // =====================================================
+
+      else {
+        const url =
+          `${API_BASE_URL}/process-flow-walkthroughs/`;
 
         console.log(
           "PHASE 2.2 SAVE METHOD: POST"
@@ -412,93 +568,19 @@ export default function ProcessFlowWalkthroughsPage() {
 
         console.log(
           "POST URL:",
-          `${API_BASE_URL}/process-flow-walkthroughs/`
+          url
         );
 
-        response = await fetch(
-          `${API_BASE_URL}/process-flow-walkthroughs/`,
-          {
+        response =
+          await authenticatedFetch(url, {
             method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Accept: "application/json",
-            },
             body: JSON.stringify(
               workpaperData
             ),
-          }
-        );
+          });
       }
 
-      // -----------------------------------------------------------------------
-      // HANDLE HTTP ERROR
-      // -----------------------------------------------------------------------
-
-      if (!response.ok) {
-        let message = `Failed to save Phase 2.2 workpaper. HTTP ${response.status}.`;
-
-        try {
-          const errorData =
-            await response.json();
-
-          console.error(
-            "PHASE 2.2 SAVE ERROR RESPONSE:",
-            errorData
-          );
-
-          if (
-            errorData &&
-            typeof errorData.detail ===
-              "string"
-          ) {
-            message =
-              errorData.detail;
-          } else if (errorData) {
-            const fieldErrors =
-              Object.entries(
-                errorData
-              )
-                .map(
-                  ([field, messages]) => {
-                    const formattedMessages =
-                      Array.isArray(
-                        messages
-                      )
-                        ? messages.join(
-                            ", "
-                          )
-                        : String(
-                            messages
-                          );
-
-                    return `${field}: ${formattedMessages}`;
-                  }
-                )
-                .join(" | ");
-
-            if (fieldErrors) {
-              message =
-                fieldErrors;
-            }
-          }
-        } catch {
-          // Ignore JSON parsing error.
-        }
-
-        throw new Error(message);
-      }
-
-      // -----------------------------------------------------------------------
-      // READ SAVED RESPONSE
-      // -----------------------------------------------------------------------
-
-      const savedWorkpaper: ProcessFlowWalkthrough =
-        await response.json();
-
-      // -----------------------------------------------------------------------
-      // DIAGNOSTIC: SAVE RESPONSE
-      // -----------------------------------------------------------------------
+      const data = await parseResponse(response);
 
       console.log(
         "=== PHASE 2.2 SAVE RESPONSE ==="
@@ -511,50 +593,66 @@ export default function ProcessFlowWalkthroughsPage() {
 
       console.log(
         "DATABASE RESPONSE:",
-        savedWorkpaper
+        data
       );
 
-      // -----------------------------------------------------------------------
-      // UPDATE LOCAL STATE FROM DATABASE RESPONSE
-      // -----------------------------------------------------------------------
+      if (!response.ok) {
+        throw new Error(
+          formatApiError(
+            data,
+            `Failed to save Phase 2.2 workpaper. HTTP ${response.status}.`
+          )
+        );
+      }
+
+      if (
+        !data ||
+        typeof data !== "object" ||
+        typeof (data as ProcessFlowWalkthrough)
+          .id !== "number"
+      ) {
+        throw new Error(
+          "The server saved the workpaper but returned an invalid response."
+        );
+      }
+
+      const savedWorkpaper =
+        data as ProcessFlowWalkthrough;
+
+      // =====================================================
+      // UPDATE STATE FROM DATABASE RESPONSE
+      // =====================================================
 
       setWorkpaperId(
         savedWorkpaper.id
       );
 
       setProcessName(
-        savedWorkpaper.process_name ??
-          ""
+        savedWorkpaper.process_name ?? ""
       );
 
       setProcessOwner(
-        savedWorkpaper.process_owner ??
-          ""
+        savedWorkpaper.process_owner ?? ""
       );
 
       setDepartment(
-        savedWorkpaper.department ??
-          ""
+        savedWorkpaper.department ?? ""
       );
 
       setWalkthroughDate(
-        savedWorkpaper.walkthrough_date ??
-          ""
+        savedWorkpaper.walkthrough_date ?? ""
       );
 
       setProcessDescription(
-        savedWorkpaper.process_description ??
-          ""
+        savedWorkpaper.process_description ?? ""
       );
 
       setProcessFlow(
-        savedWorkpaper.process_flow ??
-          ""
+        savedWorkpaper.process_flow ?? ""
       );
 
       setKeyControls(
-        savedWorkpaper.key_controls ??
-          ""
+        savedWorkpaper.key_controls ?? ""
       );
 
       setControlObjectives(
@@ -563,13 +661,11 @@ export default function ProcessFlowWalkthroughsPage() {
       );
 
       setControlOwner(
-        savedWorkpaper.control_owner ??
-          ""
+        savedWorkpaper.control_owner ?? ""
       );
 
       setItApplications(
-        savedWorkpaper.it_applications ??
-          ""
+        savedWorkpaper.it_applications ?? ""
       );
 
       setItDependencies(
@@ -578,8 +674,7 @@ export default function ProcessFlowWalkthroughsPage() {
       );
 
       setInterfaces(
-        savedWorkpaper.interfaces ??
-          ""
+        savedWorkpaper.interfaces ?? ""
       );
 
       setWalkthroughProcedure(
@@ -593,25 +688,21 @@ export default function ProcessFlowWalkthroughsPage() {
       );
 
       setObservations(
-        savedWorkpaper.observations ??
-          ""
+        savedWorkpaper.observations ?? ""
       );
 
       setExceptions(
-        savedWorkpaper.exceptions ??
-          ""
+        savedWorkpaper.exceptions ?? ""
       );
 
       setConclusion(
-        savedWorkpaper.conclusion ??
-          ""
+        savedWorkpaper.conclusion ?? ""
       );
 
       setSaved(true);
 
       console.log(
-        "Phase 2.2 workpaper saved successfully:",
-        savedWorkpaper
+        "Phase 2.2 workpaper saved successfully."
       );
 
       return true;
@@ -640,11 +731,15 @@ export default function ProcessFlowWalkthroughsPage() {
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // CONTINUE TO PHASE 2.3
-  // ---------------------------------------------------------------------------
+  // =========================================================
+  // SAVE + CONTINUE
+  // =========================================================
 
   const handleContinue = async () => {
+    if (saving || continuing) {
+      return;
+    }
+
     setContinuing(true);
     setError("");
 
@@ -653,12 +748,15 @@ export default function ProcessFlowWalkthroughsPage() {
         await handleSave();
 
       if (!saveSuccessful) {
-        setContinuing(false);
         return;
       }
 
       console.log(
-        "Phase 2.2 save successful. Navigating to Phase 2.3..."
+        "Phase 2.2 saved successfully."
+      );
+
+      console.log(
+        "Navigating to Phase 2.3..."
       );
 
       router.push(
@@ -680,9 +778,9 @@ export default function ProcessFlowWalkthroughsPage() {
     }
   };
 
-  // ---------------------------------------------------------------------------
+  // =========================================================
   // BACK
-  // ---------------------------------------------------------------------------
+  // =========================================================
 
   const handleBack = () => {
     router.push(
@@ -690,9 +788,9 @@ export default function ProcessFlowWalkthroughsPage() {
     );
   };
 
-  // ---------------------------------------------------------------------------
-  // LOADING SCREEN
-  // ---------------------------------------------------------------------------
+  // =========================================================
+  // LOADING
+  // =========================================================
 
   if (loading) {
     return (
@@ -714,151 +812,186 @@ export default function ProcessFlowWalkthroughsPage() {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // =========================================================
   // PAGE
-  // ---------------------------------------------------------------------------
+  // =========================================================
 
   return (
     <AppLayout>
       <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          {/* ---------------------------------------------------------------- */}
-          {/* HEADER                                                           */}
-          {/* ---------------------------------------------------------------- */}
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
-          <div className="mb-8">
-            <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
-              <span>Phase 2</span>
+          {/* =================================================
+              HEADER
+          ================================================== */}
 
-              <span>/</span>
+          <div className="mb-6 flex items-start gap-4">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+            >
+              <ArrowLeft size={19} />
+            </button>
 
-              <span>Risk Assessment</span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold text-blue-600">
+                  Phase 2
+                </span>
 
-              <span>/</span>
+                <span className="text-slate-400">
+                  /
+                </span>
 
-              <span className="font-medium text-slate-700">
-                2.2 Process Flow & Walkthroughs
-              </span>
-            </div>
+                <span className="text-slate-500">
+                  Risk Assessment
+                </span>
 
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                  Process Flow & Walkthroughs
-                </h1>
+                <span className="text-slate-400">
+                  /
+                </span>
 
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Map processes, controls, IT dependencies
-                  and perform walkthrough procedures.
-                </p>
+                <span className="text-slate-500">
+                  2.2 Process Flow & Walkthroughs
+                </span>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Current Engagement
-                </div>
+              <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
+                Process Flow & Walkthroughs
+              </h1>
 
-                <div className="mt-1 text-sm font-semibold text-slate-900">
-                  Engagement #{engagementId}
-                </div>
-
-                <div className="mt-1 text-xs text-slate-500">
-                  Phase 2 — Risk Assessment
-                </div>
-              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Map processes, controls, IT dependencies
+                and perform walkthrough procedures.
+              </p>
             </div>
           </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* ERROR MESSAGE                                                    */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              ERROR
+          ================================================== */}
 
           {error && (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
-              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              <CircleAlert
+                size={20}
+                className="mt-0.5 shrink-0"
+              />
 
               <div>
-                <div className="font-semibold">
+                <p className="font-semibold">
                   Unable to complete action
-                </div>
+                </p>
 
-                <div className="mt-1 text-sm">
+                <p className="mt-1 text-sm">
                   {error}
-                </div>
+                </p>
               </div>
             </div>
           )}
 
-          {/* ---------------------------------------------------------------- */}
-          {/* SAVED MESSAGE                                                    */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              SUCCESS
+          ================================================== */}
 
           {saved && !error && (
             <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
-              <CheckCircle2 className="h-5 w-5" />
+              <CheckCircle2
+                size={20}
+                className="shrink-0"
+              />
 
-              <div className="text-sm font-medium">
-                Phase 2.2 workpaper saved successfully.
+              <div>
+                <p className="font-semibold">
+                  Workpaper saved
+                </p>
+
+                <p className="text-sm">
+                  Your Phase 2.2 workpaper has been saved
+                  successfully.
+                </p>
               </div>
             </div>
           )}
 
-          {/* ---------------------------------------------------------------- */}
-          {/* PROCESS INFORMATION                                               */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              ENGAGEMENT SUMMARY
+          ================================================== */}
 
-          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-indigo-100 p-2 text-indigo-700">
-                  <Workflow className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                  Current Engagement
+                </p>
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Process Information
-                  </h2>
+                <h2 className="mt-1 text-xl font-bold text-slate-900">
+                  Engagement #{engagementId}
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Identify the business process selected for walkthrough.
-                  </p>
-                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  Phase 2 — Risk Assessment
+                </p>
+              </div>
+
+              <div className="hidden h-12 w-12 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm sm:flex">
+                <Workflow size={23} />
+              </div>
+            </div>
+          </section>
+
+          {/* =================================================
+              PROCESS INFORMATION
+          ================================================== */}
+
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <Building2
+                size={22}
+                className="text-blue-600"
+              />
+
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Process Information
+                </h2>
+
+                <p className="text-sm text-slate-500">
+                  Identify the business process selected
+                  for walkthrough.
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              {/* Process Name */}
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Process Name <span className="text-red-500">*</span>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Process Name *
                 </label>
 
-                <div className="relative">
-                  <Workflow className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
-
-                  <input
-                    type="text"
-                    value={processName}
-                    onChange={(e) => {
-                      setProcessName(
-                        e.target.value
-                      );
-                      markAsEdited();
-                    }}
-                    placeholder="e.g. Revenue Cycle"
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={processName}
+                  onChange={(e) => {
+                    setProcessName(e.target.value);
+                    markAsEdited();
+                  }}
+                  placeholder="e.g. Revenue and Receivables"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
               </div>
 
-              {/* Process Owner */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Process Owner <span className="text-red-500">*</span>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Process Owner *
                 </label>
 
                 <div className="relative">
-                  <User className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                  <User
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
 
                   <input
                     type="text"
@@ -869,45 +1002,39 @@ export default function ProcessFlowWalkthroughsPage() {
                       );
                       markAsEdited();
                     }}
-                    placeholder="e.g. Finance Manager"
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    placeholder="Name / role"
+                    className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
               </div>
 
-              {/* Department */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Department
                 </label>
 
-                <div className="relative">
-                  <Building2 className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
-
-                  <input
-                    type="text"
-                    value={department}
-                    onChange={(e) => {
-                      setDepartment(
-                        e.target.value
-                      );
-                      markAsEdited();
-                    }}
-                    placeholder="e.g. Finance"
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => {
+                    setDepartment(e.target.value);
+                    markAsEdited();
+                  }}
+                  placeholder="e.g. Finance"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
               </div>
 
-              {/* Walkthrough Date */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Walkthrough Date{" "}
-                  <span className="text-red-500">*</span>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Walkthrough Date *
                 </label>
 
                 <div className="relative">
-                  <CalendarDays className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                  <CalendarDays
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
 
                   <input
                     type="date"
@@ -918,45 +1045,44 @@ export default function ProcessFlowWalkthroughsPage() {
                       );
                       markAsEdited();
                     }}
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
               </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* PROCESS DESCRIPTION                                               */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              PROCESS DESCRIPTION
+          ================================================== */}
 
-          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-blue-100 p-2 text-blue-700">
-                  <FileSearch className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <Workflow
+                size={22}
+                className="text-blue-600"
+              />
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Process Description & Flow
-                  </h2>
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Process Description & Flow
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Document how the process operates from initiation through recording and reporting.
-                  </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                  Document how the process operates from
+                  initiation through recording and reporting.
+                </p>
               </div>
             </div>
 
-            <div className="space-y-6 p-6">
-              {/* Process Description */}
+            <div className="space-y-5">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Process Description{" "}
-                  <span className="text-red-500">*</span>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Process Description *
                 </label>
 
                 <textarea
+                  rows={5}
                   value={processDescription}
                   onChange={(e) => {
                     setProcessDescription(
@@ -964,19 +1090,18 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={5}
-                  placeholder="Describe the process, including how transactions are initiated, authorized, processed, recorded and reported."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Describe how the process works..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* Process Flow */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Process Flow
                 </label>
 
                 <textarea
+                  rows={6}
                   value={processFlow}
                   onChange={(e) => {
                     setProcessFlow(
@@ -984,45 +1109,44 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={5}
-                  placeholder="Describe the sequence of activities, systems, approvals and handoffs."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Example: Initiation → Authorization → Processing → Recording → Reporting"
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* CONTROLS                                                         */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              KEY CONTROLS
+          ================================================== */}
 
-          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-emerald-100 p-2 text-emerald-700">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <ShieldCheck
+                size={22}
+                className="text-blue-600"
+              />
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Key Controls
-                  </h2>
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Key Controls
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Identify key controls and their objectives and owners.
-                  </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                  Identify key controls and their objectives
+                  and owners.
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              {/* Key Controls */}
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Key Controls
                 </label>
 
                 <textarea
+                  rows={5}
                   value={keyControls}
                   onChange={(e) => {
                     setKeyControls(
@@ -1030,19 +1154,18 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={4}
-                  placeholder="List the key controls identified within the process."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="List the key controls..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* Control Objectives */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Control Objectives
                 </label>
 
                 <textarea
+                  rows={5}
                   value={controlObjectives}
                   onChange={(e) => {
                     setControlObjectives(
@@ -1050,69 +1173,63 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={4}
-                  placeholder="Describe what each key control is designed to achieve."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Describe what the controls are designed to achieve..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* Control Owner */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Control Owner
                 </label>
 
-                <div className="relative">
-                  <User className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
-
-                  <input
-                    type="text"
-                    value={controlOwner}
-                    onChange={(e) => {
-                      setControlOwner(
-                        e.target.value
-                      );
-                      markAsEdited();
-                    }}
-                    placeholder="e.g. Finance Manager"
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={controlOwner}
+                  onChange={(e) => {
+                    setControlOwner(
+                      e.target.value
+                    );
+                    markAsEdited();
+                  }}
+                  placeholder="Person / role responsible for the control"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
               </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* IT DEPENDENCIES                                                  */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              IT APPLICATIONS
+          ================================================== */}
 
-          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-purple-100 p-2 text-purple-700">
-                  <Monitor className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <Monitor
+                size={22}
+                className="text-blue-600"
+              />
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    IT Applications & Dependencies
-                  </h2>
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  IT Applications & Dependencies
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Document systems, IT dependencies and interfaces relevant to the process.
-                  </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                  Document systems, IT dependencies and
+                  interfaces relevant to the process.
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              {/* IT Applications */}
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   IT Applications
                 </label>
 
                 <textarea
+                  rows={4}
                   value={itApplications}
                   onChange={(e) => {
                     setItApplications(
@@ -1120,19 +1237,18 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={4}
-                  placeholder="List ERP systems, accounting systems, applications or tools used."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="ERP, accounting system, payroll system, etc."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* IT Dependencies */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   IT Dependencies
                 </label>
 
                 <textarea
+                  rows={4}
                   value={itDependencies}
                   onChange={(e) => {
                     setItDependencies(
@@ -1140,19 +1256,18 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={4}
-                  placeholder="Describe relevant automated controls, reports, configurations or IT dependencies."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Describe important IT dependencies..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* Interfaces */}
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Interfaces
                 </label>
 
                 <textarea
+                  rows={4}
                   value={interfaces}
                   onChange={(e) => {
                     setInterfaces(
@@ -1160,46 +1275,44 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={4}
-                  placeholder="Describe interfaces between systems or processes."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Describe interfaces between systems..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* WALKTHROUGH                                                      */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              WALKTHROUGH PROCEDURES
+          ================================================== */}
 
-          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-amber-100 p-2 text-amber-700">
-                  <FileSearch className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <FileSearch
+                size={22}
+                className="text-blue-600"
+              />
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Walkthrough Procedures
-                  </h2>
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Walkthrough Procedures
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Record the procedures performed and evidence obtained.
-                  </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                  Record the procedures performed and
+                  evidence obtained.
+                </p>
               </div>
             </div>
 
-            <div className="space-y-6 p-6">
-              {/* Walkthrough Procedure */}
+            <div className="space-y-5">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Walkthrough Procedure{" "}
-                  <span className="text-red-500">*</span>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Walkthrough Procedure *
                 </label>
 
                 <textarea
+                  rows={6}
                   value={walkthroughProcedure}
                   onChange={(e) => {
                     setWalkthroughProcedure(
@@ -1207,19 +1320,18 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={6}
-                  placeholder="Describe the walkthrough procedures performed, including the transaction selected and steps traced."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Describe the walkthrough steps performed..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* Evidence Obtained */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Evidence Obtained
                 </label>
 
                 <textarea
+                  rows={5}
                   value={evidenceObtained}
                   onChange={(e) => {
                     setEvidenceObtained(
@@ -1227,45 +1339,45 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={5}
-                  placeholder="Describe documents, reports, system screenshots, approvals or other audit evidence obtained."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="List documents, screenshots, reports or other evidence obtained..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* OBSERVATIONS                                                      */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              OBSERVATIONS
+          ================================================== */}
 
-          <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-red-100 p-2 text-red-700">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <AlertTriangle
+                size={22}
+                className="text-amber-600"
+              />
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Observations & Exceptions
-                  </h2>
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Observations & Exceptions
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Document walkthrough observations, exceptions and matters requiring further audit attention.
-                  </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                  Document walkthrough observations,
+                  exceptions and matters requiring further
+                  audit attention.
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-6 p-6 md:grid-cols-2">
-              {/* Observations */}
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Observations
                 </label>
 
                 <textarea
+                  rows={5}
                   value={observations}
                   onChange={(e) => {
                     setObservations(
@@ -1273,19 +1385,18 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={5}
-                  placeholder="Document observations identified during the walkthrough."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Document observations..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              {/* Exceptions */}
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Exceptions
                 </label>
 
                 <textarea
+                  rows={5}
                   value={exceptions}
                   onChange={(e) => {
                     setExceptions(
@@ -1293,138 +1404,113 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  rows={5}
-                  placeholder="Document any control exceptions, deviations or deficiencies identified."
-                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  placeholder="Document exceptions or control deviations..."
+                  className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* CONCLUSION                                                       */}
-          {/* ---------------------------------------------------------------- */}
+          {/* =================================================
+              CONCLUSION
+          ================================================== */}
 
-          <section className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-slate-50 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-indigo-100 p-2 text-indigo-700">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <CheckCircle2
+                size={22}
+                className="text-blue-600"
+              />
 
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Walkthrough Conclusion
-                  </h2>
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Walkthrough Conclusion
+                </h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Summarize the auditor's conclusion from the walkthrough.
-                  </p>
-                </div>
+                <p className="text-sm text-slate-500">
+                  Summarize the auditor's conclusion from
+                  the walkthrough.
+                </p>
               </div>
             </div>
 
-            <div className="p-6">
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Conclusion
-              </label>
+            <textarea
+              rows={6}
+              value={conclusion}
+              onChange={(e) => {
+                setConclusion(
+                  e.target.value
+                );
+                markAsEdited();
+              }}
+              placeholder="Summarize the conclusion from the walkthrough..."
+              className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </section>
 
-              <textarea
-                value={conclusion}
-                onChange={(e) => {
-                  setConclusion(
-                    e.target.value
-                  );
-                  markAsEdited();
-                }}
-                rows={6}
-                placeholder="Summarize whether the process and controls operated as understood and identify any matters requiring further consideration."
-                className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-              />
+          {/* =================================================
+              FOOTER ACTIONS
+          ================================================== */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Phase 2.2 Workpaper
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Save your workpaper before continuing to
+                  Phase 2.3.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={
+                    saving || continuing
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ArrowLeft size={17} />
+                  Back
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleContinue}
+                  disabled={
+                    saving || continuing
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-950/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {continuing || saving ? (
+                    <>
+                      <Loader2
+                        size={17}
+                        className="animate-spin"
+                      />
+
+                      {continuing
+                        ? "Saving & Continuing..."
+                        : "Saving..."}
+                    </>
+                  ) : (
+                    <>
+                      <Save size={17} />
+
+                      Save & Continue to 2.3
+
+                      <ArrowRight size={17} />
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </section>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* NAVIGATION                                                       */}
-          {/* ---------------------------------------------------------------- */}
-
-          <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            {/* Back */}
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={
-                saving || continuing
-              }
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-
-              Back
-            </button>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              {/* Save */}
-              <button
-                type="button"
-                onClick={() =>
-                  handleSave()
-                }
-                disabled={
-                  saving ||
-                  continuing
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-300 bg-white px-5 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-
-                    Saving...
-                  </>
-                ) : saved ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-
-                    Saved
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-
-                    Save
-                  </>
-                )}
-              </button>
-
-              {/* Continue */}
-              <button
-                type="button"
-                onClick={
-                  handleContinue
-                }
-                disabled={
-                  saving ||
-                  continuing
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {continuing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-
-                    Saving & Continuing...
-                  </>
-                ) : (
-                  <>
-                    Continue to 2.3
-
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </AppLayout>

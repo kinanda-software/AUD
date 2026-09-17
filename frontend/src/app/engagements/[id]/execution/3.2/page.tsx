@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
+import AppLayout from "@/components/layout/AppLayout";
 
 import {
   ArrowLeft,
@@ -15,7 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-const API_BASE_URL = "http://127.0.0.1:8000/api";
+const API_BASE_URL = "http://localhost:8000/api";
 
 interface InterimYearEndAssessment {
   id?: number;
@@ -36,6 +36,142 @@ interface InterimYearEndAssessment {
   created_at?: string;
   updated_at?: string;
 }
+
+/**
+ * Get a browser cookie by name.
+ *
+ * Django uses the csrftoken cookie for CSRF protection on
+ * POST/PATCH requests.
+ */
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const cookies = document.cookie.split(";");
+
+  for (const cookie of cookies) {
+    const trimmedCookie = cookie.trim();
+
+    if (trimmedCookie.startsWith(`${name}=`)) {
+      return decodeURIComponent(
+        trimmedCookie.substring(name.length + 1)
+      );
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Authenticated fetch helper.
+ *
+ * credentials: "include"
+ * ----------------------
+ * Sends the Django session cookie with the request.
+ *
+ * X-CSRFToken
+ * -----------
+ * Sends Django's CSRF token for POST/PATCH requests.
+ */
+const authenticatedFetch = async (
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const csrfToken = getCookie("csrftoken");
+
+  const headers = new Headers(options.headers || {});
+
+  headers.set("Accept", "application/json");
+
+  if (options.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (csrfToken) {
+    headers.set("X-CSRFToken", csrfToken);
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+    cache: "no-store",
+  });
+};
+
+/**
+ * Safely parse API responses.
+ *
+ * Some Django responses are JSON while other error responses
+ * can occasionally be plain text.
+ */
+const parseResponse = async (response: Response): Promise<any> => {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const text = await response.text();
+
+  return text || null;
+};
+
+/**
+ * Convert Django / DRF errors into a readable message.
+ */
+const formatApiError = (
+  data: any,
+  status: number
+): string => {
+  if (!data) {
+    return `Request failed with status ${status}.`;
+  }
+
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (data.detail) {
+    return String(data.detail);
+  }
+
+  if (data.message) {
+    return String(data.message);
+  }
+
+  if (data.error) {
+    return String(data.error);
+  }
+
+  if (typeof data === "object") {
+    const messages: string[] = [];
+
+    Object.entries(data).forEach(([field, value]) => {
+      if (Array.isArray(value)) {
+        messages.push(
+          `${field}: ${value.join(", ")}`
+        );
+      } else if (typeof value === "string") {
+        messages.push(`${field}: ${value}`);
+      } else if (
+        value !== null &&
+        value !== undefined
+      ) {
+        messages.push(
+          `${field}: ${JSON.stringify(value)}`
+        );
+      }
+    });
+
+    if (messages.length > 0) {
+      return messages.join(" | ");
+    }
+  }
+
+  return `Request failed with status ${status}.`;
+};
 
 export default function InterimYearEndPage() {
   const params = useParams();
@@ -84,38 +220,67 @@ export default function InterimYearEndPage() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `${API_BASE_URL}/interim-year-end-assessments/?engagement=${engagementId}`,
           {
             method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
           }
         );
 
+        const data = await parseResponse(response);
+
         if (!response.ok) {
+          console.error(
+            "3.2 load API error:",
+            data
+          );
+
           throw new Error(
-            `Failed to load assessment (${response.status})`
+            formatApiError(data, response.status)
           );
         }
 
-        const data: InterimYearEndAssessment[] =
-          await response.json();
+        /*
+         * DRF can return either:
+         *
+         * [
+         *   {...}
+         * ]
+         *
+         * or:
+         *
+         * {
+         *   results: [...]
+         * }
+         */
+        const assessments: InterimYearEndAssessment[] =
+          Array.isArray(data)
+            ? data
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
 
         /*
          * The API returns a list.
-         * For this workpaper page we use the latest assessment.
+         * For this workpaper page we use the latest
+         * available assessment.
          */
-        if (data.length > 0) {
-          const existing = data[0];
+        if (assessments.length > 0) {
+          const existing = assessments[0];
 
           setAssessmentId(existing.id ?? null);
 
-          setControlName(existing.control_name || "");
-          setInterimDate(existing.interim_date || "");
-          setYearEndDate(existing.year_end_date || "");
+          setControlName(
+            existing.control_name || ""
+          );
+
+          setInterimDate(
+            existing.interim_date || ""
+          );
+
+          setYearEndDate(
+            existing.year_end_date || ""
+          );
 
           setInterimTesting(
             existing.interim_testing || ""
@@ -144,10 +309,15 @@ export default function InterimYearEndPage() {
           setSaved(true);
         }
       } catch (err) {
-        console.error("Error loading 3.2 assessment:", err);
+        console.error(
+          "Error loading 3.2 assessment:",
+          err
+        );
 
         setError(
-          "Unable to load the existing assessment. Please check that the Django API is running."
+          err instanceof Error
+            ? err.message
+            : "Unable to load the existing assessment."
         );
       } finally {
         setLoading(false);
@@ -170,12 +340,16 @@ export default function InterimYearEndPage() {
     }
 
     if (!interimDate) {
-      setError("Interim Testing Date is required.");
+      setError(
+        "Interim Testing Date is required."
+      );
       return false;
     }
 
     if (!yearEndDate) {
-      setError("Year-End Date is required.");
+      setError(
+        "Year-End Date is required."
+      );
       return false;
     }
 
@@ -187,12 +361,16 @@ export default function InterimYearEndPage() {
     }
 
     if (!interimTesting.trim()) {
-      setError("Please document the interim testing performed.");
+      setError(
+        "Please document the interim testing performed."
+      );
       return false;
     }
 
     if (!conclusion.trim()) {
-      setError("Auditor Conclusion is required.");
+      setError(
+        "Auditor Conclusion is required."
+      );
       return false;
     }
 
@@ -201,62 +379,73 @@ export default function InterimYearEndPage() {
 
   /*
    * ----------------------------------------------------------
-   * SAVE
+   * BUILD PAYLOAD
    * ----------------------------------------------------------
    */
 
-  const handleSave = async () => {
+  const buildPayload = () => {
+    return {
+      engagement: Number(engagementId),
+
+      control_name: controlName.trim(),
+
+      interim_date: interimDate,
+
+      year_end_date: yearEndDate,
+
+      interim_testing: interimTesting.trim(),
+
+      control_changes: controlChanges.trim(),
+
+      remaining_period: remainingPeriod.trim(),
+
+      additional_testing:
+        additionalTesting.trim(),
+
+      exceptions: exceptions.trim(),
+
+      conclusion: conclusion.trim(),
+    };
+  };
+
+  /*
+   * ----------------------------------------------------------
+   * SAVE ASSESSMENT
+   * ----------------------------------------------------------
+   */
+
+  const saveAssessment = async (): Promise<boolean> => {
     setSaved(false);
     setSuccessMessage("");
     setError("");
 
     if (!validateForm()) {
-      return;
+      return false;
     }
 
     try {
       setSaving(true);
 
-      const payload = {
-        engagement: Number(engagementId),
+      const payload = buildPayload();
 
-        control_name: controlName.trim(),
-
-        interim_date: interimDate,
-
-        year_end_date: yearEndDate,
-
-        interim_testing: interimTesting.trim(),
-
-        control_changes: controlChanges.trim(),
-
-        remaining_period: remainingPeriod.trim(),
-
-        additional_testing: additionalTesting.trim(),
-
-        exceptions: exceptions.trim(),
-
-        conclusion: conclusion.trim(),
-      };
-
-      const isUpdating = assessmentId !== null;
+      const isUpdating =
+        assessmentId !== null;
 
       const url = isUpdating
         ? `${API_BASE_URL}/interim-year-end-assessments/${assessmentId}/`
         : `${API_BASE_URL}/interim-year-end-assessments/`;
 
-      const response = await fetch(url, {
-        method: isUpdating ? "PATCH" : "POST",
+      const response =
+        await authenticatedFetch(url, {
+          method: isUpdating
+            ? "PATCH"
+            : "POST",
 
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+          body: JSON.stringify(payload),
+        });
 
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json();
+      const responseData =
+        await parseResponse(response);
 
       if (!response.ok) {
         console.error(
@@ -264,14 +453,24 @@ export default function InterimYearEndPage() {
           responseData
         );
 
-        throw new Error(
-          typeof responseData === "object"
-            ? JSON.stringify(responseData)
-            : "Failed to save assessment."
+        setError(
+          formatApiError(
+            responseData,
+            response.status
+          )
         );
+
+        return false;
       }
 
-      setAssessmentId(responseData.id);
+      /*
+       * Django returns the saved object.
+       */
+      if (responseData?.id) {
+        setAssessmentId(
+          Number(responseData.id)
+        );
+      }
 
       setSaved(true);
 
@@ -280,15 +479,34 @@ export default function InterimYearEndPage() {
           ? "Assessment updated successfully."
           : "Assessment saved successfully."
       );
+
+      return true;
     } catch (err) {
-      console.error("Error saving 3.2 assessment:", err);
+      console.error(
+        "Error saving 3.2 assessment:",
+        err
+      );
 
       setError(
-        "Failed to save the assessment. Make sure the Django backend is running and the API is available."
+        err instanceof Error
+          ? err.message
+          : "Failed to save the assessment."
       );
+
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  /*
+   * ----------------------------------------------------------
+   * SAVE BUTTON
+   * ----------------------------------------------------------
+   */
+
+  const handleSave = async () => {
+    await saveAssessment();
   };
 
   /*
@@ -298,95 +516,21 @@ export default function InterimYearEndPage() {
    */
 
   const handleContinue = async () => {
-    setSaved(false);
-    setSuccessMessage("");
-    setError("");
+    const success =
+      await saveAssessment();
 
-    if (!validateForm()) {
+    if (!success) {
       return;
     }
 
-    try {
-      setSaving(true);
-
-      const payload = {
-        engagement: Number(engagementId),
-
-        control_name: controlName.trim(),
-
-        interim_date: interimDate,
-
-        year_end_date: yearEndDate,
-
-        interim_testing: interimTesting.trim(),
-
-        control_changes: controlChanges.trim(),
-
-        remaining_period: remainingPeriod.trim(),
-
-        additional_testing: additionalTesting.trim(),
-
-        exceptions: exceptions.trim(),
-
-        conclusion: conclusion.trim(),
-      };
-
-      const isUpdating = assessmentId !== null;
-
-      const url = isUpdating
-        ? `${API_BASE_URL}/interim-year-end-assessments/${assessmentId}/`
-        : `${API_BASE_URL}/interim-year-end-assessments/`;
-
-      const response = await fetch(url, {
-        method: isUpdating ? "PATCH" : "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error(
-          "3.2 API validation error:",
-          responseData
-        );
-
-        throw new Error(
-          typeof responseData === "object"
-            ? JSON.stringify(responseData)
-            : "Failed to save assessment."
-        );
-      }
-
-      setAssessmentId(responseData.id);
-
-      setSaved(true);
-
-      router.push(
-        `/engagements/${engagementId}/execution/3.3`
-      );
-    } catch (err) {
-      console.error(
-        "Error saving before continuing:",
-        err
-      );
-
-      setError(
-        "The assessment could not be saved. Please try again."
-      );
-    } finally {
-      setSaving(false);
-    }
+    router.push(
+      `/engagements/${engagementId}/execution/3.3`
+    );
   };
 
   /*
    * ----------------------------------------------------------
-   * FORM CHANGE HANDLER
+   * CLEAR MESSAGES
    * ----------------------------------------------------------
    */
 
@@ -422,6 +566,12 @@ export default function InterimYearEndPage() {
       </AppLayout>
     );
   }
+
+  /*
+   * ----------------------------------------------------------
+   * PAGE
+   * ----------------------------------------------------------
+   */
 
   return (
     <AppLayout>

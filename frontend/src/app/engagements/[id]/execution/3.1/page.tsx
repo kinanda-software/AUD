@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
+import AppLayout from "@/components/layout/AppLayout";
 
 import {
   ArrowLeft,
@@ -18,7 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-const API_BASE_URL = "http://127.0.0.1:8000/api";
+const API_BASE_URL = "http://localhost:8000/api";
 
 interface ControlTestExecution {
   id?: number;
@@ -52,6 +52,17 @@ interface ControlTestExecution {
   updated_at?: string;
 }
 
+interface PaginatedResponse {
+  count?: number;
+  next?: string | null;
+  previous?: string | null;
+  results?: ControlTestExecution[];
+}
+
+type ApiResponse =
+  | ControlTestExecution[]
+  | PaginatedResponse;
+
 export default function ExecuteControlsPage() {
   const params = useParams();
   const router = useRouter();
@@ -59,47 +70,236 @@ export default function ExecuteControlsPage() {
   const engagementId = params.id as string;
 
   // ==========================================================
+  // CSRF COOKIE
+  // ==========================================================
+
+  const getCookie = (name: string): string | null => {
+    if (typeof document === "undefined") {
+      return null;
+    }
+
+    const cookies = document.cookie.split(";");
+
+    for (const cookie of cookies) {
+      const trimmedCookie = cookie.trim();
+
+      if (trimmedCookie.startsWith(`${name}=`)) {
+        return decodeURIComponent(
+          trimmedCookie.substring(name.length + 1)
+        );
+      }
+    }
+
+    return null;
+  };
+
+  // ==========================================================
+  // AUTHENTICATED FETCH
+  // ==========================================================
+
+  const authenticatedFetch = async (
+    url: string,
+    options: RequestInit = {}
+  ) => {
+    const csrfToken = getCookie("csrftoken");
+
+    const headers = new Headers(
+      options.headers || {}
+    );
+
+    headers.set(
+      "Accept",
+      "application/json"
+    );
+
+    if (options.body) {
+      headers.set(
+        "Content-Type",
+        "application/json"
+      );
+    }
+
+    if (csrfToken) {
+      headers.set(
+        "X-CSRFToken",
+        csrfToken
+      );
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  };
+
+  // ==========================================================
+  // RESPONSE PARSER
+  // ==========================================================
+
+  const parseResponse = async (
+    response: Response
+  ): Promise<any> => {
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (
+      contentType.includes("application/json")
+    ) {
+      return response.json();
+    }
+
+    const text = await response.text();
+
+    return text || null;
+  };
+
+  // ==========================================================
+  // API ERROR FORMATTER
+  // ==========================================================
+
+  const formatApiError = (
+    data: any,
+    status: number
+  ): string => {
+    if (!data) {
+      return `Request failed with status ${status}.`;
+    }
+
+    if (typeof data === "string") {
+      return data;
+    }
+
+    if (data.detail) {
+      return String(data.detail);
+    }
+
+    if (data.message) {
+      return String(data.message);
+    }
+
+    if (data.error) {
+      return String(data.error);
+    }
+
+    if (typeof data === "object") {
+      const messages: string[] = [];
+
+      Object.entries(data).forEach(
+        ([field, value]) => {
+          if (Array.isArray(value)) {
+            messages.push(
+              `${field}: ${value.join(", ")}`
+            );
+          } else if (
+            typeof value === "string"
+          ) {
+            messages.push(
+              `${field}: ${value}`
+            );
+          } else if (value !== null && value !== undefined) {
+            messages.push(
+              `${field}: ${JSON.stringify(value)}`
+            );
+          }
+        }
+      );
+
+      if (messages.length > 0) {
+        return messages.join(" | ");
+      }
+    }
+
+    return `Request failed with status ${status}.`;
+  };
+
+  // ==========================================================
   // FORM STATE
   // ==========================================================
 
-  const [testId, setTestId] = useState<number | null>(null);
+  const [testId, setTestId] =
+    useState<number | null>(null);
 
-  const [controlName, setControlName] = useState("");
-  const [controlReference, setControlReference] = useState("");
-  const [assertion, setAssertion] = useState("");
-  const [controlType, setControlType] = useState("");
+  const [controlName, setControlName] =
+    useState("");
 
-  const [testingObjective, setTestingObjective] = useState("");
-  const [testProcedure, setTestProcedure] = useState("");
+  const [controlReference, setControlReference] =
+    useState("");
 
-  const [population, setPopulation] = useState("");
-  const [sampleSize, setSampleSize] = useState("");
-  const [samplingMethod, setSamplingMethod] = useState("");
+  const [assertion, setAssertion] =
+    useState("");
 
-  const [auditEvidence, setAuditEvidence] = useState("");
+  const [controlType, setControlType] =
+    useState("");
 
-  const [result, setResult] = useState("Not Started");
-  const [exceptionsFound, setExceptionsFound] = useState("0");
+  const [testingObjective, setTestingObjective] =
+    useState("");
 
-  const [exceptionNature, setExceptionNature] = useState("");
-  const [exceptionEffect, setExceptionEffect] = useState("");
+  const [testProcedure, setTestProcedure] =
+    useState("");
 
-  const [relianceDecision, setRelianceDecision] = useState("");
-  const [auditorConclusion, setAuditorConclusion] = useState("");
+  const [population, setPopulation] =
+    useState("");
+
+  const [sampleSize, setSampleSize] =
+    useState("");
+
+  const [samplingMethod, setSamplingMethod] =
+    useState("");
+
+  const [auditEvidence, setAuditEvidence] =
+    useState("");
+
+  const [result, setResult] =
+    useState("Not Started");
+
+  const [exceptionsFound, setExceptionsFound] =
+    useState("0");
+
+  const [exceptionNature, setExceptionNature] =
+    useState("");
+
+  const [exceptionEffect, setExceptionEffect] =
+    useState("");
+
+  const [relianceDecision, setRelianceDecision] =
+    useState("");
+
+  const [auditorConclusion, setAuditorConclusion] =
+    useState("");
 
   // ==========================================================
   // UI STATE
   // ==========================================================
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [saving, setSaving] =
+    useState(false);
+
+  const [saved, setSaved] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [successMessage, setSuccessMessage] =
+    useState("");
 
   // ==========================================================
-  // LOAD EXISTING TEST
+  // CLEAR MESSAGES
+  // ==========================================================
+
+  const clearMessages = () => {
+    setSaved(false);
+    setSuccessMessage("");
+    setError("");
+  };
+
+  // ==========================================================
+  // LOAD EXISTING CONTROL TEST
   // ==========================================================
 
   useEffect(() => {
@@ -112,38 +312,79 @@ export default function ExecuteControlsPage() {
       try {
         setLoading(true);
         setError("");
+        setSuccessMessage("");
 
-        const response = await fetch(
-          `${API_BASE_URL}/control-test-executions/?engagement=${engagementId}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }
-        );
+        const response =
+          await authenticatedFetch(
+            `${API_BASE_URL}/control-test-executions/?engagement=${encodeURIComponent(
+              engagementId
+            )}`,
+            {
+              method: "GET",
+            }
+          );
+
+        const data: ApiResponse =
+          await parseResponse(response);
 
         if (!response.ok) {
-          throw new Error(
-            `Failed to load control test (${response.status})`
-          );
+          const message =
+            formatApiError(
+              data,
+              response.status
+            );
+
+          throw new Error(message);
         }
 
-        const data: ControlTestExecution[] =
-          await response.json();
+        // ======================================================
+        // SUPPORT BOTH:
+        //
+        // [
+        //   {...}
+        // ]
+        //
+        // AND:
+        //
+        // {
+        //   count: 1,
+        //   results: [...]
+        // }
+        // ======================================================
 
-        if (data.length > 0) {
-          const existing = data[0];
+        let tests: ControlTestExecution[] = [];
 
-          setTestId(existing.id ?? null);
+        if (Array.isArray(data)) {
+          tests = data;
+        } else if (
+          data &&
+          Array.isArray(data.results)
+        ) {
+          tests = data.results;
+        }
 
-          setControlName(existing.control_name || "");
+        if (tests.length > 0) {
+          const existing = tests[0];
+
+          setTestId(
+            existing.id ?? null
+          );
+
+          setControlName(
+            existing.control_name || ""
+          );
+
           setControlReference(
             existing.control_reference || ""
           );
-          setAssertion(existing.assertion || "");
-          setControlType(existing.control_type || "");
+
+          setAssertion(
+            existing.assertion || ""
+          );
+
+          setControlType(
+            existing.control_type || ""
+          );
 
           setTestingObjective(
             existing.testing_objective || ""
@@ -153,7 +394,9 @@ export default function ExecuteControlsPage() {
             existing.test_procedure || ""
           );
 
-          setPopulation(existing.population || "");
+          setPopulation(
+            existing.population || ""
+          );
 
           setSampleSize(
             existing.sample_size !== null &&
@@ -175,7 +418,9 @@ export default function ExecuteControlsPage() {
           );
 
           setExceptionsFound(
-            String(existing.exceptions_found ?? 0)
+            String(
+              existing.exceptions_found ?? 0
+            )
           );
 
           setExceptionNature(
@@ -202,8 +447,13 @@ export default function ExecuteControlsPage() {
           err
         );
 
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to load the existing control test.";
+
         setError(
-          "Unable to load the existing control test. Make sure the Django API is running."
+          `Unable to load the existing control test. ${message}`
         );
       } finally {
         setLoading(false);
@@ -214,78 +464,98 @@ export default function ExecuteControlsPage() {
   }, [engagementId]);
 
   // ==========================================================
-  // CLEAR MESSAGES
-  // ==========================================================
-
-  const clearMessages = () => {
-    setSaved(false);
-    setSuccessMessage("");
-    setError("");
-  };
-
-  // ==========================================================
   // VALIDATION
   // ==========================================================
 
   const validateForm = () => {
+    setError("");
+
     if (!controlName.trim()) {
-      setError("Control Name is required.");
+      setError(
+        "Control Name is required."
+      );
       return false;
     }
 
     if (!controlReference.trim()) {
-      setError("Control Reference is required.");
+      setError(
+        "Control Reference is required."
+      );
       return false;
     }
 
     if (!assertion) {
-      setError("Please select an assertion.");
+      setError(
+        "Please select an assertion."
+      );
       return false;
     }
 
     if (!controlType) {
-      setError("Please select a control type.");
+      setError(
+        "Please select a control type."
+      );
       return false;
     }
 
     if (!testingObjective.trim()) {
-      setError("Testing Objective is required.");
+      setError(
+        "Testing Objective is required."
+      );
       return false;
     }
 
     if (!testProcedure.trim()) {
-      setError("Test Procedure is required.");
+      setError(
+        "Test Procedure is required."
+      );
       return false;
     }
 
     if (!auditEvidence.trim()) {
-      setError("Audit Evidence is required.");
+      setError(
+        "Audit Evidence is required."
+      );
       return false;
     }
 
     if (!relianceDecision) {
-      setError("Please select a Reliance Decision.");
+      setError(
+        "Please select a Reliance Decision."
+      );
       return false;
     }
 
     if (!auditorConclusion.trim()) {
-      setError("Auditor Conclusion is required.");
+      setError(
+        "Auditor Conclusion is required."
+      );
       return false;
     }
 
     if (
       sampleSize !== "" &&
-      Number(sampleSize) < 0
+      (
+        Number.isNaN(Number(sampleSize)) ||
+        Number(sampleSize) < 0
+      )
     ) {
-      setError("Sample Size cannot be negative.");
+      setError(
+        "Sample Size must be a valid non-negative number."
+      );
       return false;
     }
 
     if (
       exceptionsFound === "" ||
+      Number.isNaN(
+        Number(exceptionsFound)
+      ) ||
       Number(exceptionsFound) < 0
     ) {
-      setError("Exceptions Found cannot be negative.");
+      setError(
+        "Exceptions Found must be a valid non-negative number."
+      );
       return false;
     }
 
@@ -309,16 +579,20 @@ export default function ExecuteControlsPage() {
 
   const buildPayload = () => {
     return {
-      engagement: Number(engagementId),
+      engagement: Number(
+        engagementId
+      ),
 
-      control_name: controlName.trim(),
+      control_name:
+        controlName.trim(),
 
       control_reference:
         controlReference.trim(),
 
       assertion,
 
-      control_type: controlType,
+      control_type:
+        controlType,
 
       testing_objective:
         testingObjective.trim(),
@@ -335,7 +609,6 @@ export default function ExecuteControlsPage() {
           : Number(sampleSize),
 
       sampling_method:
-
         samplingMethod,
 
       audit_evidence:
@@ -344,7 +617,9 @@ export default function ExecuteControlsPage() {
       result,
 
       exceptions_found:
-        Number(exceptionsFound || 0),
+        Number(
+          exceptionsFound || 0
+        ),
 
       exception_nature:
         exceptionNature.trim(),
@@ -361,7 +636,7 @@ export default function ExecuteControlsPage() {
   };
 
   // ==========================================================
-  // SAVE TEST
+  // SAVE CONTROL TEST
   // ==========================================================
 
   const saveTest = async () => {
@@ -374,26 +649,34 @@ export default function ExecuteControlsPage() {
       setError("");
       setSuccessMessage("");
 
-      const payload = buildPayload();
+      const payload =
+        buildPayload();
 
-      const isUpdating = testId !== null;
+      const isUpdating =
+        testId !== null;
 
       const url = isUpdating
         ? `${API_BASE_URL}/control-test-executions/${testId}/`
         : `${API_BASE_URL}/control-test-executions/`;
 
-      const response = await fetch(url, {
-        method: isUpdating ? "PATCH" : "POST",
+      const response =
+        await authenticatedFetch(
+          url,
+          {
+            method: isUpdating
+              ? "PATCH"
+              : "POST",
 
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+            body: JSON.stringify(
+              payload
+            ),
+          }
+        );
 
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json();
+      const responseData =
+        await parseResponse(
+          response
+        );
 
       if (!response.ok) {
         console.error(
@@ -402,11 +685,25 @@ export default function ExecuteControlsPage() {
         );
 
         throw new Error(
-          JSON.stringify(responseData)
+          formatApiError(
+            responseData,
+            response.status
+          )
         );
       }
 
-      setTestId(responseData.id);
+      // ======================================================
+      // SAVE RETURNED ID
+      // ======================================================
+
+      if (
+        responseData &&
+        responseData.id
+      ) {
+        setTestId(
+          Number(responseData.id)
+        );
+      }
 
       setSaved(true);
 
@@ -423,8 +720,13 @@ export default function ExecuteControlsPage() {
         err
       );
 
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unknown API error.";
+
       setError(
-        "Failed to save the control test. Check that the Django backend is running and the API is available."
+        `Failed to save the control test. ${message}`
       );
 
       return false;
@@ -438,7 +740,8 @@ export default function ExecuteControlsPage() {
   // ==========================================================
 
   const handleContinue = async () => {
-    const success = await saveTest();
+    const success =
+      await saveTest();
 
     if (!success) {
       return;
@@ -458,9 +761,7 @@ export default function ExecuteControlsPage() {
       <AppLayout>
         <div className="min-h-screen bg-gray-50">
           <div className="flex min-h-[500px] items-center justify-center">
-
             <div className="flex items-center gap-3 rounded-xl border bg-white px-6 py-5 shadow-sm">
-
               <Loader2
                 size={22}
                 className="animate-spin text-blue-600"
@@ -469,9 +770,7 @@ export default function ExecuteControlsPage() {
               <span className="text-sm font-medium text-gray-600">
                 Loading control test...
               </span>
-
             </div>
-
           </div>
         </div>
       </AppLayout>
@@ -667,7 +966,9 @@ export default function ExecuteControlsPage() {
                 type="text"
                 value={controlName}
                 onChange={(e) => {
-                  setControlName(e.target.value);
+                  setControlName(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 placeholder="e.g. Revenue Invoice Approval"
@@ -688,7 +989,9 @@ export default function ExecuteControlsPage() {
                 type="text"
                 value={controlReference}
                 onChange={(e) => {
-                  setControlReference(e.target.value);
+                  setControlReference(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 placeholder="e.g. CTRL-REV-001"
@@ -708,7 +1011,9 @@ export default function ExecuteControlsPage() {
               <select
                 value={assertion}
                 onChange={(e) => {
-                  setAssertion(e.target.value);
+                  setAssertion(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -769,7 +1074,9 @@ export default function ExecuteControlsPage() {
               <select
                 value={controlType}
                 onChange={(e) => {
-                  setControlType(e.target.value);
+                  setControlType(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -839,7 +1146,9 @@ export default function ExecuteControlsPage() {
               rows={4}
               value={testingObjective}
               onChange={(e) => {
-                setTestingObjective(e.target.value);
+                setTestingObjective(
+                  e.target.value
+                );
                 clearMessages();
               }}
               placeholder="Describe the objective of testing this control..."
@@ -886,7 +1195,9 @@ export default function ExecuteControlsPage() {
               rows={5}
               value={testProcedure}
               onChange={(e) => {
-                setTestProcedure(e.target.value);
+                setTestProcedure(
+                  e.target.value
+                );
                 clearMessages();
               }}
               placeholder="Describe the control testing procedure performed..."
@@ -941,7 +1252,9 @@ export default function ExecuteControlsPage() {
                 type="text"
                 value={population}
                 onChange={(e) => {
-                  setPopulation(e.target.value);
+                  setPopulation(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 placeholder="e.g. 1,250 transactions"
@@ -963,7 +1276,9 @@ export default function ExecuteControlsPage() {
                 min="0"
                 value={sampleSize}
                 onChange={(e) => {
-                  setSampleSize(e.target.value);
+                  setSampleSize(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 placeholder="e.g. 25"
@@ -983,7 +1298,9 @@ export default function ExecuteControlsPage() {
               <select
                 value={samplingMethod}
                 onChange={(e) => {
-                  setSamplingMethod(e.target.value);
+                  setSamplingMethod(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -1045,7 +1362,9 @@ export default function ExecuteControlsPage() {
               rows={4}
               value={auditEvidence}
               onChange={(e) => {
-                setAuditEvidence(e.target.value);
+                setAuditEvidence(
+                  e.target.value
+                );
                 clearMessages();
               }}
               placeholder="Describe evidence obtained and workpaper references..."
@@ -1087,7 +1406,9 @@ export default function ExecuteControlsPage() {
               <select
                 value={result}
                 onChange={(e) => {
-                  setResult(e.target.value);
+                  setResult(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -1130,7 +1451,9 @@ export default function ExecuteControlsPage() {
                 min="0"
                 value={exceptionsFound}
                 onChange={(e) => {
-                  setExceptionsFound(e.target.value);
+                  setExceptionsFound(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -1178,7 +1501,9 @@ export default function ExecuteControlsPage() {
               rows={4}
               value={exceptionNature}
               onChange={(e) => {
-                setExceptionNature(e.target.value);
+                setExceptionNature(
+                  e.target.value
+                );
                 clearMessages();
               }}
               placeholder="Describe the nature and cause of exceptions..."
@@ -1189,7 +1514,9 @@ export default function ExecuteControlsPage() {
               rows={4}
               value={exceptionEffect}
               onChange={(e) => {
-                setExceptionEffect(e.target.value);
+                setExceptionEffect(
+                  e.target.value
+                );
                 clearMessages();
               }}
               placeholder="Describe the effect of the exceptions on control reliance..."
@@ -1231,7 +1558,9 @@ export default function ExecuteControlsPage() {
               <select
                 value={relianceDecision}
                 onChange={(e) => {
-                  setRelianceDecision(e.target.value);
+                  setRelianceDecision(
+                    e.target.value
+                  );
                   clearMessages();
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -1267,7 +1596,9 @@ export default function ExecuteControlsPage() {
               rows={5}
               value={auditorConclusion}
               onChange={(e) => {
-                setAuditorConclusion(e.target.value);
+                setAuditorConclusion(
+                  e.target.value
+                );
                 clearMessages();
               }}
               placeholder="Document the auditor's conclusion..."
@@ -1318,16 +1649,19 @@ export default function ExecuteControlsPage() {
                     size={18}
                     className="animate-spin"
                   />
+
                   Saving...
                 </>
               ) : saved ? (
                 <>
                   <CheckCircle2 size={18} />
+
                   Saved
                 </>
               ) : (
                 <>
                   <Save size={18} />
+
                   Save Test
                 </>
               )}
@@ -1349,11 +1683,13 @@ export default function ExecuteControlsPage() {
                     size={18}
                     className="animate-spin"
                   />
+
                   Saving...
                 </>
               ) : (
                 <>
                   Continue
+
                   <ArrowRight size={18} />
                 </>
               )}
