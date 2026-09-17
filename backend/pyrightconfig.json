@@ -1,0 +1,15 @@
+{
+    "include": [
+        "apps",
+        "config"
+    ],
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "extraPaths": [
+                "."
+            ]
+        }
+    ],
+    "pythonVersion": "3.14"
+}
