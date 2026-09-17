@@ -11,17 +11,22 @@ from dotenv import load_dotenv
 
 
 # ============================================================
-# ENVIRONMENT VARIABLES
-# ============================================================
-
-load_dotenv()
-
-
-# ============================================================
 # BASE DIRECTORY
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Project root:
+# C:\Users\DELL\Desktop\AUD\AUD
+PROJECT_ROOT = BASE_DIR.parent
+
+
+# ============================================================
+# ENVIRONMENT VARIABLES
+# ============================================================
+
+# Explicitly load the .env file from the AUD project root.
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 # ============================================================
@@ -80,7 +85,9 @@ INSTALLED_APPS = [
     "apps.review_workflow",
     "apps.completion_review",
 
+    # --------------------------------------------------------
     # FINANCIALS
+    # --------------------------------------------------------
     "apps.financials",
 
     # --------------------------------------------------------
@@ -166,11 +173,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "aud_db",
-        "USER": "postgres",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": "localhost",
-        "PORT": "5432",
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": os.getenv("DB_PORT", "5433"),
     }
 }
 
