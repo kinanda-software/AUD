@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -421,8 +420,8 @@ export default function ManagementOverridePage() {
   ).length;
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-7xl space-y-6">
+    
+      <div className="w-full min-w-0 space-y-6">
 
         {/* =====================================================
             HEADER
@@ -1185,7 +1184,7 @@ export default function ManagementOverridePage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    
   );
 }
 

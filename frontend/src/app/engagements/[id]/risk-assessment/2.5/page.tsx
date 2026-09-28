@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-
-import AppLayout from "../../../../../components/layout/AppLayout";
 
 import {
   ArrowLeft,
@@ -344,16 +342,16 @@ export default function ControlsTestingPage() {
   ).length;
 
   return (
-    <AppLayout>
+    
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="border-b border-gray-200 bg-white">
-          <div className="mx-auto max-w-7xl px-6 py-5">
+          <div className="w-full min-w-0 px-6 py-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
                   <span>AUD-001</span>
-                  <span>—</span>
+                  <span>â€”</span>
                   <span>Financial Statement Audit</span>
                 </div>
 
@@ -397,7 +395,7 @@ export default function ControlsTestingPage() {
         </div>
 
         {/* Main Content */}
-        <main className="mx-auto max-w-7xl px-6 py-8">
+        <main className="w-full min-w-0 px-6 py-8">
           {/* Guidance */}
           <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
             <div className="flex gap-4">
@@ -671,7 +669,7 @@ export default function ControlsTestingPage() {
                               event.target.value
                             )
                           }
-                          placeholder="January 2026 – December 2026"
+                          placeholder="January 2026 â€“ December 2026"
                           className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -1197,7 +1195,7 @@ export default function ControlsTestingPage() {
 
         {/* Bottom Action Bar */}
         <div className="sticky bottom-0 z-20 border-t border-gray-200 bg-white/95 shadow-lg backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
+          <div className="flex w-full min-w-0 items-center justify-between gap-4 px-6 py-4">
             <button
               type="button"
               onClick={handleBack}
@@ -1238,13 +1236,13 @@ export default function ControlsTestingPage() {
               >
                 Continue
                 <span className="text-lg leading-none">
-                  →
+                  â†’
                 </span>
               </button>
             </div>
           </div>
         </div>
       </div>
-    </AppLayout>
+    
   );
 }

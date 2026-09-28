@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -395,27 +394,20 @@ export default function MaterialityAssessmentPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <main className="min-h-screen bg-gray-50 p-6">
-          <div className="mx-auto max-w-6xl">
-            <div className="rounded-xl bg-white p-8 shadow-sm">
-              <div className="flex items-center gap-3 text-gray-600">
-                <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="flex min-h-[70vh] w-full items-center justify-center px-6">
+        <div className="flex items-center gap-3 text-gray-600">
+          <Loader2 className="h-5 w-5 animate-spin" />
 
-                <p>
-                  Loading materiality assessment...
-                </p>
-              </div>
-            </div>
-          </div>
-        </main>
-      </AppLayout>
+          <p className="text-sm">
+            Loading materiality assessment...
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <main className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <div className="mx-auto max-w-6xl">
 
           {/* ==================================================
@@ -1097,8 +1089,7 @@ export default function MaterialityAssessmentPage() {
             </div>
 
           </form>
-        </div>
-      </main>
-    </AppLayout>
+      </div>
+    </div>
   );
 }

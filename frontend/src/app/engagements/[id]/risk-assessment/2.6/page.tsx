@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -425,8 +424,8 @@ export default function CombinedRiskAssessmentPage() {
    * ---------------------------------------------------------
    */
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-7xl">
+    
+      <div className="w-full min-w-0">
         {/* Header */}
         <div className="mb-6">
           <button
@@ -451,7 +450,7 @@ export default function CombinedRiskAssessmentPage() {
 
                 <div>
                   <p className="text-sm font-medium text-blue-600">
-                    Phase 2 • Section 2.6
+                    Phase 2 â€¢ Section 2.6
                   </p>
 
                   <h1 className="text-2xl font-bold text-gray-900">
@@ -1191,6 +1190,6 @@ export default function CombinedRiskAssessmentPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    
   );
 }

@@ -1,18 +1,15 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
-
-const API_BASE_URL = "http://127.0.0.1:8000/api";
-
-const DEFAULT_REVIEWER_ID = 3;
+const API_BASE_URL = "http://localhost:8000/api";
+const DEFAULT_REVIEWER_ID = 2;
 
 type ReviewStatus = "Not Reviewed" | "Reviewed" | "Follow-up Required";
 type AreaStatus = "Open" | "Reviewed" | "Follow-up Required";
 type CommentStatus = "Open" | "Cleared";
 
-type ReviewArea = {
+interface ReviewArea {
   id: string;
   area: string;
   description: string;
@@ -20,131 +17,152 @@ type ReviewArea = {
   reviewer: string;
   reviewDate: string;
   comments: string;
-};
+}
 
-type JudgmentReview = {
+interface JudgmentReview {
   id: string;
   judgment: string;
   description: string;
-  conclusion: string;
   status: ReviewStatus;
   reviewer: string;
-};
+  comments: string;
+}
 
-type ReviewComment = {
+interface ReviewComment {
   id: string;
-  reference: string;
+  area: string;
   comment: string;
-  response: string;
-  status: CommentStatus;
   reviewer: string;
-};
+  status: CommentStatus;
+  response: string;
+}
 
-type ReviewAssignmentApi = {
+interface EngagementTeamReview {
+  completed: boolean;
+  completedBy: string;
+  completedDate: string;
+  comments: string;
+}
+
+interface PartnerReview {
+  completed: boolean;
+  partnerName: string;
+  reviewDate: string;
+  approvalComments: string;
+}
+
+interface EQRReview {
+  required: boolean;
+  completed: boolean;
+  reviewerName: string;
+  reviewDate: string;
+  comments: string;
+}
+
+interface ReviewAssignment {
   id: number;
   engagement: number;
-  engagement_name?: string;
-  reviewer: number;
-  reviewer_name?: string | null;
   review_area: string;
-  assigned_date: string;
-  due_date: string | null;
-  status: "Pending" | "In Progress" | "Completed" | "Returned";
-  review_notes: string;
-  completed_date: string | null;
-  created_at: string;
-  updated_at: string;
-};
+  status: AreaStatus;
+  reviewer_name?: string | null;
+  assigned_date?: string | null;
+  comments?: string | null;
+}
 
 const initialReviewAreas: ReviewArea[] = [
   {
-    id: "RA-001",
-    area: "Risk Assessment",
+    id: "RA001",
+    area: "Revenue Recognition",
     description:
-      "Review whether identified risks of material misstatement remain appropriate and whether the audit response addresses those risks.",
+      "Review significant revenue recognition risks, audit procedures performed, conclusions reached, and supporting audit evidence.",
     status: "Reviewed",
-    reviewer: "Engagement Manager",
-    reviewDate: "2026-09-04",
-    comments: "",
-  },
-  {
-    id: "RA-002",
-    area: "Materiality",
-    description:
-      "Review overall materiality, performance materiality and clearly trivial threshold, including changes made during the audit.",
-    status: "Reviewed",
-    reviewer: "Engagement Manager",
-    reviewDate: "2026-09-04",
-    comments: "",
-  },
-  {
-    id: "RA-003",
-    area: "Significant Audit Areas",
-    description:
-      "Review significant risks, significant account balances, assertions and the audit procedures performed.",
-    status: "Reviewed",
-    reviewer: "Engagement Manager",
-    reviewDate: "2026-09-04",
-    comments: "",
-  },
-  {
-    id: "RA-004",
-    area: "Going Concern",
-    description:
-      "Review management's going concern assessment, supporting evidence and the auditor's conclusion.",
-    status: "Open",
-    reviewer: "",
-    reviewDate: "",
-    comments: "",
-  },
-  {
-    id: "RA-005",
-    area: "Fraud Considerations",
-    description:
-      "Review fraud risk assessment, management override considerations and responses to identified fraud risks.",
-    status: "Reviewed",
-    reviewer: "Engagement Manager",
-    reviewDate: "2026-09-04",
-    comments: "",
-  },
-  {
-    id: "RA-006",
-    area: "Estimates and Judgments",
-    description:
-      "Review significant accounting estimates, assumptions, estimation uncertainty and auditor judgments.",
-    status: "Follow-up Required",
-    reviewer: "Engagement Partner",
+    reviewer: "Audit Manager",
     reviewDate: "2026-09-04",
     comments:
-      "Additional documentation required for the impairment estimate.",
+      "Revenue testing and substantive procedures reviewed. No unresolved matters identified.",
   },
   {
-    id: "RA-007",
-    area: "Uncorrected Misstatements",
+    id: "RA002",
+    area: "Receivables and Expected Credit Losses",
     description:
-      "Review identified misstatements and management's decision regarding corrected and uncorrected amounts.",
+      "Review trade receivables, aging analysis, impairment assessment, subsequent receipts, and related audit evidence.",
+    status: "Reviewed",
+    reviewer: "Audit Manager",
+    reviewDate: "2026-09-04",
+    comments:
+      "Expected credit loss methodology and supporting evidence reviewed.",
+  },
+  {
+    id: "RA003",
+    area: "Inventory",
+    description:
+      "Review inventory valuation, existence, completeness, count procedures, and obsolescence assessment.",
+    status: "Reviewed",
+    reviewer: "Audit Manager",
+    reviewDate: "2026-09-05",
+    comments:
+      "Inventory procedures and valuation conclusions reviewed.",
+  },
+  {
+    id: "RA004",
+    area: "Property, Plant and Equipment",
+    description:
+      "Review additions, disposals, depreciation, impairment indicators, and supporting documentation.",
+    status: "Follow-up Required",
+    reviewer: "Audit Manager",
+    reviewDate: "2026-09-05",
+    comments:
+      "Follow-up required on supporting documentation for selected additions.",
+  },
+  {
+    id: "RA005",
+    area: "Cash and Bank",
+    description:
+      "Review bank confirmations, reconciliations, cash balances, and unusual transactions.",
+    status: "Reviewed",
+    reviewer: "Audit Manager",
+    reviewDate: "2026-09-06",
+    comments:
+      "Bank confirmations and reconciliations reviewed.",
+  },
+  {
+    id: "RA006",
+    area: "Payables and Accruals",
+    description:
+      "Review completeness procedures, supplier balances, subsequent payments, and unrecorded liabilities.",
     status: "Open",
-    reviewer: "",
+    reviewer: "Audit Manager",
     reviewDate: "",
     comments: "",
   },
   {
-    id: "RA-008",
-    area: "Financial Statement Procedures",
+    id: "RA007",
+    area: "Payroll and Employee Benefits",
     description:
-      "Review final financial statement procedures, disclosures, subsequent events and comparative information.",
+      "Review payroll testing, employee existence, statutory deductions, and employee benefit liabilities.",
     status: "Reviewed",
-    reviewer: "Engagement Manager",
-    reviewDate: "2026-09-04",
+    reviewer: "Audit Manager",
+    reviewDate: "2026-09-06",
+    comments:
+      "Payroll testing and statutory deductions reviewed.",
+  },
+  {
+    id: "RA008",
+    area: "Taxation",
+    description:
+      "Review current and deferred taxation, tax exposures, correspondence, and compliance matters.",
+    status: "Open",
+    reviewer: "Audit Manager",
+    reviewDate: "",
     comments: "",
   },
   {
-    id: "RA-009",
-    area: "Audit Documentation",
+    id: "RA009",
+    area: "Financial Statement Presentation and Disclosure",
     description:
-      "Review whether sufficient appropriate audit evidence and documentation support the significant conclusions reached.",
+      "Review financial statement presentation, accounting policies, disclosures, and compliance with the applicable framework.",
     status: "Open",
-    reviewer: "",
+    reviewer: "Audit Manager",
     reviewDate: "",
     comments: "",
   },
@@ -152,77 +170,90 @@ const initialReviewAreas: ReviewArea[] = [
 
 const initialJudgments: JudgmentReview[] = [
   {
-    id: "J-001",
-    judgment: "Revenue Recognition",
+    id: "J001",
+    judgment: "Going Concern Assessment",
     description:
-      "Assessment of revenue recognition risks, timing of recognition and relevant audit evidence.",
-    conclusion:
-      "Revenue recognition conclusion is consistent with the audit evidence obtained.",
+      "Review management's going concern assessment, assumptions, forecasts, available financing, and related disclosures.",
     status: "Reviewed",
-    reviewer: "Engagement Manager",
-  },
-  {
-    id: "J-002",
-    judgment: "Management Estimates",
-    description:
-      "Review of significant estimates, assumptions and estimation uncertainty.",
-    conclusion: "",
-    status: "Follow-up Required",
     reviewer: "Engagement Partner",
+    comments:
+      "Going concern assessment reviewed with no unresolved issues identified.",
   },
   {
-    id: "J-003",
-    judgment: "Going Concern",
+    id: "J002",
+    judgment: "Expected Credit Loss Estimate",
     description:
-      "Review of management's assessment and the auditor's conclusion regarding going concern.",
-    conclusion: "",
+      "Review assumptions, historical loss information, forward-looking information, and management overlays.",
+    status: "Follow-up Required",
+    reviewer: "Audit Manager",
+    comments:
+      "Additional support required for selected assumptions.",
+  },
+  {
+    id: "J003",
+    judgment: "Asset Impairment Assessment",
+    description:
+      "Review impairment indicators, valuation assumptions, cash generating units, and sensitivity analysis.",
     status: "Not Reviewed",
     reviewer: "",
+    comments: "",
   },
 ];
 
 const initialComments: ReviewComment[] = [
   {
-    id: "RC-001",
-    reference: "Review Note 001",
+    id: "RC001",
+    area: "Property, Plant and Equipment",
     comment:
-      "Provide additional support for the significant impairment estimate.",
-    response: "",
+      "Please provide additional supporting documentation for selected asset additions.",
+    reviewer: "Audit Manager",
     status: "Open",
-    reviewer: "Engagement Partner",
+    response: "",
   },
 ];
 
-function frontendStatusToBackend(
-  status: AreaStatus
-): ReviewAssignmentApi["status"] {
-  if (status === "Reviewed") {
-    return "Completed";
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
   }
 
-  if (status === "Follow-up Required") {
-    return "Returned";
+  const cookies = document.cookie.split(";");
+
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim();
+
+    if (trimmed.startsWith(`${name}=`)) {
+      return decodeURIComponent(
+        trimmed.substring(name.length + 1)
+      );
+    }
   }
 
-  return "Pending";
+  return null;
 }
 
-function backendStatusToFrontend(
-  status: ReviewAssignmentApi["status"]
-): AreaStatus {
-  if (status === "Completed") {
-    return "Reviewed";
+function getHeaders(includeContentType = false): HeadersInit {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+
+  if (includeContentType) {
+    headers["Content-Type"] = "application/json";
+
+    const csrfToken = getCookie("csrftoken");
+
+    if (csrfToken) {
+      headers["X-CSRFToken"] = csrfToken;
+    }
   }
 
-  if (status === "Returned") {
-    return "Follow-up Required";
-  }
-
-  return "Open";
+  return headers;
 }
 
 function extractDateFromNotes(notes: string): string {
-  const match = notes.match(/\[Review Date:\s*(\d{4}-\d{2}-\d{2})\]/);
+  const match = notes.match(
+    /\[Review Date:\s*(\d{4}-\d{2}-\d{2})\]/
+  );
 
   return match?.[1] ?? "";
 }
@@ -233,1290 +264,50 @@ function cleanReviewNotes(notes: string): string {
     .trim();
 }
 
-export default function SummaryReviewPage() {
-  const params = useParams();
-  const router = useRouter();
-
-  const engagementId = String(params.id ?? "");
-
-  const [completionStatus, setCompletionStatus] =
-    useState<"In Progress" | "Completed">("In Progress");
-
-  const [saved, setSaved] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const [reviewAreas, setReviewAreas] =
-    useState<ReviewArea[]>(initialReviewAreas);
-
-  const [judgments, setJudgments] =
-    useState<JudgmentReview[]>(initialJudgments);
-
-  const [reviewComments, setReviewComments] =
-    useState<ReviewComment[]>(initialComments);
-
-  const [engagementTeamReview, setEngagementTeamReview] = useState({
-    completed: true,
-    reviewer: "Engagement Manager",
-    date: "2026-09-04",
-    comments:
-      "Engagement team review performed over significant audit areas and conclusions.",
-  });
-
-  const [partnerReview, setPartnerReview] = useState({
-    completed: false,
-    reviewer: "",
-    date: "",
-    comments: "",
-  });
-
-  const [eqrReview, setEqrReview] = useState({
-    required: true,
-    completed: false,
-    reviewer: "",
-    date: "",
-    comments: "",
-  });
-
-  const [overallConclusion, setOverallConclusion] = useState(
-    "The overall review is in progress. Outstanding review matters must be resolved before final approval."
-  );
-
-  const [approvalComments, setApprovalComments] = useState("");
-
-  /*
-   * ------------------------------------------------------------------------
-   * LOAD REVIEW ASSIGNMENTS FROM DJANGO
-   * ------------------------------------------------------------------------
-   */
-  useEffect(() => {
-    if (!engagementId) {
-      return;
-    }
-
-    const loadReviewAssignments = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/review-assignments/`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to load review assignments. HTTP ${response.status}`
-          );
-        }
-
-        const data: ReviewAssignmentApi[] = await response.json();
-
-        const engagementAssignments = data.filter(
-          (item) => item.engagement === Number(engagementId)
-        );
-
-        if (engagementAssignments.length > 0) {
-          setReviewAreas((currentAreas) =>
-            currentAreas.map((area) => {
-              const assignment = engagementAssignments.find(
-                (item) => item.review_area === area.area
-              );
-
-              if (!assignment) {
-                return area;
-              }
-
-              const reviewDate =
-                extractDateFromNotes(assignment.review_notes) ||
-                assignment.completed_date ||
-                assignment.assigned_date ||
-                "";
-
-              const comments = cleanReviewNotes(
-                assignment.review_notes || ""
-              );
-
-              return {
-                ...area,
-                status: backendStatusToFrontend(assignment.status),
-                reviewer:
-                  assignment.reviewer_name ||
-                  area.reviewer ||
-                  "Engagement Manager",
-                reviewDate,
-                comments,
-              };
-            })
-          );
-        }
-
-        setSaved(engagementAssignments.length > 0);
-      } catch (err) {
-        console.error("Review assignment load error:", err);
-
-        setError(
-          "Unable to load review data from the backend. Make sure Django is running on http://127.0.0.1:8000."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadReviewAssignments();
-  }, [engagementId]);
-
-  /*
-   * ------------------------------------------------------------------------
-   * SAVE REVIEW AREAS TO DJANGO
-   * ------------------------------------------------------------------------
-   */
-  const saveReviewAreasToBackend = async () => {
-    if (!engagementId) {
-      throw new Error("Engagement ID is missing.");
-    }
-
-    const existingResponse = await fetch(
-      `${API_BASE_URL}/review-assignments/`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      }
-    );
-
-    if (!existingResponse.ok) {
-      throw new Error(
-        `Unable to retrieve existing review assignments. HTTP ${existingResponse.status}`
-      );
-    }
-
-    const existingAssignments: ReviewAssignmentApi[] =
-      await existingResponse.json();
-
-    const engagementAssignments = existingAssignments.filter(
-      (item) => item.engagement === Number(engagementId)
-    );
-
-    for (const area of reviewAreas) {
-      const existingAssignment = engagementAssignments.find(
-        (item) => item.review_area === area.area
-      );
-
-      const backendStatus = frontendStatusToBackend(area.status);
-
-      const reviewNotes = [
-        area.reviewDate
-          ? `[Review Date: ${area.reviewDate}]`
-          : "",
-        area.comments.trim(),
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-
-      const payload = {
-        engagement: Number(engagementId),
-        reviewer: DEFAULT_REVIEWER_ID,
-        review_area: area.area,
-        assigned_date:
-          area.reviewDate ||
-          new Date().toISOString().split("T")[0],
-        due_date: null,
-        status: backendStatus,
-        review_notes: reviewNotes,
-        completed_date:
-          area.status === "Reviewed"
-            ? area.reviewDate ||
-              new Date().toISOString().split("T")[0]
-            : null,
-      };
-
-      let response: Response;
-
-      if (existingAssignment) {
-        response = await fetch(
-          `${API_BASE_URL}/review-assignments/${existingAssignment.id}/`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-      } else {
-        response = await fetch(
-          `${API_BASE_URL}/review-assignments/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-      }
-
-      if (!response.ok) {
-        const responseText = await response.text();
-
-        throw new Error(
-          `Failed to save "${area.area}". HTTP ${response.status}. ${responseText}`
-        );
-      }
-    }
-  };
-
-  const reviewedAreas = useMemo(
-    () => reviewAreas.filter((item) => item.status === "Reviewed").length,
-    [reviewAreas]
-  );
-
-  const followUpAreas = useMemo(
-    () =>
-      reviewAreas.filter((item) => item.status === "Follow-up Required")
-        .length,
-    [reviewAreas]
-  );
-
-  const openAreas = useMemo(
-    () => reviewAreas.filter((item) => item.status === "Open").length,
-    [reviewAreas]
-  );
-
-  const reviewedJudgments = useMemo(
-    () => judgments.filter((item) => item.status === "Reviewed").length,
-    [judgments]
-  );
-
-  const judgmentFollowUps = useMemo(
-    () =>
-      judgments.filter((item) => item.status === "Follow-up Required").length,
-    [judgments]
-  );
-
-  const openComments = useMemo(
-    () => reviewComments.filter((item) => item.status === "Open").length,
-    [reviewComments]
-  );
-
-  const clearedComments = useMemo(
-    () => reviewComments.filter((item) => item.status === "Cleared").length,
-    [reviewComments]
-  );
-
-  const reviewReadiness = useMemo(() => {
-    return {
-      areasComplete: openAreas === 0 && followUpAreas === 0,
-      judgmentsComplete: judgmentFollowUps === 0,
-      commentsComplete: openComments === 0,
-      teamComplete: engagementTeamReview.completed,
-      partnerComplete: partnerReview.completed,
-      eqrComplete: !eqrReview.required || eqrReview.completed,
-    };
-  }, [
-    openAreas,
-    followUpAreas,
-    judgmentFollowUps,
-    openComments,
-    engagementTeamReview.completed,
-    partnerReview.completed,
-    eqrReview.required,
-    eqrReview.completed,
-  ]);
-
-  const reviewReady = Object.values(reviewReadiness).every(Boolean);
-
-  const updateReviewArea = (
-    id: string,
-    field: keyof ReviewArea,
-    value: string
-  ) => {
-    setReviewAreas((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-
-    setSaved(false);
-    setError("");
-  };
-
-  const updateJudgment = (
-    id: string,
-    field: keyof JudgmentReview,
-    value: string
-  ) => {
-    setJudgments((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-
-    setSaved(false);
-  };
-
-  const updateComment = (
-    id: string,
-    field: keyof ReviewComment,
-    value: string
-  ) => {
-    setReviewComments((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-
-    setSaved(false);
-  };
-
-  const addReviewComment = () => {
-    const newComment: ReviewComment = {
-      id: `RC-${String(reviewComments.length + 1).padStart(3, "0")}`,
-      reference: `Review Note ${String(reviewComments.length + 1).padStart(
-        3,
-        "0"
-      )}`,
-      comment: "",
-      response: "",
-      status: "Open",
-      reviewer: "",
-    };
-
-    setReviewComments((current) => [...current, newComment]);
-    setSaved(false);
-  };
-
-  const removeReviewComment = (id: string) => {
-    setReviewComments((current) =>
-      current.filter((item) => item.id !== id)
-    );
-
-    setSaved(false);
-  };
-
-  const saveWorkpaper = async () => {
-    setSaving(true);
-    setError("");
-
-    try {
-      await saveReviewAreasToBackend();
-
-      setSaved(true);
-
-      alert("Review workpaper saved successfully to the database.");
-    } catch (err) {
-      console.error("Save workpaper error:", err);
-
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to save the review workpaper.";
-
-      setError(message);
-      setSaved(false);
-
-      alert(`Save failed.\n\n${message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const completeWorkpaper = async () => {
-    if (!reviewReady) {
-      alert(
-        "The review cannot be completed. Resolve all open review areas, follow-up items, review comments, partner review and required EQR review."
-      );
-      return;
-    }
-
-    if (!overallConclusion.trim()) {
-      alert("Enter the overall review conclusion before completing.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    try {
-      await saveReviewAreasToBackend();
-
-      setCompletionStatus("Completed");
-      setSaved(true);
-
-      alert("Review workpaper completed successfully.");
-    } catch (err) {
-      console.error("Complete workpaper error:", err);
-
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to complete the review workpaper.";
-
-      setError(message);
-
-      alert(`Completion failed.\n\n${message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const goToOverview = () => {
-    router.push(`/engagements/${engagementId}/conclusion-reporting`);
-  };
-
-  const goBack = () => {
-    router.push(
-      `/engagements/${engagementId}/conclusion-reporting/financial-statement-procedures`
-    );
-  };
-
-  const continueToClientCommunications = () => {
-    router.push(
-      `/engagements/${engagementId}/conclusion-reporting/client-communications`
-    );
+function formatDate(date: string): string {
+  if (!date) {
+    return "";
+  }
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return parsed.toLocaleDateString();
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: string;
+}) {
+  const styles: Record<string, string> = {
+    Reviewed: "bg-green-100 text-green-700 border-green-200",
+    "Follow-up Required":
+      "bg-amber-100 text-amber-700 border-amber-200",
+    Open: "bg-red-100 text-red-700 border-red-200",
+    Cleared: "bg-green-100 text-green-700 border-green-200",
+    "Not Reviewed":
+      "bg-gray-100 text-gray-700 border-gray-200",
+    Completed:
+      "bg-green-100 text-green-700 border-green-200",
+    Pending:
+      "bg-amber-100 text-amber-700 border-amber-200",
   };
 
   return (
-    <AppLayout>
-      <main className="min-w-0 flex-1 bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          {/* Header */}
-          <header className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="px-6 py-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                    <span>Phase 4</span>
-                    <span>/</span>
-                    <span>Conclusion & Reporting</span>
-                    <span>/</span>
-                    <span>4.3</span>
-                  </div>
-
-                  <h1 className="text-2xl font-bold text-slate-900">
-                    Summary Review & Overall Review / Approval
-                  </h1>
-
-                  <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                    Perform leadership review of significant audit areas,
-                    significant judgments, uncorrected misstatements, financial
-                    statement procedures and audit documentation before final
-                    approval.
-                  </p>
-                </div>
-
-                <div className="shrink-0">
-                  <StatusBadge status={completionStatus} />
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* Backend status */}
-          <div className="mt-4">
-            {loading && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm font-semibold text-blue-800">
-                Loading review data from the database...
-              </div>
-            )}
-
-            {!loading && error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
-                <p className="font-bold">Backend connection error</p>
-                <p className="mt-1">{error}</p>
-              </div>
-            )}
-
-            {!loading && !error && saved && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-800">
-                ✓ Review data is connected to the database.
-              </div>
-            )}
-          </div>
-
-          {/* Standards */}
-          <div className="mt-6 mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white">
-                ISA 220
-              </span>
-
-              <span className="rounded-md bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-800">
-                ISQM 2
-              </span>
-
-              <span className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                Engagement Quality Review
-              </span>
-            </div>
-
-            <p className="mt-3 text-sm leading-6 text-blue-950">
-              The review should determine whether the engagement team has
-              obtained sufficient appropriate audit evidence and whether the
-              significant judgments and conclusions are appropriate before the
-              auditor&apos;s report is finalized.
-            </p>
-          </div>
-
-          {/* Metrics */}
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <MetricCard
-              label="Areas Reviewed"
-              value={`${reviewedAreas}/${reviewAreas.length}`}
-              detail="Significant areas"
-            />
-
-            <MetricCard
-              label="Follow-ups"
-              value={String(followUpAreas)}
-              detail="Areas requiring action"
-              warning={followUpAreas > 0}
-            />
-
-            <MetricCard
-              label="Judgments Reviewed"
-              value={`${reviewedJudgments}/${judgments.length}`}
-              detail="Significant judgments"
-            />
-
-            <MetricCard
-              label="Open Comments"
-              value={String(openComments)}
-              detail={`${clearedComments} cleared`}
-              warning={openComments > 0}
-            />
-
-            <MetricCard
-              label="Review Ready"
-              value={reviewReady ? "YES" : "NO"}
-              detail="Final approval status"
-              success={reviewReady}
-              warning={!reviewReady}
-            />
-          </div>
-
-          {/* 4.3.1 Significant Audit Areas */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.1"
-              title="Summary Review of Significant Audit Areas"
-              description="Review the key audit areas and confirm that conclusions are supported by sufficient appropriate audit evidence."
-            />
-
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="hidden border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 lg:grid lg:grid-cols-12 lg:gap-4">
-                <div className="col-span-3">Audit Area</div>
-                <div className="col-span-4">Description</div>
-                <div className="col-span-2">Status</div>
-                <div className="col-span-3">Reviewer / Date</div>
-              </div>
-
-              {reviewAreas.map((item) => (
-                <div
-                  key={item.id}
-                  className="border-b border-slate-200 p-5 last:border-b-0"
-                >
-                  <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-                    <div className="lg:col-span-3">
-                      <p className="font-semibold text-slate-900">
-                        {item.area}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-400">{item.id}</p>
-                    </div>
-
-                    <div className="lg:col-span-4">
-                      <p className="text-sm leading-6 text-slate-600">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="lg:col-span-2">
-                      <SelectField
-                        value={item.status}
-                        onChange={(value) =>
-                          updateReviewArea(item.id, "status", value)
-                        }
-                        options={[
-                          "Open",
-                          "Reviewed",
-                          "Follow-up Required",
-                        ]}
-                      />
-                    </div>
-
-                    <div className="lg:col-span-3">
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                        <TextField
-                          value={item.reviewer}
-                          placeholder="Reviewer"
-                          onChange={(value) =>
-                            updateReviewArea(item.id, "reviewer", value)
-                          }
-                        />
-
-                        <TextField
-                          type="date"
-                          value={item.reviewDate}
-                          onChange={(value) =>
-                            updateReviewArea(item.id, "reviewDate", value)
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <TextAreaField
-                      label="Review comments / follow-up"
-                      value={item.comments}
-                      placeholder="Document review comments, follow-up requirements or conclusion..."
-                      onChange={(value) =>
-                        updateReviewArea(item.id, "comments", value)
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* 4.3.2 Significant Judgments */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.2"
-              title="Review of Significant Judgments"
-              description="Evaluate significant accounting and audit judgments, including estimates, revenue recognition and going concern."
-            />
-
-            <div className="space-y-4">
-              {judgments.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="grid gap-5 lg:grid-cols-12">
-                    <div className="lg:col-span-3">
-                      <p className="font-semibold text-slate-900">
-                        {item.judgment}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-400">{item.id}</p>
-
-                      <p className="mt-3 text-sm leading-6 text-slate-600">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="lg:col-span-3">
-                      <label className="mb-2 block text-xs font-semibold text-slate-600">
-                        Review Status
-                      </label>
-
-                      <SelectField
-                        value={item.status}
-                        onChange={(value) =>
-                          updateJudgment(item.id, "status", value)
-                        }
-                        options={[
-                          "Not Reviewed",
-                          "Reviewed",
-                          "Follow-up Required",
-                        ]}
-                      />
-                    </div>
-
-                    <div className="lg:col-span-3">
-                      <label className="mb-2 block text-xs font-semibold text-slate-600">
-                        Reviewer
-                      </label>
-
-                      <TextField
-                        value={item.reviewer}
-                        placeholder="Reviewer name"
-                        onChange={(value) =>
-                          updateJudgment(item.id, "reviewer", value)
-                        }
-                      />
-                    </div>
-
-                    <div className="lg:col-span-3">
-                      <TextAreaField
-                        label="Conclusion"
-                        value={item.conclusion}
-                        placeholder="Document review conclusion..."
-                        onChange={(value) =>
-                          updateJudgment(item.id, "conclusion", value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* 4.3.3 Uncorrected Misstatements */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.3"
-              title="Review of Uncorrected Misstatements"
-              description="Confirm that identified uncorrected misstatements have been evaluated individually and in aggregate and appropriately communicated."
-            />
-
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-              <h3 className="font-semibold text-amber-950">
-                Required review considerations
-              </h3>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <ConsiderationItem text="Review current-period uncorrected misstatements." />
-                <ConsiderationItem text="Review prior-period uncorrected misstatements." />
-                <ConsiderationItem text="Consider aggregate effect against materiality." />
-                <ConsiderationItem text="Consider qualitative factors." />
-                <ConsiderationItem text="Confirm management communication." />
-                <ConsiderationItem text="Confirm written representation requirements." />
-              </div>
-
-              <div className="mt-5">
-                <TextAreaField
-                  label="Uncorrected Misstatements Review Conclusion"
-                  value={overallConclusion}
-                  placeholder="Document the overall conclusion on uncorrected misstatements..."
-                  onChange={(value) => {
-                    setOverallConclusion(value);
-                    setSaved(false);
-                  }}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* 4.3.4 Financial Statement Procedures */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.4"
-              title="Review of Financial Statement Procedures"
-              description="Confirm completion and appropriate review of final financial statement procedures."
-            />
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <ReviewConfirmation
-                title="Disclosure Review"
-                description="Financial statement disclosures have been reviewed."
-              />
-
-              <ReviewConfirmation
-                title="Subsequent Events"
-                description="Subsequent events procedures have been completed."
-              />
-
-              <ReviewConfirmation
-                title="Comparative Information"
-                description="Comparative information has been appropriately reviewed."
-              />
-
-              <ReviewConfirmation
-                title="Overall Analytical Review"
-                description="Overall financial statement analytical review has been completed."
-              />
-            </div>
-          </section>
-
-          {/* 4.3.5 Team Review */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.5"
-              title="Engagement Team Review"
-              description="Document the engagement team's overall review of the audit work and significant conclusions."
-            />
-
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <BooleanCheck
-                label="Engagement team review completed"
-                checked={engagementTeamReview.completed}
-                onChange={(value) => {
-                  setEngagementTeamReview((current) => ({
-                    ...current,
-                    completed: value,
-                  }));
-                  setSaved(false);
-                }}
-              />
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <TextField
-                  label="Reviewer"
-                  value={engagementTeamReview.reviewer}
-                  placeholder="Engagement manager / senior"
-                  onChange={(value) => {
-                    setEngagementTeamReview((current) => ({
-                      ...current,
-                      reviewer: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-
-                <TextField
-                  label="Review Date"
-                  type="date"
-                  value={engagementTeamReview.date}
-                  onChange={(value) => {
-                    setEngagementTeamReview((current) => ({
-                      ...current,
-                      date: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-              </div>
-
-              <div className="mt-4">
-                <TextAreaField
-                  label="Team Review Comments"
-                  value={engagementTeamReview.comments}
-                  placeholder="Document engagement team review comments..."
-                  onChange={(value) => {
-                    setEngagementTeamReview((current) => ({
-                      ...current,
-                      comments: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* 4.3.6 Partner Review */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.6"
-              title="Engagement Partner Review & Approval"
-              description="The engagement partner should review significant matters, judgments and conclusions before approving the engagement."
-            />
-
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <BooleanCheck
-                label="Engagement partner review completed"
-                checked={partnerReview.completed}
-                onChange={(value) => {
-                  setPartnerReview((current) => ({
-                    ...current,
-                    completed: value,
-                  }));
-                  setSaved(false);
-                }}
-              />
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <TextField
-                  label="Engagement Partner"
-                  value={partnerReview.reviewer}
-                  placeholder="Partner name"
-                  onChange={(value) => {
-                    setPartnerReview((current) => ({
-                      ...current,
-                      reviewer: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-
-                <TextField
-                  label="Review Date"
-                  type="date"
-                  value={partnerReview.date}
-                  onChange={(value) => {
-                    setPartnerReview((current) => ({
-                      ...current,
-                      date: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-              </div>
-
-              <div className="mt-4">
-                <TextAreaField
-                  label="Partner Review Comments"
-                  value={partnerReview.comments}
-                  placeholder="Document partner review comments and approval considerations..."
-                  onChange={(value) => {
-                    setPartnerReview((current) => ({
-                      ...current,
-                      comments: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* 4.3.7 EQR */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.7"
-              title="Engagement Quality Review (EQR)"
-              description="Where required, document the engagement quality review in accordance with applicable firm policies and ISQM 2."
-            />
-
-            <div className="rounded-xl border border-purple-200 bg-purple-50 p-5">
-              <BooleanCheck
-                label="Engagement Quality Review is required"
-                checked={eqrReview.required}
-                onChange={(value) => {
-                  setEqrReview((current) => ({
-                    ...current,
-                    required: value,
-                  }));
-                  setSaved(false);
-                }}
-              />
-
-              <div className="mt-5 rounded-xl border border-white bg-white p-4">
-                <BooleanCheck
-                  label="EQR completed"
-                  checked={eqrReview.completed}
-                  onChange={(value) => {
-                    setEqrReview((current) => ({
-                      ...current,
-                      completed: value,
-                    }));
-                    setSaved(false);
-                  }}
-                />
-
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <TextField
-                    label="EQR Reviewer"
-                    value={eqrReview.reviewer}
-                    placeholder="EQR reviewer name"
-                    onChange={(value) => {
-                      setEqrReview((current) => ({
-                        ...current,
-                        reviewer: value,
-                      }));
-                      setSaved(false);
-                    }}
-                  />
-
-                  <TextField
-                    label="EQR Date"
-                    type="date"
-                    value={eqrReview.date}
-                    onChange={(value) => {
-                      setEqrReview((current) => ({
-                        ...current,
-                        date: value,
-                      }));
-                      setSaved(false);
-                    }}
-                  />
-                </div>
-
-                <div className="mt-4">
-                  <TextAreaField
-                    label="EQR Comments"
-                    value={eqrReview.comments}
-                    placeholder="Document EQR review comments..."
-                    onChange={(value) => {
-                      setEqrReview((current) => ({
-                        ...current,
-                        comments: value,
-                      }));
-                      setSaved(false);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 4.3.8 Review Comments */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.8"
-              title="Review Comments & Clearance"
-              description="Track review notes, responses and clearance of outstanding matters."
-            />
-
-            <div className="space-y-4">
-              {reviewComments.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {item.reference}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-400">{item.id}</p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeReviewComment(item.id)}
-                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                    <TextAreaField
-                      label="Review Comment"
-                      value={item.comment}
-                      placeholder="Enter review comment..."
-                      onChange={(value) =>
-                        updateComment(item.id, "comment", value)
-                      }
-                    />
-
-                    <TextAreaField
-                      label="Response / Clearance"
-                      value={item.response}
-                      placeholder="Enter response and clearance..."
-                      onChange={(value) =>
-                        updateComment(item.id, "response", value)
-                      }
-                    />
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <SelectField
-                      label="Status"
-                      value={item.status}
-                      onChange={(value) =>
-                        updateComment(item.id, "status", value)
-                      }
-                      options={["Open", "Cleared"]}
-                    />
-
-                    <TextField
-                      label="Reviewer"
-                      value={item.reviewer}
-                      placeholder="Reviewer"
-                      onChange={(value) =>
-                        updateComment(item.id, "reviewer", value)
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={addReviewComment}
-              className="mt-4 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              + Add Review Comment
-            </button>
-          </section>
-
-          {/* 4.3.9 Overall Conclusion */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.9"
-              title="Overall Review Conclusion"
-              description="Document the final conclusion reached by the engagement leadership team."
-            />
-
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <TextAreaField
-                label="Overall Conclusion"
-                value={overallConclusion}
-                placeholder="Document the overall review conclusion..."
-                onChange={(value) => {
-                  setOverallConclusion(value);
-                  setSaved(false);
-                }}
-              />
-
-              <div className="mt-5">
-                <TextAreaField
-                  label="Final Approval Comments"
-                  value={approvalComments}
-                  placeholder="Document final approval comments..."
-                  onChange={(value) => {
-                    setApprovalComments(value);
-                    setSaved(false);
-                  }}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* 4.3.10 Completion Checklist */}
-          <section className="mb-8">
-            <SectionHeader
-              number="4.3.10"
-              title="Final Completion Checklist"
-              description="All applicable review requirements should be completed before this workpaper is marked complete."
-            />
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <CompletionItem
-                label="All significant audit areas reviewed"
-                completed={reviewReadiness.areasComplete}
-              />
-
-              <CompletionItem
-                label="Significant judgments reviewed"
-                completed={reviewReadiness.judgmentsComplete}
-              />
-
-              <CompletionItem
-                label="Review comments cleared"
-                completed={reviewReadiness.commentsComplete}
-              />
-
-              <CompletionItem
-                label="Engagement team review completed"
-                completed={reviewReadiness.teamComplete}
-              />
-
-              <CompletionItem
-                label="Engagement partner review completed"
-                completed={reviewReadiness.partnerComplete}
-              />
-
-              <CompletionItem
-                label="Required EQR completed"
-                completed={reviewReadiness.eqrComplete}
-              />
-            </div>
-          </section>
-
-          {/* Readiness */}
-          <section
-            className={`mb-8 rounded-xl border p-6 ${
-              reviewReady
-                ? "border-emerald-200 bg-emerald-50"
-                : "border-amber-200 bg-amber-50"
-            }`}
-          >
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="min-w-0">
-                <p
-                  className={`text-sm font-bold ${
-                    reviewReady ? "text-emerald-800" : "text-amber-800"
-                  }`}
-                >
-                  {reviewReady
-                    ? "✓ REVIEW READY FOR COMPLETION"
-                    : "⚠ REVIEW NOT READY"}
-                </p>
-
-                <p
-                  className={`mt-1 text-sm ${
-                    reviewReady ? "text-emerald-700" : "text-amber-700"
-                  }`}
-                >
-                  {reviewReady
-                    ? "All required review activities have been completed."
-                    : "Outstanding review areas, comments or approvals must be resolved."}
-                </p>
-              </div>
-
-              <div className="shrink-0 text-left md:text-right">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Status
-                </p>
-
-                <p className="mt-1 text-lg font-bold text-slate-900">
-                  {completionStatus}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Navigation */}
-          <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={goBack}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                ← 4.2 Financial Statement Procedures
-              </button>
-
-              <button
-                type="button"
-                onClick={goToOverview}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Phase 4 Overview
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={saveWorkpaper}
-                disabled={saving || loading}
-                className={`rounded-lg border px-5 py-3 text-sm font-semibold transition ${
-                  saving || loading
-                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                    : "border-blue-300 bg-white text-blue-700 hover:bg-blue-50"
-                }`}
-              >
-                {saving
-                  ? "Saving..."
-                  : saved
-                  ? "✓ Saved"
-                  : "Save Workpaper"}
-              </button>
-
-              <button
-                type="button"
-                onClick={completeWorkpaper}
-                disabled={!reviewReady || saving || loading}
-                className={`rounded-lg px-5 py-3 text-sm font-semibold text-white transition ${
-                  reviewReady && !saving && !loading
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "cursor-not-allowed bg-slate-300"
-                }`}
-              >
-                {saving ? "Saving..." : "Complete 4.3"}
-              </button>
-
-              <button
-                type="button"
-                onClick={continueToClientCommunications}
-                className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Continue to 4.4 →
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-    </AppLayout>
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
+        styles[status] ??
+        "bg-gray-100 text-gray-700 border-gray-200"
+      }`}
+    >
+      {status}
+    </span>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Reusable Components                                                        */
-/* -------------------------------------------------------------------------- */
 
 function SectionHeader({
   number,
@@ -1528,16 +319,18 @@ function SectionHeader({
   description: string;
 }) {
   return (
-    <div className="mb-4">
-      <div className="flex items-start gap-3">
-        <span className="shrink-0 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-bold text-white">
+    <div className="border-b border-gray-200 bg-gray-50 px-6 py-5">
+      <div className="flex items-start gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-sm font-bold text-blue-700">
           {number}
-        </span>
+        </div>
 
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {title}
+          </h2>
 
-          <p className="mt-1 text-sm leading-6 text-slate-600">
+          <p className="mt-1 text-sm leading-6 text-gray-600">
             {description}
           </p>
         </div>
@@ -1546,144 +339,27 @@ function SectionHeader({
   );
 }
 
-function StatusBadge({
-  status,
-}: {
-  status: "In Progress" | "Completed";
-}) {
-  const classes =
-    status === "Completed"
-      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-      : "bg-amber-100 text-amber-700 border-amber-200";
-
-  return (
-    <span
-      className={`inline-flex w-fit rounded-full border px-3 py-1.5 text-xs font-bold ${classes}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  warning = false,
-  success = false,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  warning?: boolean;
-  success?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-
-      <p
-        className={`mt-2 text-2xl font-bold ${
-          success
-            ? "text-emerald-600"
-            : warning
-            ? "text-amber-600"
-            : "text-slate-900"
-        }`}
-      >
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs text-slate-500">{detail}</p>
-    </div>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  placeholder,
-  type = "text",
-  onChange,
-}: {
-  label?: string;
-  value: string;
-  placeholder?: string;
-  type?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="min-w-0">
-      {label && (
-        <label className="mb-2 block text-xs font-semibold text-slate-600">
-          {label}
-        </label>
-      )}
-
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-      />
-    </div>
-  );
-}
-
-function TextAreaField({
-  label,
-  value,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  placeholder?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="min-w-0">
-      <label className="mb-2 block text-xs font-semibold text-slate-600">
-        {label}
-      </label>
-
-      <textarea
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        rows={4}
-        className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-      />
-    </div>
-  );
-}
-
 function SelectField({
   label,
   value,
-  options,
   onChange,
+  options,
 }: {
-  label?: string;
+  label: string;
   value: string;
-  options: string[];
   onChange: (value: string) => void;
+  options: string[];
 }) {
   return (
-    <div className="min-w-0">
-      {label && (
-        <label className="mb-2 block text-xs font-semibold text-slate-600">
-          {label}
-        </label>
-      )}
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-gray-700">
+        {label}
+      </span>
 
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -1691,64 +367,68 @@ function SelectField({
           </option>
         ))}
       </select>
-    </div>
+    </label>
   );
 }
 
-function BooleanCheck({
+function TextAreaField({
   label,
-  checked,
+  value,
   onChange,
+  placeholder,
+  rows = 4,
 }: {
   label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-      />
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-gray-700">
+        {label}
+      </span>
 
-      <span className="text-sm font-semibold text-slate-800">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      />
     </label>
   );
 }
 
 function ReviewConfirmation({
-  title,
+  label,
   description,
 }: {
-  title: string;
+  label: string;
   description: string;
 }) {
   const [checked, setChecked] = useState(false);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <BooleanCheck
-        label={title}
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-blue-300">
+      <input
+        type="checkbox"
         checked={checked}
-        onChange={setChecked}
+        onChange={(event) => setChecked(event.target.checked)}
+        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />
 
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        {description}
-      </p>
+      <span>
+        <span className="block text-sm font-medium text-gray-900">
+          {label}
+        </span>
 
-      <span
-        className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-          checked
-            ? "bg-emerald-100 text-emerald-700"
-            : "bg-slate-100 text-slate-500"
-        }`}
-      >
-        {checked ? "Confirmed" : "Not Confirmed"}
+        <span className="mt-1 block text-sm leading-5 text-gray-600">
+          {description}
+        </span>
       </span>
-    </div>
+    </label>
   );
 }
 
@@ -1760,26 +440,22 @@ function CompletionItem({
   completed: boolean;
 }) {
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg border p-4 ${
-        completed
-          ? "border-emerald-200 bg-emerald-50"
-          : "border-amber-200 bg-amber-50"
-      }`}
-    >
+    <div className="flex items-center gap-3">
       <div
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
           completed
-            ? "bg-emerald-600 text-white"
-            : "bg-amber-500 text-white"
+            ? "bg-green-100 text-green-700"
+            : "bg-gray-100 text-gray-400"
         }`}
       >
-        {completed ? "✓" : "!"}
+        {completed ? "âœ“" : ""}
       </div>
 
       <span
-        className={`text-sm font-semibold ${
-          completed ? "text-emerald-800" : "text-amber-800"
+        className={`text-sm ${
+          completed
+            ? "text-gray-800"
+            : "text-gray-500"
         }`}
       >
         {label}
@@ -1788,12 +464,1493 @@ function CompletionItem({
   );
 }
 
-function ConsiderationItem({ text }: { text: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-white p-3">
-      <span className="mt-0.5 shrink-0 font-bold text-amber-600">✓</span>
+export default function SummaryReviewPage() {
+  const params = useParams();
+  const router = useRouter();
 
-      <span className="text-sm text-slate-700">{text}</span>
-    </div>
+  const engagementId = Array.isArray(params?.id)
+    ? params.id[0]
+    : params?.id;
+
+  const [reviewAreas, setReviewAreas] =
+    useState<ReviewArea[]>(initialReviewAreas);
+
+  const [judgments, setJudgments] =
+    useState<JudgmentReview[]>(initialJudgments);
+
+  const [reviewComments, setReviewComments] =
+    useState<ReviewComment[]>(initialComments);
+
+  const [engagementTeamReview, setEngagementTeamReview] =
+    useState<EngagementTeamReview>({
+      completed: true,
+      completedBy: "Audit Manager",
+      completedDate: "2026-09-06",
+      comments:
+        "Engagement team review completed. Outstanding matters have been identified for follow-up.",
+    });
+
+  const [partnerReview, setPartnerReview] =
+    useState<PartnerReview>({
+      completed: false,
+      partnerName: "",
+      reviewDate: "",
+      approvalComments: "",
+    });
+
+  const [eqrReview, setEqrReview] =
+    useState<EQRReview>({
+      required: true,
+      completed: false,
+      reviewerName: "",
+      reviewDate: "",
+      comments: "",
+    });
+
+  const [financialStatementProcedures, setFinancialStatementProcedures] =
+    useState({
+      completed: false,
+      reviewer: "",
+      reviewDate: "",
+      comments: "",
+    });
+
+  const [overallConclusion, setOverallConclusion] =
+    useState(
+      "Overall review is in progress. Significant audit areas, judgments, uncorrected misstatements, financial statement procedures, engagement team review, partner review, and EQR should be completed before final approval."
+    );
+
+  const [completionStatus, setCompletionStatus] =
+    useState<"Draft" | "In Progress" | "Completed">(
+      "In Progress"
+    );
+
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!engagementId) {
+      return;
+    }
+
+    const loadReviewAssignments = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(
+          `${API_BASE_URL}/review-assignments/`,
+          {
+            method: "GET",
+            headers: getHeaders(),
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to load review assignments (${response.status})`
+          );
+        }
+
+        const data: ReviewAssignment[] =
+          await response.json();
+
+        const engagementAssignments = data.filter(
+          (assignment) =>
+            String(assignment.engagement) ===
+            String(engagementId)
+        );
+
+        if (engagementAssignments.length > 0) {
+          setReviewAreas((currentAreas) =>
+            currentAreas.map((area) => {
+              const assignment =
+                engagementAssignments.find(
+                  (item) =>
+                    item.review_area === area.area
+                );
+
+              if (!assignment) {
+                return area;
+              }
+
+              return {
+                ...area,
+                status: assignment.status,
+                reviewer:
+                  assignment.reviewer_name ||
+                  area.reviewer,
+                reviewDate:
+                  assignment.assigned_date
+                    ? extractDateFromNotes(
+                        assignment.comments ?? ""
+                      ) ||
+                      assignment.assigned_date
+                    : area.reviewDate,
+                comments: assignment.comments
+                  ? cleanReviewNotes(
+                      assignment.comments
+                    )
+                  : area.comments,
+              };
+            })
+          );
+
+          setSaved(true);
+        }
+      } catch (err) {
+        console.error(
+          "Failed to load review assignments:",
+          err
+        );
+
+        setError(
+          "Unable to load review data from the database."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReviewAssignments();
+  }, [engagementId]);
+
+  const updateReviewArea = <
+    K extends keyof ReviewArea
+  >(
+    id: string,
+    field: K,
+    value: ReviewArea[K]
+  ) => {
+    setReviewAreas((current) =>
+      current.map((area) =>
+        area.id === id
+          ? {
+              ...area,
+              [field]: value,
+            }
+          : area
+      )
+    );
+
+    setSaved(false);
+  };
+
+  const updateJudgment = <
+    K extends keyof JudgmentReview
+  >(
+    id: string,
+    field: K,
+    value: JudgmentReview[K]
+  ) => {
+    setJudgments((current) =>
+      current.map((judgment) =>
+        judgment.id === id
+          ? {
+              ...judgment,
+              [field]: value,
+            }
+          : judgment
+      )
+    );
+
+    setSaved(false);
+  };
+
+  const updateComment = <
+    K extends keyof ReviewComment
+  >(
+    id: string,
+    field: K,
+    value: ReviewComment[K]
+  ) => {
+    setReviewComments((current) =>
+      current.map((comment) =>
+        comment.id === id
+          ? {
+              ...comment,
+              [field]: value,
+            }
+          : comment
+      )
+    );
+
+    setSaved(false);
+  };
+
+  const metrics = useMemo(() => {
+    const reviewedAreas = reviewAreas.filter(
+      (area) => area.status === "Reviewed"
+    ).length;
+
+    const followUpAreas = reviewAreas.filter(
+      (area) => area.status === "Follow-up Required"
+    ).length;
+
+    const reviewedJudgments = judgments.filter(
+      (judgment) => judgment.status === "Reviewed"
+    ).length;
+
+    const openComments = reviewComments.filter(
+      (comment) => comment.status === "Open"
+    ).length;
+
+    return {
+      totalAreas: reviewAreas.length,
+      reviewedAreas,
+      followUpAreas,
+      reviewedJudgments,
+      totalJudgments: judgments.length,
+      openComments,
+    };
+  }, [reviewAreas, judgments, reviewComments]);
+
+  const reviewReady = useMemo(() => {
+    const allAreasReviewed =
+      reviewAreas.length > 0 &&
+      reviewAreas.every(
+        (area) => area.status === "Reviewed"
+      );
+
+    const allJudgmentsReviewed =
+      judgments.length > 0 &&
+      judgments.every(
+        (judgment) => judgment.status === "Reviewed"
+      );
+
+    const noOpenComments =
+      reviewComments.every(
+        (comment) => comment.status === "Cleared"
+      );
+
+    const teamComplete =
+      engagementTeamReview.completed;
+
+    const partnerComplete =
+      partnerReview.completed;
+
+    const eqrComplete =
+      !eqrReview.required || eqrReview.completed;
+
+    const financialStatementsComplete =
+      financialStatementProcedures.completed;
+
+    return (
+      allAreasReviewed &&
+      allJudgmentsReviewed &&
+      noOpenComments &&
+      teamComplete &&
+      partnerComplete &&
+      eqrComplete &&
+      financialStatementsComplete
+    );
+  }, [
+    reviewAreas,
+    judgments,
+    reviewComments,
+    engagementTeamReview,
+    partnerReview,
+    eqrReview,
+    financialStatementProcedures,
+  ]);
+
+  const saveWorkpaper = async () => {
+    if (!engagementId) {
+      alert("Engagement ID is missing.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+
+      for (const area of reviewAreas) {
+        const existingResponse = await fetch(
+          `${API_BASE_URL}/review-assignments/?engagement=${engagementId}`,
+          {
+            method: "GET",
+            headers: getHeaders(),
+            credentials: "include",
+          }
+        );
+
+        if (!existingResponse.ok) {
+          throw new Error(
+            "Unable to check existing review assignments."
+          );
+        }
+
+        const existingData: ReviewAssignment[] =
+          await existingResponse.json();
+
+        const existingAssignment =
+          existingData.find(
+            (item) =>
+              String(item.engagement) ===
+                String(engagementId) &&
+              item.review_area === area.area
+          );
+
+        const reviewNotes = [
+          area.reviewDate
+            ? `[Review Date: ${area.reviewDate}]`
+            : "",
+          area.comments.trim(),
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+
+        const payload = {
+          engagement: Number(engagementId),
+          reviewer: DEFAULT_REVIEWER_ID,
+          review_area: area.area,
+          status: area.status,
+          comments: reviewNotes,
+        };
+
+        let response: Response;
+
+        if (existingAssignment) {
+          response = await fetch(
+            `${API_BASE_URL}/review-assignments/${existingAssignment.id}/`,
+            {
+              method: "PATCH",
+              headers: getHeaders(true),
+              credentials: "include",
+              body: JSON.stringify(payload),
+            }
+          );
+        } else {
+          response = await fetch(
+            `${API_BASE_URL}/review-assignments/`,
+            {
+              method: "POST",
+              headers: getHeaders(true),
+              credentials: "include",
+              body: JSON.stringify(payload),
+            }
+          );
+        }
+
+        if (!response.ok) {
+          let errorMessage =
+            "Failed to save review assignment.";
+
+          try {
+            const errorData =
+              await response.json();
+
+            errorMessage =
+              JSON.stringify(errorData);
+          } catch {
+            // Keep default error message.
+          }
+
+          throw new Error(errorMessage);
+        }
+      }
+
+      setSaved(true);
+      alert("Review workpaper saved successfully.");
+    } catch (err) {
+      console.error(
+        "Review workpaper save error:",
+        err
+      );
+
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to save review workpaper.";
+
+      setError(message);
+      alert(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const completeWorkpaper = async () => {
+    if (!reviewReady) {
+      alert(
+        "The review is not ready for completion. Please clear all outstanding review items first."
+      );
+
+      return;
+    }
+
+    await saveWorkpaper();
+
+    setCompletionStatus("Completed");
+
+    alert(
+      "Summary review has been marked as completed."
+    );
+  };
+
+  return (
+
+      <main className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="border-b border-gray-200 bg-white">
+          <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        `/engagements/${engagementId}/conclusion-reporting/financial-statement-procedures`
+                      )
+                    }
+                    className="transition hover:text-blue-600"
+                  >
+                    â† 4.2 Financial Statement Procedures
+                  </button>
+                </div>
+
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                  4.3 Summary Review & Overall Review / Approval
+                </h1>
+
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Perform leadership review of significant audit
+                  areas, significant judgments, uncorrected
+                  misstatements, financial statement procedures,
+                  and audit documentation before final approval.
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                    ISA 220
+                  </span>
+
+                  <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
+                    ISQM 2
+                  </span>
+
+                  <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                    Engagement Quality Review
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row lg:flex-col">
+                <button
+                  type="button"
+                  onClick={saveWorkpaper}
+                  disabled={saving || loading}
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving
+                    ? "Saving..."
+                    : saved
+                    ? "âœ“ Saved"
+                    : "Save Workpaper"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={completeWorkpaper}
+                  disabled={
+                    saving ||
+                    loading ||
+                    !reviewReady
+                  }
+                  className="rounded-lg border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Complete Review
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Connection status */}
+          <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-green-800">
+                âœ“ Review data is connected to the database.
+              </p>
+
+              <p className="mt-1 text-xs text-green-700">
+                Review area assignments are loaded from the
+                Review Workflow API.
+              </p>
+            </div>
+
+            <StatusBadge status={completionStatus} />
+          </div>
+
+          {/* Metrics */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Areas Reviewed
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-gray-900">
+                {metrics.reviewedAreas}/
+                {metrics.totalAreas}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Follow-ups
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-amber-600">
+                {metrics.followUpAreas}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Judgments Reviewed
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-gray-900">
+                {metrics.reviewedJudgments}/
+                {metrics.totalJudgments}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Open Comments
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-red-600">
+                {metrics.openComments}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Review Ready
+              </p>
+
+              <p
+                className={`mt-2 text-sm font-bold ${
+                  reviewReady
+                    ? "text-green-600"
+                    : "text-amber-600"
+                }`}
+              >
+                {reviewReady
+                  ? "âœ“ READY"
+                  : "âš  NOT READY"}
+              </p>
+            </div>
+          </div>
+
+          {/* 4.3.1 */}
+          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.1"
+              title="Summary Review of Significant Audit Areas"
+              description="Review significant audit areas, conclusions, unresolved matters, and supporting audit documentation."
+            />
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Audit Area
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Status
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Reviewer
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Review Date
+                    </th>
+
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Comments
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {reviewAreas.map((area) => (
+                    <tr key={area.id}>
+                      <td className="px-6 py-4 align-top">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {area.area}
+                        </p>
+
+                        <p className="mt-1 max-w-md text-xs leading-5 text-gray-500">
+                          {area.description}
+                        </p>
+                      </td>
+
+                      <td className="px-6 py-4 align-top">
+                        <select
+                          value={area.status}
+                          onChange={(event) =>
+                            updateReviewArea(
+                              area.id,
+                              "status",
+                              event.target.value as AreaStatus
+                            )
+                          }
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="Open">
+                            Open
+                          </option>
+
+                          <option value="Reviewed">
+                            Reviewed
+                          </option>
+
+                          <option value="Follow-up Required">
+                            Follow-up Required
+                          </option>
+                        </select>
+                      </td>
+
+                      <td className="px-6 py-4 align-top">
+                        <input
+                          value={area.reviewer}
+                          onChange={(event) =>
+                            updateReviewArea(
+                              area.id,
+                              "reviewer",
+                              event.target.value
+                            )
+                          }
+                          className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </td>
+
+                      <td className="px-6 py-4 align-top">
+                        <input
+                          type="date"
+                          value={area.reviewDate}
+                          onChange={(event) =>
+                            updateReviewArea(
+                              area.id,
+                              "reviewDate",
+                              event.target.value
+                            )
+                          }
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </td>
+
+                      <td className="px-6 py-4 align-top">
+                        <textarea
+                          value={area.comments}
+                          onChange={(event) =>
+                            updateReviewArea(
+                              area.id,
+                              "comments",
+                              event.target.value
+                            )
+                          }
+                          rows={3}
+                          className="min-w-[280px] rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          placeholder="Enter review comments..."
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 4.3.2 */}
+          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.2"
+              title="Review of Significant Judgments"
+              description="Review significant professional judgments made by the engagement team and determine whether they are adequately supported."
+            />
+
+            <div className="space-y-5 p-6">
+              {judgments.map((judgment) => (
+                <div
+                  key={judgment.id}
+                  className="rounded-xl border border-gray-200 p-5"
+                >
+                  <div className="grid gap-5 lg:grid-cols-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {judgment.judgment}
+                      </p>
+
+                      <p className="mt-1 text-sm leading-6 text-gray-600">
+                        {judgment.description}
+                      </p>
+                    </div>
+
+                    <SelectField
+                      label="Review Status"
+                      value={judgment.status}
+                      onChange={(value) =>
+                        updateJudgment(
+                          judgment.id,
+                          "status",
+                          value as ReviewStatus
+                        )
+                      }
+                      options={[
+                        "Not Reviewed",
+                        "Reviewed",
+                        "Follow-up Required",
+                      ]}
+                    />
+
+                    <label className="block">
+                      <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                        Reviewer
+                      </span>
+
+                      <input
+                        value={judgment.reviewer}
+                        onChange={(event) =>
+                          updateJudgment(
+                            judgment.id,
+                            "reviewer",
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-5">
+                    <TextAreaField
+                      label="Review Comments"
+                      value={judgment.comments}
+                      onChange={(value) =>
+                        updateJudgment(
+                          judgment.id,
+                          "comments",
+                          value
+                        )
+                      }
+                      placeholder="Document the review conclusion and any follow-up required..."
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <StatusBadge status={judgment.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 4.3.3 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.3"
+              title="Review of Uncorrected Misstatements"
+              description="Review identified misstatements that remain uncorrected and assess their effect individually and in aggregate."
+            />
+
+            <div className="space-y-4 p-6">
+              <ReviewConfirmation
+                label="All identified uncorrected misstatements have been reviewed."
+                description="Confirm that the engagement team has communicated identified uncorrected misstatements to those charged with governance where required."
+              />
+
+              <ReviewConfirmation
+                label="The aggregate effect of uncorrected misstatements has been evaluated."
+                description="Consider whether uncorrected misstatements, individually or in aggregate, could affect the financial statements."
+              />
+
+              <ReviewConfirmation
+                label="Management representations regarding uncorrected misstatements have been obtained."
+                description="Confirm that appropriate representations have been considered as part of the final review."
+              />
+            </div>
+          </section>
+
+          {/* 4.3.4 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.4"
+              title="Review of Financial Statement Procedures"
+              description="Confirm that final financial statement procedures and disclosure reviews have been completed."
+            />
+
+            <div className="grid gap-5 p-6 lg:grid-cols-3">
+              <SelectField
+                label="Completion Status"
+                value={
+                  financialStatementProcedures.completed
+                    ? "Completed"
+                    : "Pending"
+                }
+                onChange={(value) =>
+                  setFinancialStatementProcedures(
+                    (current) => ({
+                      ...current,
+                      completed:
+                        value === "Completed",
+                    })
+                  )
+                }
+                options={[
+                  "Pending",
+                  "Completed",
+                ]}
+              />
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Reviewer
+                </span>
+
+                <input
+                  value={
+                    financialStatementProcedures.reviewer
+                  }
+                  onChange={(event) =>
+                    setFinancialStatementProcedures(
+                      (current) => ({
+                        ...current,
+                        reviewer:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Review Date
+                </span>
+
+                <input
+                  type="date"
+                  value={
+                    financialStatementProcedures.reviewDate
+                  }
+                  onChange={(event) =>
+                    setFinancialStatementProcedures(
+                      (current) => ({
+                        ...current,
+                        reviewDate:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+
+              <div className="lg:col-span-3">
+                <TextAreaField
+                  label="Review Comments"
+                  value={
+                    financialStatementProcedures.comments
+                  }
+                  onChange={(value) =>
+                    setFinancialStatementProcedures(
+                      (current) => ({
+                        ...current,
+                        comments: value,
+                      })
+                    )
+                  }
+                  placeholder="Document the final financial statement procedures review conclusion..."
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* 4.3.5 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.5"
+              title="Engagement Team Review"
+              description="Document completion of the engagement team's review of audit documentation and significant matters."
+            />
+
+            <div className="grid gap-5 p-6 lg:grid-cols-3">
+              <SelectField
+                label="Review Status"
+                value={
+                  engagementTeamReview.completed
+                    ? "Completed"
+                    : "Pending"
+                }
+                onChange={(value) =>
+                  setEngagementTeamReview(
+                    (current) => ({
+                      ...current,
+                      completed:
+                        value === "Completed",
+                    })
+                  )
+                }
+                options={[
+                  "Pending",
+                  "Completed",
+                ]}
+              />
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Completed By
+                </span>
+
+                <input
+                  value={
+                    engagementTeamReview.completedBy
+                  }
+                  onChange={(event) =>
+                    setEngagementTeamReview(
+                      (current) => ({
+                        ...current,
+                        completedBy:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Completion Date
+                </span>
+
+                <input
+                  type="date"
+                  value={
+                    engagementTeamReview.completedDate
+                  }
+                  onChange={(event) =>
+                    setEngagementTeamReview(
+                      (current) => ({
+                        ...current,
+                        completedDate:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+
+              <div className="lg:col-span-3">
+                <TextAreaField
+                  label="Team Review Comments"
+                  value={
+                    engagementTeamReview.comments
+                  }
+                  onChange={(value) =>
+                    setEngagementTeamReview(
+                      (current) => ({
+                        ...current,
+                        comments: value,
+                      })
+                    )
+                  }
+                  placeholder="Document engagement team review comments..."
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* 4.3.6 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.6"
+              title="Engagement Partner Review & Approval"
+              description="Document the engagement partner's final review, significant matters considered, and approval conclusion."
+            />
+
+            <div className="grid gap-5 p-6 lg:grid-cols-3">
+              <SelectField
+                label="Partner Review Status"
+                value={
+                  partnerReview.completed
+                    ? "Completed"
+                    : "Pending"
+                }
+                onChange={(value) =>
+                  setPartnerReview(
+                    (current) => ({
+                      ...current,
+                      completed:
+                        value === "Completed",
+                    })
+                  )
+                }
+                options={[
+                  "Pending",
+                  "Completed",
+                ]}
+              />
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Engagement Partner
+                </span>
+
+                <input
+                  value={partnerReview.partnerName}
+                  onChange={(event) =>
+                    setPartnerReview(
+                      (current) => ({
+                        ...current,
+                        partnerName:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Enter partner name"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Review Date
+                </span>
+
+                <input
+                  type="date"
+                  value={partnerReview.reviewDate}
+                  onChange={(event) =>
+                    setPartnerReview(
+                      (current) => ({
+                        ...current,
+                        reviewDate:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+
+              <div className="lg:col-span-3">
+                <TextAreaField
+                  label="Approval Comments"
+                  value={
+                    partnerReview.approvalComments
+                  }
+                  onChange={(value) =>
+                    setPartnerReview(
+                      (current) => ({
+                        ...current,
+                        approvalComments: value,
+                      })
+                    )
+                  }
+                  placeholder="Document engagement partner review and approval comments..."
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* 4.3.7 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.7"
+              title="Engagement Quality Review (EQR)"
+              description="Document the engagement quality review where required, including significant judgments and conclusions."
+            />
+
+            <div className="space-y-5 p-6">
+              <div className="grid gap-5 lg:grid-cols-3">
+                <SelectField
+                  label="EQR Required"
+                  value={
+                    eqrReview.required
+                      ? "Required"
+                      : "Not Required"
+                  }
+                  onChange={(value) =>
+                    setEqrReview(
+                      (current) => ({
+                        ...current,
+                        required:
+                          value === "Required",
+                      })
+                    )
+                  }
+                  options={[
+                    "Required",
+                    "Not Required",
+                  ]}
+                />
+
+                <SelectField
+                  label="EQR Status"
+                  value={
+                    eqrReview.completed
+                      ? "Completed"
+                      : "Pending"
+                  }
+                  onChange={(value) =>
+                    setEqrReview(
+                      (current) => ({
+                        ...current,
+                        completed:
+                          value === "Completed",
+                      })
+                    )
+                  }
+                  options={[
+                    "Pending",
+                    "Completed",
+                  ]}
+                />
+
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                    EQR Reviewer
+                  </span>
+
+                  <input
+                    value={eqrReview.reviewerName}
+                    onChange={(event) =>
+                      setEqrReview(
+                        (current) => ({
+                          ...current,
+                          reviewerName:
+                            event.target.value,
+                        })
+                      )
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Enter EQR reviewer"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                    EQR Review Date
+                  </span>
+
+                  <input
+                    type="date"
+                    value={eqrReview.reviewDate}
+                    onChange={(event) =>
+                      setEqrReview(
+                        (current) => ({
+                          ...current,
+                          reviewDate:
+                            event.target.value,
+                        })
+                      )
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
+
+                <TextAreaField
+                  label="EQR Comments"
+                  value={eqrReview.comments}
+                  onChange={(value) =>
+                    setEqrReview(
+                      (current) => ({
+                        ...current,
+                        comments: value,
+                      })
+                    )
+                  }
+                  placeholder="Document EQR conclusions..."
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* 4.3.8 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.8"
+              title="Review Comments & Clearance"
+              description="Track review comments raised during the engagement review and document their clearance."
+            />
+
+            <div className="space-y-5 p-6">
+              {reviewComments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="rounded-xl border border-gray-200 p-5"
+                >
+                  <div className="grid gap-5 lg:grid-cols-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {comment.area}
+                      </p>
+
+                      <p className="mt-2 text-sm leading-6 text-gray-600">
+                        {comment.comment}
+                      </p>
+                    </div>
+
+                    <SelectField
+                      label="Status"
+                      value={comment.status}
+                      onChange={(value) =>
+                        updateComment(
+                          comment.id,
+                          "status",
+                          value as CommentStatus
+                        )
+                      }
+                      options={[
+                        "Open",
+                        "Cleared",
+                      ]}
+                    />
+
+                    <label className="block">
+                      <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                        Reviewer
+                      </span>
+
+                      <input
+                        value={comment.reviewer}
+                        onChange={(event) =>
+                          updateComment(
+                            comment.id,
+                            "reviewer",
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-5">
+                    <TextAreaField
+                      label="Response / Clearance"
+                      value={comment.response}
+                      onChange={(value) =>
+                        updateComment(
+                          comment.id,
+                          "response",
+                          value
+                        )
+                      }
+                      placeholder="Document how the review comment was addressed..."
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <StatusBadge status={comment.status} />
+                  </div>
+                </div>
+              ))}
+
+              {reviewComments.length === 0 && (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  No review comments have been raised.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 4.3.9 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.9"
+              title="Overall Review Conclusion"
+              description="Document the overall conclusion reached after completing the summary review and resolving outstanding matters."
+            />
+
+            <div className="p-6">
+              <TextAreaField
+                label="Overall Review Conclusion"
+                value={overallConclusion}
+                onChange={(value) => {
+                  setOverallConclusion(value);
+                  setSaved(false);
+                }}
+                rows={7}
+                placeholder="Enter the overall review conclusion..."
+              />
+            </div>
+          </section>
+
+          {/* 4.3.10 */}
+          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <SectionHeader
+              number="4.3.10"
+              title="Final Completion Checklist"
+              description="Confirm that the key review activities have been completed before final approval."
+            />
+
+            <div className="grid gap-4 p-6 md:grid-cols-2">
+              <CompletionItem
+                label="All significant audit areas reviewed"
+                completed={
+                  reviewAreas.length > 0 &&
+                  reviewAreas.every(
+                    (area) =>
+                      area.status === "Reviewed"
+                  )
+                }
+              />
+
+              <CompletionItem
+                label="Significant judgments reviewed"
+                completed={
+                  judgments.length > 0 &&
+                  judgments.every(
+                    (judgment) =>
+                      judgment.status === "Reviewed"
+                  )
+                }
+              />
+
+              <CompletionItem
+                label="Uncorrected misstatements evaluated"
+                completed={true}
+              />
+
+              <CompletionItem
+                label="Financial statement procedures completed"
+                completed={
+                  financialStatementProcedures.completed
+                }
+              />
+
+              <CompletionItem
+                label="Engagement team review completed"
+                completed={
+                  engagementTeamReview.completed
+                }
+              />
+
+              <CompletionItem
+                label="Engagement partner review completed"
+                completed={partnerReview.completed}
+              />
+
+              <CompletionItem
+                label="EQR completed where required"
+                completed={
+                  !eqrReview.required ||
+                  eqrReview.completed
+                }
+              />
+
+              <CompletionItem
+                label="All review comments cleared"
+                completed={reviewComments.every(
+                  (comment) =>
+                    comment.status === "Cleared"
+                )}
+              />
+            </div>
+
+            <div className="border-t border-gray-200 bg-gray-50 p-6">
+              <div
+                className={`rounded-xl border p-5 ${
+                  reviewReady
+                    ? "border-green-200 bg-green-50"
+                    : "border-amber-200 bg-amber-50"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-bold ${
+                      reviewReady
+                        ? "bg-green-100 text-green-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {reviewReady ? "âœ“" : "!"}
+                  </div>
+
+                  <div>
+                    <h3
+                      className={`font-semibold ${
+                        reviewReady
+                          ? "text-green-900"
+                          : "text-amber-900"
+                      }`}
+                    >
+                      {reviewReady
+                        ? "REVIEW READY FOR COMPLETION"
+                        : "REVIEW NOT READY"}
+                    </h3>
+
+                    <p
+                      className={`mt-1 text-sm leading-6 ${
+                        reviewReady
+                          ? "text-green-800"
+                          : "text-amber-800"
+                      }`}
+                    >
+                      {reviewReady
+                        ? "All required review activities have been completed and the workpaper can be marked as completed."
+                        : "One or more required review activities remain outstanding. Complete the remaining items before final approval."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Bottom navigation */}
+          <div className="flex flex-col gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/engagements/${engagementId}/conclusion-reporting`
+                )
+              }
+              className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              Back to Phase 4
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/engagements/${engagementId}/conclusion-reporting/client-communications`
+                )
+              }
+              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Continue to 4.4 â†’
+            </button>
+          </div>
+        </div>
+      </main>
+
   );
 }

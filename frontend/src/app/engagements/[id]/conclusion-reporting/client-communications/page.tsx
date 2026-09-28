@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   BellRing,
@@ -85,7 +84,7 @@ export default function ClientCommunicationsPage() {
   const [saved, setSaved] = useState(false);
 
   // =====================================================
-  // ISA 265 — INTERNAL CONTROL DEFICIENCIES
+  // ISA 265 â€” INTERNAL CONTROL DEFICIENCIES
   // =====================================================
 
   const [deficiencies, setDeficiencies] = useState<Deficiency[]>([
@@ -104,7 +103,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   // =====================================================
-  // ISA 260 — GOVERNANCE COMMUNICATION
+  // ISA 260 â€” GOVERNANCE COMMUNICATION
   // =====================================================
 
   const [governanceMatters, setGovernanceMatters] = useState<
@@ -124,7 +123,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   // =====================================================
-  // ISA 580 — WRITTEN REPRESENTATIONS
+  // ISA 580 â€” WRITTEN REPRESENTATIONS
   // =====================================================
 
   const [representationItems, setRepresentationItems] = useState<
@@ -163,10 +162,8 @@ export default function ClientCommunicationsPage() {
   ]);
 
   // =====================================================
-  // MANAGEMENT RESPONSES / OUTSTANDING MATTERS
+  // MANAGEMENT RESPONSES
   // =====================================================
-
-  const [outstandingMatters, setOutstandingMatters] = useState("");
 
   const [managementResponses, setManagementResponses] = useState("");
 
@@ -186,7 +183,19 @@ export default function ClientCommunicationsPage() {
   const [finalReviewCompleted, setFinalReviewCompleted] = useState(false);
 
   // =====================================================
-  // CALCULATIONS
+  // HELPER
+  // =====================================================
+
+  const markInProgress = () => {
+    setSaved(false);
+
+    if (completionStatus === "Not Started") {
+      setCompletionStatus("In Progress");
+    }
+  };
+
+  // =====================================================
+  // STATISTICS
   // =====================================================
 
   const deficiencyStats = useMemo(() => {
@@ -252,7 +261,7 @@ export default function ClientCommunicationsPage() {
   }, [representationItems]);
 
   // =====================================================
-  // READINESS RULES
+  // READINESS
   // =====================================================
 
   const deficienciesReady = useMemo(() => {
@@ -286,58 +295,9 @@ export default function ClientCommunicationsPage() {
     );
   }, [representationItems]);
 
-  /*
-   * Outstanding matters are ready only when:
-   *
-   * 1. There are no unresolved structured matters, OR
-   * 2. The auditor has explicitly documented a resolved state.
-   *
-   * Examples:
-   * None
-   * None outstanding
-   * No outstanding matters
-   * All matters resolved
-   * Resolved
-   * N/A
-   */
-
-  const outstandingMattersReady = useMemo(() => {
-    const unresolvedStructuredMatters =
-      !deficienciesReady ||
-      !governanceReady ||
-      !representationsReady;
-
-    if (!unresolvedStructuredMatters) {
-      return true;
-    }
-
-    const text = outstandingMatters.trim().toLowerCase();
-
-    if (!text) {
-      return false;
-    }
-
-    const resolvedStatements = [
-      "none",
-      "none outstanding",
-      "no outstanding matters",
-      "no outstanding matter",
-      "resolved",
-      "all matters resolved",
-      "all outstanding matters resolved",
-      "not applicable",
-      "n/a",
-    ];
-
-    return resolvedStatements.some((statement) =>
-      text.includes(statement)
-    );
-  }, [
-    outstandingMatters,
-    deficienciesReady,
-    governanceReady,
-    representationsReady,
-  ]);
+  // =====================================================
+  // FINAL READINESS
+  // =====================================================
 
   const conclusionReady =
     auditorCommunicationConclusion.trim() !== "";
@@ -349,7 +309,6 @@ export default function ClientCommunicationsPage() {
       deficienciesReady &&
       governanceReady &&
       representationsReady &&
-      outstandingMattersReady &&
       conclusionReady &&
       finalReviewReady
     );
@@ -357,7 +316,6 @@ export default function ClientCommunicationsPage() {
     deficienciesReady,
     governanceReady,
     representationsReady,
-    outstandingMattersReady,
     conclusionReady,
     finalReviewReady,
   ]);
@@ -395,7 +353,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   // =====================================================
-  // START WORKPAPER
+  // START
   // =====================================================
 
   const handleStart = () => {
@@ -404,7 +362,7 @@ export default function ClientCommunicationsPage() {
   };
 
   // =====================================================
-  // DEFICIENCY ACTIONS
+  // DEFICIENCIES
   // =====================================================
 
   const updateDeficiency = (
@@ -423,11 +381,7 @@ export default function ClientCommunicationsPage() {
       )
     );
 
-    setSaved(false);
-
-    if (completionStatus === "Not Started") {
-      setCompletionStatus("In Progress");
-    }
+    markInProgress();
   };
 
   const addDeficiency = () => {
@@ -446,8 +400,7 @@ export default function ClientCommunicationsPage() {
       },
     ]);
 
-    setSaved(false);
-    setCompletionStatus("In Progress");
+    markInProgress();
   };
 
   const removeDeficiency = (id: string) => {
@@ -455,11 +408,11 @@ export default function ClientCommunicationsPage() {
       current.filter((item) => item.id !== id)
     );
 
-    setSaved(false);
+    markInProgress();
   };
 
   // =====================================================
-  // GOVERNANCE MATTER ACTIONS
+  // GOVERNANCE
   // =====================================================
 
   const updateGovernanceMatter = (
@@ -478,11 +431,7 @@ export default function ClientCommunicationsPage() {
       )
     );
 
-    setSaved(false);
-
-    if (completionStatus === "Not Started") {
-      setCompletionStatus("In Progress");
-    }
+    markInProgress();
   };
 
   const addGovernanceMatter = () => {
@@ -500,8 +449,7 @@ export default function ClientCommunicationsPage() {
       },
     ]);
 
-    setSaved(false);
-    setCompletionStatus("In Progress");
+    markInProgress();
   };
 
   const removeGovernanceMatter = (id: string) => {
@@ -509,11 +457,11 @@ export default function ClientCommunicationsPage() {
       current.filter((item) => item.id !== id)
     );
 
-    setSaved(false);
+    markInProgress();
   };
 
   // =====================================================
-  // REPRESENTATION ACTIONS
+  // REPRESENTATIONS
   // =====================================================
 
   const updateRepresentation = (
@@ -532,11 +480,7 @@ export default function ClientCommunicationsPage() {
       )
     );
 
-    setSaved(false);
-
-    if (completionStatus === "Not Started") {
-      setCompletionStatus("In Progress");
-    }
+    markInProgress();
   };
 
   const addRepresentation = () => {
@@ -553,8 +497,7 @@ export default function ClientCommunicationsPage() {
       },
     ]);
 
-    setSaved(false);
-    setCompletionStatus("In Progress");
+    markInProgress();
   };
 
   const removeRepresentation = (id: string) => {
@@ -562,7 +505,7 @@ export default function ClientCommunicationsPage() {
       current.filter((item) => item.id !== id)
     );
 
-    setSaved(false);
+    markInProgress();
   };
 
   // =====================================================
@@ -577,7 +520,6 @@ export default function ClientCommunicationsPage() {
       deficiencies,
       governanceMatters,
       representationItems,
-      outstandingMatters,
       managementResponses,
       auditorCommunicationConclusion,
       finalCommunicationDate,
@@ -623,12 +565,6 @@ export default function ClientCommunicationsPage() {
         );
       }
 
-      if (!outstandingMattersReady) {
-        missing.push(
-          "Outstanding Matters: Resolve the open matters or document their resolution."
-        );
-      }
-
       if (!conclusionReady) {
         missing.push(
           "Auditor Communication Conclusion: Enter the auditor's overall conclusion."
@@ -643,7 +579,7 @@ export default function ClientCommunicationsPage() {
 
       alert(
         `Client Communications cannot be completed yet.\n\n${missing
-          .map((item) => `• ${item}`)
+          .map((item) => `â€¢ ${item}`)
           .join("\n")}`
       );
 
@@ -657,7 +593,6 @@ export default function ClientCommunicationsPage() {
       deficiencies,
       governanceMatters,
       representationItems,
-      outstandingMatters,
       managementResponses,
       auditorCommunicationConclusion,
       finalCommunicationDate,
@@ -695,9 +630,9 @@ export default function ClientCommunicationsPage() {
   };
 
   const handleNext = () => {
-    if (completionStatus !== "Completed") {
+    if (!communicationReady) {
       alert(
-        "Please complete and finalize Client Communications first."
+        "Please complete all required Client Communications items before continuing."
       );
       return;
     }
@@ -712,14 +647,13 @@ export default function ClientCommunicationsPage() {
   // =====================================================
 
   return (
-    <AppLayout>
+
       <main className="min-w-0 flex-1 bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* HEADER */}
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
             <div className="flex min-w-0 items-start gap-3 sm:gap-4">
 
               <button
@@ -733,33 +667,28 @@ export default function ClientCommunicationsPage() {
               <div className="min-w-0">
 
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-
                   <span className="font-semibold text-blue-600">
                     Phase 4
                   </span>
 
-                  <span className="text-gray-400">
-                    /
-                  </span>
+                  <span className="text-gray-400">/</span>
 
                   <span className="text-gray-500">
                     4.4 Client Communications
                   </span>
-
                 </div>
 
                 <h1 className="mt-1 text-xl font-bold text-gray-900 sm:text-2xl">
                   Client Communications
                 </h1>
 
-                <p className="mt-1 max-w-3xl text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500">
                   Complete communications with management and those
                   charged with governance and document written
                   representations.
                 </p>
 
               </div>
-
             </div>
 
             <div className="shrink-0 self-start lg:self-center">
@@ -785,7 +714,7 @@ export default function ClientCommunicationsPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-600">
-                  Phase 4 — Conclusion & Reporting
+                  Phase 4 â€” Conclusion & Reporting
                 </p>
 
               </div>
@@ -861,28 +790,29 @@ export default function ClientCommunicationsPage() {
               value={openMattersCount}
               description={
                 openMattersCount === 0
-                  ? "All structured matters resolved"
-                  : "Require attention"
+                  ? "No open items"
+                  : "Items require attention"
               }
               icon={<BellRing size={20} />}
             />
 
           </div>
 
-          {/* ISA 265 */}
+          {/* =====================================================
+              ISA 265
+          ===================================================== */}
 
           <section className="mb-6 rounded-xl border border-orange-200 bg-white p-4 shadow-sm sm:p-6">
 
             <SectionHeader
               icon={<ShieldAlert size={22} />}
-              title="ISA 265 — Communication of Deficiencies in Internal Control"
+              title="ISA 265 â€” Communication of Deficiencies in Internal Control"
               description="Identify, evaluate, classify and communicate deficiencies in internal control to the appropriate level of management and those charged with governance."
             />
 
             <div className="mt-6 space-y-5">
 
               {deficiencies.map((item, index) => (
-
                 <div
                   key={item.id}
                   className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5"
@@ -912,9 +842,7 @@ export default function ClientCommunicationsPage() {
 
                     <button
                       type="button"
-                      onClick={() =>
-                        removeDeficiency(item.id)
-                      }
+                      onClick={() => removeDeficiency(item.id)}
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-red-500 hover:bg-red-50"
                       title="Remove deficiency"
                     >
@@ -929,11 +857,7 @@ export default function ClientCommunicationsPage() {
                       label="Deficiency Title"
                       value={item.title}
                       onChange={(value) =>
-                        updateDeficiency(
-                          item.id,
-                          "title",
-                          value
-                        )
+                        updateDeficiency(item.id, "title", value)
                       }
                       placeholder="e.g. Bank reconciliations not reviewed"
                     />
@@ -1048,7 +972,6 @@ export default function ClientCommunicationsPage() {
                   </div>
 
                 </div>
-
               ))}
 
             </div>
@@ -1064,20 +987,21 @@ export default function ClientCommunicationsPage() {
 
           </section>
 
-          {/* ISA 260 */}
+          {/* =====================================================
+              ISA 260
+          ===================================================== */}
 
           <section className="mb-6 rounded-xl border border-blue-200 bg-white p-4 shadow-sm sm:p-6">
 
             <SectionHeader
               icon={<Users size={22} />}
-              title="ISA 260 — Communication With Those Charged With Governance"
+              title="ISA 260 â€” Communication With Those Charged With Governance"
               description="Document significant audit matters communicated to those charged with governance, including scope, significant risks, judgments, misstatements and other relevant matters."
             />
 
             <div className="mt-6 space-y-5">
 
               {governanceMatters.map((item, index) => (
-
                 <div
                   key={item.id}
                   className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5"
@@ -1235,7 +1159,6 @@ export default function ClientCommunicationsPage() {
                   </div>
 
                 </div>
-
               ))}
 
             </div>
@@ -1251,20 +1174,21 @@ export default function ClientCommunicationsPage() {
 
           </section>
 
-          {/* ISA 580 */}
+          {/* =====================================================
+              ISA 580
+          ===================================================== */}
 
           <section className="mb-6 rounded-xl border border-green-200 bg-white p-4 shadow-sm sm:p-6">
 
             <SectionHeader
               icon={<FileText size={22} />}
-              title="ISA 580 — Written Representations"
-              description="Track required written representations, responsible management personnel, dates requested and received, and outstanding representations."
+              title="ISA 580 â€” Written Representations"
+              description="Track required written representations, responsible management personnel, dates requested and received."
             />
 
             <div className="mt-6 space-y-5">
 
               {representationItems.map((item, index) => (
-
                 <div
                   key={item.id}
                   className="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5"
@@ -1400,7 +1324,6 @@ export default function ClientCommunicationsPage() {
                   </div>
 
                 </div>
-
               ))}
 
             </div>
@@ -1416,66 +1339,37 @@ export default function ClientCommunicationsPage() {
 
           </section>
 
-          {/* MANAGEMENT RESPONSES */}
+          {/* =====================================================
+              MANAGEMENT RESPONSES
+          ===================================================== */}
 
           <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
 
             <SectionHeader
               icon={<MessageSquare size={22} />}
-              title="Management Responses and Outstanding Matters"
-              description="Summarize management responses, unresolved matters and items requiring follow-up before the auditor's report is issued."
+              title="Management Responses"
+              description="Summarize management responses to deficiencies, audit findings and governance communications."
             />
 
-            <div className="mt-5 grid gap-5">
+            <div className="mt-5">
 
               <TextAreaField
                 label="Management Responses"
                 value={managementResponses}
                 onChange={(value) => {
                   setManagementResponses(value);
-                  setSaved(false);
-
-                  if (completionStatus === "Not Started") {
-                    setCompletionStatus("In Progress");
-                  }
+                  markInProgress();
                 }}
                 placeholder="Summarize management responses to deficiencies, audit findings and governance matters."
               />
-
-              <TextAreaField
-                label="Outstanding Matters"
-                value={outstandingMatters}
-                onChange={(value) => {
-                  setOutstandingMatters(value);
-                  setSaved(false);
-
-                  if (completionStatus === "Not Started") {
-                    setCompletionStatus("In Progress");
-                  }
-                }}
-                placeholder="If there are no outstanding matters, enter 'None'. If matters remain, document them and resolve them before completion."
-              />
-
-            </div>
-
-            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
-
-              <p className="font-semibold">
-                Completion guidance
-              </p>
-
-              <p className="mt-1">
-                If there are no unresolved matters, enter{" "}
-                <strong>None</strong>. If there are unresolved
-                matters, document them and resolve them before
-                completing this workpaper.
-              </p>
 
             </div>
 
           </section>
 
-          {/* FINAL COMMUNICATION */}
+          {/* =====================================================
+              AUDITOR COMMUNICATION CONCLUSION
+          ===================================================== */}
 
           <section className="mb-6 rounded-xl border border-purple-200 bg-white p-4 shadow-sm sm:p-6">
 
@@ -1492,11 +1386,7 @@ export default function ClientCommunicationsPage() {
                 value={communicationResponsiblePerson}
                 onChange={(value) => {
                   setCommunicationResponsiblePerson(value);
-                  setSaved(false);
-
-                  if (completionStatus === "Not Started") {
-                    setCompletionStatus("In Progress");
-                  }
+                  markInProgress();
                 }}
                 placeholder="Name of responsible auditor"
               />
@@ -1507,11 +1397,7 @@ export default function ClientCommunicationsPage() {
                 value={finalCommunicationDate}
                 onChange={(value) => {
                   setFinalCommunicationDate(value);
-                  setSaved(false);
-
-                  if (completionStatus === "Not Started") {
-                    setCompletionStatus("In Progress");
-                  }
+                  markInProgress();
                 }}
               />
 
@@ -1524,13 +1410,9 @@ export default function ClientCommunicationsPage() {
                 value={auditorCommunicationConclusion}
                 onChange={(value) => {
                   setAuditorCommunicationConclusion(value);
-                  setSaved(false);
-
-                  if (completionStatus === "Not Started") {
-                    setCompletionStatus("In Progress");
-                  }
+                  markInProgress();
                 }}
-                placeholder="Conclude whether all required communications under ISA 265, ISA 260 and ISA 580 have been completed and whether any outstanding matters affect the audit conclusion."
+                placeholder="Conclude whether all required communications under ISA 265, ISA 260 and ISA 580 have been completed."
               />
 
             </div>
@@ -1542,11 +1424,7 @@ export default function ClientCommunicationsPage() {
                 checked={finalReviewCompleted}
                 onChange={(value) => {
                   setFinalReviewCompleted(value);
-                  setSaved(false);
-
-                  if (completionStatus === "Not Started") {
-                    setCompletionStatus("In Progress");
-                  }
+                  markInProgress();
                 }}
               />
 
@@ -1554,7 +1432,9 @@ export default function ClientCommunicationsPage() {
 
           </section>
 
-          {/* COMPLETION CHECKLIST */}
+          {/* =====================================================
+              COMPLETION CHECKLIST
+          ===================================================== */}
 
           <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
 
@@ -1585,11 +1465,6 @@ export default function ClientCommunicationsPage() {
               />
 
               <CompletionItem
-                label="Outstanding communication matters resolved"
-                complete={outstandingMattersReady}
-              />
-
-              <CompletionItem
                 label="Auditor communication conclusion documented"
                 complete={conclusionReady}
               />
@@ -1603,7 +1478,9 @@ export default function ClientCommunicationsPage() {
 
           </section>
 
-          {/* READINESS PANEL */}
+          {/* =====================================================
+              READINESS
+          ===================================================== */}
 
           <section
             className={`mb-6 rounded-xl border p-4 sm:p-6 ${
@@ -1638,7 +1515,7 @@ export default function ClientCommunicationsPage() {
                 <p className="mt-1 text-sm text-gray-600">
                   {communicationReady
                     ? "All required communication areas have been addressed and the workpaper can be completed."
-                    : "The Complete 4.4 button is available. Click it to see exactly which requirements still need attention."}
+                    : "Complete the required checklist items before continuing."}
                 </p>
 
               </div>
@@ -1647,7 +1524,9 @@ export default function ClientCommunicationsPage() {
 
           </section>
 
-          {/* ACTIONS */}
+          {/* =====================================================
+              ACTIONS
+          ===================================================== */}
 
           <div className="mb-8 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
 
@@ -1674,8 +1553,6 @@ export default function ClientCommunicationsPage() {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
 
-              {/* SAVE */}
-
               <button
                 type="button"
                 onClick={handleSave}
@@ -1694,38 +1571,30 @@ export default function ClientCommunicationsPage() {
                 )}
               </button>
 
-              {/* COMPLETE 4.4
-                  IMPORTANT:
-                  This button is intentionally NOT disabled.
-                  It remains clickable so the user can see exactly
-                  what is preventing completion.
-              */}
-
               <button
                 type="button"
                 onClick={handleComplete}
                 className={`flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-white transition ${
                   communicationReady
                     ? "bg-green-600 hover:bg-green-700"
-                    : "bg-orange-500 hover:bg-orange-600"
+                    : "cursor-not-allowed bg-orange-500 hover:bg-orange-600"
                 }`}
               >
                 <CheckCircle2 size={18} />
                 Complete 4.4
               </button>
 
-              {/* CONTINUE TO 4.5 */}
-
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={completionStatus !== "Completed"}
+                disabled={!communicationReady}
                 className={`flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-white transition ${
-                  completionStatus === "Completed"
+                  communicationReady
                     ? "bg-blue-600 hover:bg-blue-700"
                     : "cursor-not-allowed bg-gray-400"
                 }`}
               >
+                <CheckCircle2 size={18} />
                 Continue to 4.5
               </button>
 
@@ -1735,7 +1604,7 @@ export default function ClientCommunicationsPage() {
 
         </div>
       </main>
-    </AppLayout>
+
   );
 }
 
@@ -1748,7 +1617,7 @@ function SectionHeader({
   title,
   description,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   description: string;
 }) {
@@ -1813,7 +1682,7 @@ function MetricCard({
   label: string;
   value: number;
   description: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -2009,7 +1878,7 @@ function CompletionItem({
       ) : (
         <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-orange-600">
           <XCircle size={18} />
-          Outstanding
+          Pending
         </span>
       )}
 

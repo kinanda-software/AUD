@@ -1,36 +1,67 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
-  Save,
   CheckCircle2,
+  CircleAlert,
   FileText,
-  Monitor,
-  ShieldCheck,
   Loader2,
+  Monitor,
+  Save,
+  ShieldCheck,
 } from "lucide-react";
+
+import {
+  createTransactionCycleAssessment,
+  getTransactionCycleAssessmentsByEngagement,
+  updateTransactionCycleAssessment,
+  type TransactionCycleAssessment,
+} from "@/lib/api";
 
 export default function RevenueCyclePage() {
   const params = useParams();
   const router = useRouter();
 
-  const engagementId = params.id as string;
+  const engagementId = String(params.id);
 
-  const [description, setDescription] = useState("");
-  const [significantAccounts, setSignificantAccounts] = useState("");
-  const [disclosureProcesses, setDisclosureProcesses] = useState("");
-  const [itApplications, setItApplications] = useState("");
-  const [itDependencies, setItDependencies] = useState("");
+  const [assessment, setAssessment] =
+    useState<TransactionCycleAssessment | null>(
+      null
+    );
 
-  const [assertions, setAssertions] = useState<string[]>([]);
+  const [description, setDescription] =
+    useState("");
 
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [significantAccounts, setSignificantAccounts] =
+    useState("");
+
+  const [disclosureProcesses, setDisclosureProcesses] =
+    useState("");
+
+  const [itApplications, setItApplications] =
+    useState("");
+
+  const [itDependencies, setItDependencies] =
+    useState("");
+
+  const [assertions, setAssertions] =
+    useState<string[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [saved, setSaved] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
 
   const assertionOptions = [
     "Existence",
@@ -44,10 +75,95 @@ export default function RevenueCyclePage() {
     "Presentation & Disclosure",
   ];
 
-  const toggleAssertion = (assertion: string) => {
+  /*
+   * ============================================================
+   * LOAD EXISTING REVENUE ASSESSMENT
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const loadAssessment = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const assessments =
+          await getTransactionCycleAssessmentsByEngagement(
+            engagementId
+          );
+
+        const existing =
+          assessments.find(
+            (item) =>
+              item.cycle_type === "revenue"
+          ) ?? null;
+
+        if (existing) {
+          setAssessment(existing);
+
+          setDescription(
+            existing.description ?? ""
+          );
+
+          setSignificantAccounts(
+            existing.significant_accounts ?? ""
+          );
+
+          setDisclosureProcesses(
+            existing.disclosure_processes ?? ""
+          );
+
+          setItApplications(
+            existing.it_applications ?? ""
+          );
+
+          setItDependencies(
+            existing.it_dependencies ?? ""
+          );
+
+          setAssertions(
+            Array.isArray(existing.assertions)
+              ? existing.assertions
+              : []
+          );
+
+          setSaved(
+            existing.status === "assessed"
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Failed to load Revenue assessment:",
+          err
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load Revenue assessment."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAssessment();
+  }, [engagementId]);
+
+  /*
+   * ============================================================
+   * ASSERTION TOGGLE
+   * ============================================================
+   */
+
+  const toggleAssertion = (
+    assertion: string
+  ) => {
     setAssertions((current) =>
       current.includes(assertion)
-        ? current.filter((item) => item !== assertion)
+        ? current.filter(
+            (item) => item !== assertion
+          )
         : [...current, assertion]
     );
 
@@ -56,29 +172,11 @@ export default function RevenueCyclePage() {
 
   /*
    * ============================================================
-   * SAVE REVENUE CYCLE AND CONTINUE TO PURCHASING & PAYABLES
+   * SAVE REVENUE ASSESSMENT
    * ============================================================
-   *
-   * This page belongs ONLY to Phase 2.1 Transaction Cycles.
-   *
-   * Workflow:
-   *
-   * Revenue
-   *   ↓
-   * Purchasing & Payables
-   *   ↓
-   * Payroll
-   *   ↓
-   * Inventory
-   *   ↓
-   * Financial Statement Close
-   *   ↓
-   * Other Significant Processes
-   *
-   * We do NOT route to Phase 2.2 from this page.
    */
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!description.trim()) {
       window.alert(
         "Please complete the Cycle Description before continuing."
@@ -100,19 +198,72 @@ export default function RevenueCyclePage() {
       return;
     }
 
-    setSaving(true);
-    setSaved(true);
+    try {
+      setSaving(true);
+      setError(null);
 
-    /*
-     * Give React a short moment to display the saved state,
-     * then continue to the next transaction cycle.
-     */
-    setTimeout(() => {
-      router.push(
-        `/engagements/${engagementId}/risk-assessment/transaction-cycles/purchasing-payables`
+      const payload = {
+        engagement: Number(engagementId),
+        cycle_type: "revenue" as const,
+        description:
+          description.trim(),
+        significant_accounts:
+          significantAccounts.trim(),
+        disclosure_processes:
+          disclosureProcesses.trim(),
+        it_applications:
+          itApplications.trim(),
+        it_dependencies:
+          itDependencies.trim(),
+        assertions,
+        status: "assessed" as const,
+      };
+
+      let savedAssessment:
+        | TransactionCycleAssessment
+        | undefined;
+
+      if (assessment?.id) {
+        savedAssessment =
+          await updateTransactionCycleAssessment(
+            assessment.id,
+            payload
+          );
+      } else {
+        savedAssessment =
+          await createTransactionCycleAssessment(
+            payload
+          );
+      }
+
+      setAssessment(savedAssessment);
+      setSaved(true);
+    } catch (err) {
+      console.error(
+        "Failed to save Revenue assessment:",
+        err
       );
-    }, 500);
+
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to save Revenue assessment.";
+
+      setError(message);
+
+      window.alert(
+        `Unable to save Revenue assessment.\n\n${message}`
+      );
+    } finally {
+      setSaving(false);
+    }
   };
+
+  /*
+   * ============================================================
+   * BACK
+   * ============================================================
+   */
 
   const handleBack = () => {
     if (
@@ -123,181 +274,255 @@ export default function RevenueCyclePage() {
       itDependencies.trim() ||
       assertions.length > 0
     ) {
-      const confirmed = window.confirm(
-        "You have entered revenue cycle information. Are you sure you want to leave this page?"
-      );
+      const confirmed =
+        window.confirm(
+          "You have entered Revenue cycle information. Are you sure you want to leave this page?"
+        );
 
       if (!confirmed) {
         return;
       }
     }
 
-    /*
-     * Return to the 2.1 Transaction Cycles landing page.
-     */
     router.push(
-      `/engagements/${engagementId}/risk-assessment`
+      `/engagements/${engagementId}/risk-assessment/transaction-cycles`
     );
   };
 
+  /*
+   * ============================================================
+   * CONTINUE
+   * ============================================================
+   */
+
+  const handleContinue = () => {
+    router.push(
+      `/engagements/${engagementId}/risk-assessment/transaction-cycles/purchasing-payables`
+    );
+  };
+
+  /*
+   * ============================================================
+   * LOADING STATE
+   * ============================================================
+   */
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[500px] w-full min-w-0 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2
+            size={32}
+            className="animate-spin text-blue-600"
+          />
+
+          <p className="text-sm">
+            Loading Revenue assessment...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-6xl space-y-8">
-        {/* Header */}
-        <div>
-          <Link
-            href={`/engagements/${engagementId}/risk-assessment`}
-            className="mb-4 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900"
-          >
-            <ArrowLeft size={16} />
-            Back to Transaction Cycles
-          </Link>
+    <div className="w-full min-w-0 space-y-6">
+      {/* Header */}
+      <div>
+        <Link
+          href={`/engagements/${engagementId}/risk-assessment/transaction-cycles`}
+          className="mb-4 inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900"
+        >
+          <ArrowLeft size={16} />
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
-                <span>PHASE 2</span>
-                <span>/</span>
-                <span>2.1 TRANSACTION CYCLES</span>
-              </div>
+          Back to Transaction Cycles
+        </Link>
 
-              <h1 className="text-2xl font-bold text-slate-900">
-                Revenue Cycle
-              </h1>
-
-              <p className="mt-1 max-w-3xl text-sm text-slate-500">
-                Configure the revenue transaction cycle,
-                significant accounts, assertions, disclosure
-                processes and supporting IT applications.
-              </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
+              <span>PHASE 2</span>
+              <span>/</span>
+              <span>2.1 TRANSACTION CYCLES</span>
             </div>
 
-            {/* Status */}
-            <div
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${
-                saved
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              {saved ? (
-                <>
-                  <CheckCircle2 size={17} />
-                  Assessed
-                </>
-              ) : (
-                "Not assessed"
-              )}
+            <h1 className="text-2xl font-bold text-slate-900">
+              Revenue Cycle
+            </h1>
+
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+              Configure the revenue transaction
+              cycle, significant accounts,
+              assertions, disclosure processes
+              and supporting IT applications.
+            </p>
+          </div>
+
+          {/* Status */}
+          <div
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${
+              saved
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-amber-50 text-amber-700"
+            }`}
+          >
+            {saved ? (
+              <>
+                <CheckCircle2 size={17} />
+
+                Assessed
+              </>
+            ) : (
+              <>
+                <CircleAlert size={17} />
+
+                Not Assessed
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+          <div className="flex items-start gap-3">
+            <CircleAlert
+              size={20}
+              className="mt-0.5 shrink-0 text-red-600"
+            />
+
+            <div>
+              <p className="font-semibold text-red-900">
+                Save / Load Error
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-red-700">
+                {error}
+              </p>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Cycle Information */}
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-3 border-b border-slate-200 p-6">
-            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
-              <FileText size={22} />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Revenue Cycle Information
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Document how revenue transactions are
-                initiated, processed, recorded and reported.
-              </p>
-            </div>
+      {/* Cycle Information */}
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-slate-200 p-6">
+          <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+            <FileText size={22} />
           </div>
 
-          <div className="space-y-6 p-6">
-            {/* Description */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Cycle Description{" "}
-                <span className="text-red-500">*</span>
-              </label>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              Revenue Cycle Information
+            </h2>
 
-              <textarea
-                value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  setSaved(false);
-                }}
-                rows={4}
-                placeholder="Describe the client's revenue cycle and the major processes involved..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            {/* Significant Accounts */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Significant Accounts{" "}
-                <span className="text-red-500">*</span>
-              </label>
-
-              <textarea
-                value={significantAccounts}
-                onChange={(e) => {
-                  setSignificantAccounts(e.target.value);
-                  setSaved(false);
-                }}
-                rows={4}
-                placeholder="List significant accounts associated with revenue, for example Revenue, Trade Receivables, Contract Assets..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            {/* Disclosure Processes */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                Disclosure Processes
-              </label>
-
-              <textarea
-                value={disclosureProcesses}
-                onChange={(e) => {
-                  setDisclosureProcesses(e.target.value);
-                  setSaved(false);
-                }}
-                rows={4}
-                placeholder="Describe relevant financial statement disclosure processes related to revenue..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
+            <p className="text-sm text-slate-500">
+              Document how revenue transactions
+              are initiated, processed, recorded
+              and reported.
+            </p>
           </div>
-        </section>
+        </div>
 
-        {/* Assertions */}
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-3 border-b border-slate-200 p-6">
-            <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
-              <ShieldCheck size={22} />
-            </div>
+        <div className="space-y-6 p-6">
+          {/* Description */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Cycle Description{" "}
+              <span className="text-red-500">
+                *
+              </span>
+            </label>
 
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Relevant Financial Statement Assertions
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Select the assertions relevant to the revenue
-                cycle.
-              </p>
-            </div>
+            <textarea
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setSaved(false);
+              }}
+              rows={4}
+              placeholder="Describe the client's revenue cycle and the major processes involved..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
           </div>
 
-          <div className="grid gap-3 p-6 md:grid-cols-3">
-            {assertionOptions.map((assertion) => {
-              const selected = assertions.includes(assertion);
+          {/* Significant Accounts */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Significant Accounts{" "}
+              <span className="text-red-500">
+                *
+              </span>
+            </label>
+
+            <textarea
+              value={significantAccounts}
+              onChange={(e) => {
+                setSignificantAccounts(
+                  e.target.value
+                );
+                setSaved(false);
+              }}
+              rows={4}
+              placeholder="List significant accounts associated with revenue, for example Revenue, Trade Receivables, Contract Assets..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          {/* Disclosure Processes */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Disclosure Processes
+            </label>
+
+            <textarea
+              value={disclosureProcesses}
+              onChange={(e) => {
+                setDisclosureProcesses(
+                  e.target.value
+                );
+                setSaved(false);
+              }}
+              rows={4}
+              placeholder="Describe relevant financial statement disclosure processes related to revenue..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Assertions */}
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-slate-200 p-6">
+          <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
+            <ShieldCheck size={22} />
+          </div>
+
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              Relevant Financial Statement Assertions
+            </h2>
+
+            <p className="text-sm text-slate-500">
+              Select the assertions relevant to
+              the revenue cycle.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-6 md:grid-cols-3">
+          {assertionOptions.map(
+            (assertion) => {
+              const selected =
+                assertions.includes(assertion);
 
               return (
                 <button
                   key={assertion}
                   type="button"
-                  onClick={() => toggleAssertion(assertion)}
+                  onClick={() =>
+                    toggleAssertion(assertion)
+                  }
                   className={`rounded-xl border p-4 text-left transition ${
                     selected
                       ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100"
@@ -318,127 +543,135 @@ export default function RevenueCyclePage() {
                   </div>
                 </button>
               );
-            })}
-          </div>
-        </section>
+            }
+          )}
+        </div>
+      </section>
 
-        {/* IT Applications */}
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-3 border-b border-slate-200 p-6">
-            <div className="rounded-xl bg-purple-50 p-3 text-purple-600">
-              <Monitor size={22} />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                IT Applications & Dependencies
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Identify systems supporting initiation,
-                recording, processing, correction, reporting
-                or electronic audit evidence.
-              </p>
-            </div>
+      {/* IT Applications */}
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-slate-200 p-6">
+          <div className="rounded-xl bg-purple-50 p-3 text-purple-600">
+            <Monitor size={22} />
           </div>
 
-          <div className="space-y-6 p-6">
-            {/* IT Applications */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                IT Applications
-              </label>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">
+              IT Applications & Dependencies
+            </h2>
 
-              <textarea
-                value={itApplications}
-                onChange={(e) => {
-                  setItApplications(e.target.value);
-                  setSaved(false);
-                }}
-                rows={4}
-                placeholder="List applications supporting the revenue process, e.g. ERP, accounting system, POS, billing system..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            {/* IT Dependencies */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">
-                IT Dependencies
-              </label>
-
-              <textarea
-                value={itDependencies}
-                onChange={(e) => {
-                  setItDependencies(e.target.value);
-                  setSaved(false);
-                }}
-                rows={4}
-                placeholder="Describe important IT dependencies, interfaces, automated controls, reports or electronic audit evidence..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
+            <p className="text-sm text-slate-500">
+              Identify systems supporting
+              initiation, recording, processing,
+              correction, reporting or electronic
+              audit evidence.
+            </p>
           </div>
-        </section>
+        </div>
 
-        {/* Assessment Summary */}
-        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
-            Assessment Summary
-          </h2>
+        <div className="space-y-6 p-6">
+          {/* IT Applications */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              IT Applications
+            </label>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl bg-white p-4">
-              <p className="text-xs text-slate-500">
-                Transaction Cycle
-              </p>
-
-              <p className="mt-1 font-semibold text-slate-900">
-                Revenue
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-white p-4">
-              <p className="text-xs text-slate-500">
-                Assertions Selected
-              </p>
-
-              <p className="mt-1 font-semibold text-slate-900">
-                {assertions.length}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-white p-4">
-              <p className="text-xs text-slate-500">
-                Engagement
-              </p>
-
-              <p className="mt-1 font-semibold text-slate-900">
-                #{engagementId}
-              </p>
-            </div>
+            <textarea
+              value={itApplications}
+              onChange={(e) => {
+                setItApplications(
+                  e.target.value
+                );
+                setSaved(false);
+              }}
+              rows={4}
+              placeholder="List applications supporting the revenue process, e.g. ERP, accounting system, POS, billing system..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
           </div>
-        </section>
 
-        {/* Footer */}
-        <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          {/* Back */}
-          <button
-            type="button"
-            onClick={handleBack}
-            disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ArrowLeft size={18} />
-            Back to Transaction Cycles
-          </button>
+          {/* IT Dependencies */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              IT Dependencies
+            </label>
 
-          {/* Save & Continue */}
+            <textarea
+              value={itDependencies}
+              onChange={(e) => {
+                setItDependencies(
+                  e.target.value
+                );
+                setSaved(false);
+              }}
+              rows={4}
+              placeholder="Describe important IT dependencies, interfaces, automated controls, reports or electronic audit evidence..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Assessment Summary */}
+      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
+          Assessment Summary
+        </h2>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl bg-white p-4">
+            <p className="text-xs text-slate-500">
+              Transaction Cycle
+            </p>
+
+            <p className="mt-1 font-semibold text-slate-900">
+              Revenue
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-4">
+            <p className="text-xs text-slate-500">
+              Assertions Selected
+            </p>
+
+            <p className="mt-1 font-semibold text-slate-900">
+              {assertions.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-4">
+            <p className="text-xs text-slate-500">
+              Engagement
+            </p>
+
+            <p className="mt-1 font-semibold text-slate-900">
+              #{engagementId}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        {/* Back */}
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={saving}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <ArrowLeft size={18} />
+
+          Back to Transaction Cycles
+        </button>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {/* Save */}
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-6 py-3 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
               <>
@@ -446,24 +679,46 @@ export default function RevenueCyclePage() {
                   size={18}
                   className="animate-spin"
                 />
-                Saving & Continuing...
+
+                Saving...
               </>
             ) : saved ? (
               <>
                 <CheckCircle2 size={18} />
-                Assessment Saved
-                <ArrowRight size={18} />
+
+                Saved
               </>
             ) : (
               <>
                 <Save size={18} />
-                Save & Continue to Purchasing & Payables
-                <ArrowRight size={18} />
+
+                Save Assessment
               </>
             )}
           </button>
+
+          {/* Continue */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!saved) {
+                window.alert(
+                  "Please save the Revenue assessment before continuing."
+                );
+                return;
+              }
+
+              handleContinue();
+            }}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Continue to Purchasing & Payables
+
+            <ArrowRight size={18} />
+          </button>
         </div>
       </div>
-    </AppLayout>
+    </div>
   );
 }

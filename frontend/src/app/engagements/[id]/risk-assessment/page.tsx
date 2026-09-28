@@ -1,127 +1,128 @@
+﻿
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import AppLayout from "../../../../components/layout/AppLayout";
-
+import { useParams } from "next/navigation";
 import {
-  ArrowLeft,
-  ClipboardCheck,
-  ShieldAlert,
-  Workflow,
-  AlertTriangle,
-  ShieldCheck,
-  TestTube,
-  Scale,
-  FileSearch,
-  FileText,
-  ChevronRight,
+  ArrowRight,
   CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
+  FileSearch,
+  GitBranch,
+  ListChecks,
+  Settings2,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 
-/*
- * ==========================================
- * PHASE 2 WORKPAPER SECTIONS
- * ==========================================
- */
-
-const sections = [
+const workpapers = [
   {
-    id: "transaction-cycles",
     number: "2.1",
     title: "Transaction Cycles",
-    description:
-      "Identify significant transaction cycles and disclosure processes.",
-    icon: Workflow,
+    route: "",
+    icon: GitBranch,
   },
   {
-    id: "process-flow",
     number: "2.2",
     title: "Process Flow & Walkthroughs",
-    description:
-      "Map processes, controls, IT dependencies and walkthroughs.",
-    icon: ClipboardCheck,
-  },
-  {
-    id: "risk-points",
-    number: "2.3",
-    title: "Risk Points",
-    description:
-      "Identify what could go wrong and related assertions.",
-    icon: AlertTriangle,
-  },
-  {
-    id: "controls",
-    number: "2.4",
-    title: "Controls",
-    description:
-      "Identify and evaluate manual, ITDM and automated controls.",
-    icon: ShieldCheck,
-  },
-  {
-    id: "control-testing",
-    number: "2.5",
-    title: "Controls Testing",
-    description:
-      "Select controls to test where reliance is planned.",
-    icon: TestTube,
-  },
-  {
-    id: "risk-assessment",
-    number: "2.6",
-    title: "Combined Risk Assessment",
-    description:
-      "Assess inherent risk and control risk by assertion.",
-    icon: Scale,
-  },
-  {
-    id: "tests-of-controls",
-    number: "2.7",
-    title: "Tests of Controls",
-    description:
-      "Design tests of operating effectiveness.",
-    icon: TestTube,
-  },
-  {
-    id: "management-override",
-    number: "2.8",
-    title: "Management Override",
-    description:
-      "Address journal entries, unusual transactions and estimates.",
-    icon: ShieldAlert,
-  },
-  {
-    id: "substantive-procedures",
-    number: "2.9",
-    title: "Substantive Procedures",
-    description:
-      "Design substantive responses for relevant assertions.",
+    route: "2.2",
     icon: FileSearch,
   },
   {
-    id: "general-procedures",
-    number: "2.10",
-    title: "General Audit Procedures",
-    description:
-      "Cover legal matters, minutes, going concern and representations.",
+    number: "2.3",
+    title: "Risk Points",
+    route: "2.3",
+    icon: ShieldAlert,
+  },
+  {
+    number: "2.4",
+    title: "Controls",
+    route: "2.4",
+    icon: ShieldCheck,
+  },
+  {
+    number: "2.5",
+    title: "Controls Testing",
+    route: "2.5",
+    icon: ListChecks,
+  },
+  {
+    number: "2.6",
+    title: "Combined Risk Assessment",
+    route: "2.6",
     icon: ClipboardCheck,
   },
   {
-    id: "audit-strategy",
+    number: "2.7",
+    title: "Tests of Controls",
+    route: "2.7",
+    icon: CheckCircle2,
+  },
+  {
+    number: "2.8",
+    title: "Management Override",
+    route: "2.8",
+    icon: ShieldAlert,
+  },
+  {
+    number: "2.9",
+    title: "Substantive Procedures",
+    route: "2.9",
+    icon: FileSearch,
+  },
+  {
+    number: "2.10",
+    title: "General Audit Procedures",
+    route: "2.10",
+    icon: ClipboardCheck,
+  },
+  {
     number: "2.11",
     title: "Audit Strategy",
-    description:
-      "Document the overall audit strategy and approach.",
-    icon: FileText,
+    route: "2.11",
+    icon: Settings2,
   },
 ];
 
-/*
- * ==========================================
- * CROSS-CUTTING WORKPAPERS
- * ==========================================
- */
+const transactionCycles = [
+  {
+    title: "Revenue",
+    description:
+      "Sales, revenue recognition, receivables and related assertions.",
+    route: "revenue",
+  },
+  {
+    title: "Purchasing & Payables",
+    description:
+      "Purchases, suppliers, payables and expenditure processes.",
+    route: "purchasing-payables",
+  },
+  {
+    title: "Payroll",
+    description:
+      "Employees, salaries, payroll processing and related liabilities.",
+    route: "payroll",
+  },
+  {
+    title: "Inventory",
+    description:
+      "Inventory movements, valuation, counts and related controls.",
+    route: "inventory",
+  },
+  {
+    title: "Financial Statement Close",
+    description:
+      "Period-end close, journals, reconciliations and financial reporting.",
+    route: "financial-statement-close",
+  },
+  {
+    title: "Other Significant Processes",
+    description:
+      "Other processes identified as significant to the engagement.",
+    route: "other-significant-processes",
+  },
+];
 
 const crossCuttingTopics = [
   "Group Audits",
@@ -139,536 +140,354 @@ const crossCuttingTopics = [
   "Complex Transactions",
 ];
 
-/*
- * ==========================================
- * TRANSACTION CYCLE ROUTES
- * ==========================================
- *
- * Each transaction cycle has its own workpaper.
- */
-
-const transactionCycleRoutes: Record<string, string> = {
-  Revenue: "revenue",
-  "Purchasing & Payables": "purchasing-payables",
-  Payroll: "payroll",
-  Inventory: "inventory",
-  "Financial Statement Close": "financial-statement-close",
-  "Other Significant Processes": "other-significant-processes",
-};
-
-/*
- * ==========================================
- * TRANSACTION CYCLE DESCRIPTIONS
- * ==========================================
- */
-
-const transactionCycleDescriptions: Record<string, string> = {
-  Revenue:
-    "Configure revenue streams, significant accounts, assertions, risks and supporting applications.",
-
-  "Purchasing & Payables":
-    "Configure procurement, purchases, trade payables, expenses, assertions and supporting applications.",
-
-  Payroll:
-    "Configure payroll processes, employee costs, deductions, assertions and supporting applications.",
-
-  Inventory:
-    "Configure inventory movements, stock balances, valuation, existence and supporting applications.",
-
-  "Financial Statement Close":
-    "Configure the financial close process, journal entries, reconciliations, adjustments and reporting.",
-
-  "Other Significant Processes":
-    "Configure other significant processes that may affect the financial statements or audit risk.",
-};
-
-/*
- * ==========================================
- * MAIN PAGE
- * ==========================================
- */
-
 export default function RiskAssessmentPage() {
   const params = useParams();
-  const router = useRouter();
 
-  const engagementId = params.id as string;
+  const engagementId = String(params?.id ?? "");
 
-  /*
-   * Default active Phase 2 section
-   */
-
-  const [activeSection, setActiveSection] =
-    useState("transaction-cycles");
-
-  /*
-   * ==========================================
-   * HANDLE PHASE 2 SECTION CLICK
-   * ==========================================
-   *
-   * 2.1 stays on this page.
-   *
-   * 2.2 - 2.11 navigate to their
-   * individual workpaper pages.
-   */
-
-  const handleSectionClick = (
-    section: (typeof sections)[number]
-  ) => {
-    if (section.number === "2.1") {
-      setActiveSection(section.id);
-      return;
-    }
-
-    router.push(
-      `/engagements/${engagementId}/risk-assessment/${section.number}`
-    );
-  };
-
-  /*
-   * Find currently active section
-   */
-
-  const activeSectionData = sections.find(
-    (section) => section.id === activeSection
-  );
-
-  /*
-   * Icon for active section
-   */
-
-  const ActiveIcon =
-    activeSectionData?.icon || ClipboardCheck;
+  const baseRoute = `/engagements/${engagementId}/risk-assessment`;
 
   return (
-    <AppLayout>
-      <div className="min-h-screen">
-
-        {/* =========================================
+    <div className="w-full min-w-0">
+        {/* =========================================================
             PAGE HEADER
-        ========================================== */}
-
-        <div className="mb-8">
-
-          {/* Back button */}
-
-          <Link
-            href="/engagements"
-            className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-          >
-            <ArrowLeft size={17} />
-
-            Back to Engagements
-          </Link>
-
-          {/* Header information */}
-
-          <div className="flex items-start justify-between">
-
-            <div>
-
-              <div className="mb-2 flex items-center gap-2">
-
-                <span className="rounded-lg bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                  PHASE 2
-                </span>
-
-                <span className="text-sm text-slate-400">
-                  Risk Assessment & Strategy
-                </span>
-
-              </div>
-
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                Risk Assessment & Strategy
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-500">
-                AUD-001 — Financial Statement Audit
-              </p>
-
-            </div>
-
-            {/* Phase Status */}
-
-            <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex">
-
-              <CheckCircle2
-                size={18}
-                className="text-emerald-500"
-              />
-
-              <div>
-
-                <p className="text-xs text-slate-400">
-                  Phase Status
-                </p>
-
-                <p className="text-sm font-semibold text-slate-700">
-                  In Progress
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-        </div>
-
-
-        {/* =========================================
-            MAIN CONTENT
-        ========================================== */}
-
-        <div className="grid grid-cols-12 gap-6">
-
-          {/* =========================================
-              LEFT SIDEBAR
-          ========================================== */}
-
-          <aside className="col-span-12 lg:col-span-4 xl:col-span-3">
-
-            <div className="sticky top-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-
-              <div className="px-3 pb-3 pt-2">
-
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Phase 2 Workpapers
-                </p>
-
-              </div>
-
-              <div className="space-y-1">
-
-                {sections.map((section) => {
-
-                  const Icon = section.icon;
-
-                  const active =
-                    activeSection === section.id;
-
-                  return (
-
-                    <button
-                      key={section.id}
-                      type="button"
-                      onClick={() =>
-                        handleSectionClick(section)
-                      }
-                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
-                        active
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-
-                      {/* Icon */}
-
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                          active
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-
-                        <Icon size={17} />
-
-                      </div>
-
-
-                      {/* Section information */}
-
-                      <div className="min-w-0 flex-1">
-
-                        <p
-                          className={`text-xs font-bold ${
-                            active
-                              ? "text-blue-600"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {section.number}
-                        </p>
-
-                        <p
-                          className={`truncate text-sm font-semibold ${
-                            active
-                              ? "text-blue-900"
-                              : "text-slate-700"
-                          }`}
-                        >
-                          {section.title}
-                        </p>
-
-                      </div>
-
-
-                      {/* Arrow */}
-
-                      <ChevronRight
-                        size={16}
-                        className={
-                          active
-                            ? "text-blue-500"
-                            : "text-slate-300"
-                        }
-                      />
-
-                    </button>
-
-                  );
-                })}
-
-              </div>
-
-            </div>
-
-          </aside>
-
-
-          {/* =========================================
-              RIGHT CONTENT
-          ========================================== */}
-
-          <section className="col-span-12 lg:col-span-8 xl:col-span-9">
-
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-              {/* Content Header */}
-
-              <div className="border-b border-slate-200 px-6 py-5">
-
-                <div className="flex items-center gap-3">
-
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-
-                    <ActiveIcon size={21} />
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                      {activeSectionData?.number}
-                    </p>
-
-                    <h2 className="text-xl font-bold text-slate-900">
-                      {activeSectionData?.title}
-                    </h2>
-
-                  </div>
-
+        ========================================================== */}
+        <section className="mb-5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="px-5 py-5">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-700">
+                    Phase 2
+                  </span>
+
+                  <ChevronRight
+                    size={14}
+                    className="shrink-0 text-slate-300"
+                  />
+
+                  <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Risk Assessment & Strategy
+                  </span>
                 </div>
 
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                  Risk Assessment & Strategy
+                </h1>
+
+                <p className="mt-1.5 text-sm text-slate-500">
+                  AUD-001 — Financial Statement Audit
+                </p>
               </div>
 
+              <div className="flex shrink-0 items-center gap-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Engagement
+                  </p>
 
-              {/* =========================================
-                  2.1 TRANSACTION CYCLES
-              ========================================== */}
+                  <p className="mt-0.5 text-sm font-bold text-slate-900">
+                    #{engagementId}
+                  </p>
+                </div>
 
-              <div className="p-6">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                    Phase Status
+                  </p>
 
-                {activeSection === "transaction-cycles" ? (
-
-                  <div>
-
-                    {/* Section heading */}
-
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Significant Transaction Cycles
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      Identify significant accounts, transaction
-                      cycles, disclosure processes and IT
-                      applications supporting the financial
-                      reporting process.
-                    </p>
-
-
-                    {/* =====================================
-                        TRANSACTION CYCLE CARDS
-                    ====================================== */}
-
-                    <div className="mt-6 grid gap-4 md:grid-cols-2">
-
-                      {[
-                        "Revenue",
-                        "Purchasing & Payables",
-                        "Payroll",
-                        "Inventory",
-                        "Financial Statement Close",
-                        "Other Significant Processes",
-                      ].map((cycle) => {
-
-                        /*
-                         * Get route for this cycle.
-                         */
-
-                        const cycleRoute =
-                          transactionCycleRoutes[cycle];
-
-                        /*
-                         * Get description for this cycle.
-                         */
-
-                        const cycleDescription =
-                          transactionCycleDescriptions[cycle];
-
-                        return (
-
-                          <div
-                            key={cycle}
-                            className="rounded-xl border border-slate-200 p-5 transition hover:border-blue-300 hover:shadow-sm"
-                          >
-
-                            {/* Card header */}
-
-                            <div className="flex items-center justify-between gap-3">
-
-                              <h4 className="font-semibold text-slate-800">
-                                {cycle}
-                              </h4>
-
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                Not assessed
-                              </span>
-
-                            </div>
-
-
-                            {/* Card description */}
-
-                            <p className="mt-2 text-xs leading-5 text-slate-500">
-                              {cycleDescription}
-                            </p>
-
-
-                            {/* =================================
-                                CONFIGURE CYCLE LINK
-                            ================================== */}
-
-                            <Link
-                              href={`/engagements/${engagementId}/risk-assessment/transaction-cycles/${cycleRoute}`}
-                              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 transition hover:text-blue-700"
-                            >
-                              Configure cycle
-
-                              <ChevronRight size={16} />
-
-                            </Link>
-
-                          </div>
-
-                        );
-
-                      })}
-
-                    </div>
-
-                  </div>
-
-                ) : (
-
-                  /* =========================================
-                     FALLBACK FOR 2.2 - 2.11
-                  ========================================== */
-
-                  <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-
-                      <ClipboardCheck
-                        size={30}
-                        className="text-slate-400"
-                      />
-
-                    </div>
-
-                    <h3 className="mt-5 text-lg font-semibold text-slate-900">
-                      {activeSectionData?.title}
-                    </h3>
-
-                    <p className="mt-2 max-w-lg text-sm leading-6 text-slate-500">
-                      {activeSectionData?.description}
-                    </p>
-
-                    <div className="mt-6 rounded-xl bg-amber-50 px-5 py-3 text-sm text-amber-700">
-                      This workpaper will be implemented in
-                      the next step.
-                    </div>
-
-                  </div>
-
-                )}
-
+                  <p className="mt-0.5 text-sm font-bold text-amber-800">
+                    In Progress
+                  </p>
+                </div>
               </div>
+            </div>
+          </div>
 
+          {/* Summary strip */}
+          <div className="grid grid-cols-1 border-t border-slate-200 sm:grid-cols-3">
+            <div className="px-5 py-3.5">
+              <p className="text-[11px] font-medium text-slate-400">
+                Workpapers
+              </p>
+
+              <p className="mt-0.5 text-base font-bold text-slate-900">
+                11
+              </p>
             </div>
 
-          </section>
+            <div className="border-t border-slate-200 px-5 py-3.5 sm:border-l sm:border-t-0">
+              <p className="text-[11px] font-medium text-slate-400">
+                Current Workpaper
+              </p>
 
-        </div>
+              <p className="mt-0.5 text-base font-bold text-blue-700">
+                2.1
+              </p>
+            </div>
 
+            <div className="border-t border-slate-200 px-5 py-3.5 sm:border-l sm:border-t-0">
+              <p className="text-[11px] font-medium text-slate-400">
+                Assessment Area
+              </p>
 
-        {/* =========================================
-            CROSS-CUTTING WORKPAPERS
-        ========================================== */}
-
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-          {/* Heading */}
-
-          <div className="mb-5">
-
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Cross-Cutting Workpapers
-            </p>
-
-            <h2 className="mt-1 text-xl font-bold text-slate-900">
-              Additional Audit Areas
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              These areas support the risk assessment and audit
-              strategy but are maintained as separate workpapers.
-            </p>
-
+              <p className="mt-0.5 text-base font-bold text-slate-900">
+                Transaction Cycles
+              </p>
+            </div>
           </div>
+        </section>
 
+        {/* =========================================================
+            MAIN WORKSPACE
+        ========================================================== */}
+        <div className="grid w-full min-w-0 grid-cols-1 gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
+          {/* =======================================================
+              WORKPAPER SIDEBAR
+          ======================================================== */}
+          <aside className="h-fit min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-4 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Phase 2
+              </p>
 
-          {/* Cross-cutting cards */}
+              <h2 className="mt-1 text-sm font-bold text-slate-900">
+                Workpaper Navigation
+              </h2>
+            </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="p-2.5">
+              <div className="space-y-0.5">
+                {workpapers.map((workpaper) => {
+                  const Icon = workpaper.icon;
+                  const isCurrent = workpaper.number === "2.1";
 
-            {crossCuttingTopics.map((topic) => (
+                  if (isCurrent) {
+                    return (
+                      <div
+                        key={workpaper.number}
+                        className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-2.5"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                            <Icon size={15} />
+                          </div>
 
-              <button
-                key={topic}
-                type="button"
-                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-              >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-blue-600">
+                                {workpaper.number}
+                              </span>
 
-                <span>
-                  {topic}
-                </span>
+                              <span className="truncate text-[11px] font-bold text-blue-950">
+                                {workpaper.title}
+                              </span>
+                            </div>
 
-                <ChevronRight
-                  size={16}
-                  className="text-slate-300"
-                />
+                            <p className="mt-0.5 text-[9px] font-semibold text-blue-600">
+                              Current workpaper
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
-              </button>
+                  return (
+                    <Link
+                      key={workpaper.number}
+                      href={`${baseRoute}/${workpaper.route}`}
+                      className="group flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-slate-50"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600">
+                        <Icon size={15} />
+                      </div>
 
-            ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {workpaper.number}
+                          </span>
 
-          </div>
+                          <span className="truncate text-[11px] font-semibold text-slate-700">
+                            {workpaper.title}
+                          </span>
+                        </div>
+                      </div>
 
+                      <ArrowRight
+                        size={13}
+                        className="shrink-0 text-slate-300 transition-colors group-hover:text-blue-600"
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+
+          {/* =======================================================
+              MAIN CONTENT
+          ======================================================== */}
+          <main className="min-w-0 space-y-5">
+            {/* =====================================================
+                TRANSACTION CYCLES
+            ====================================================== */}
+            <section className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-5 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md bg-blue-100 px-2 py-1 text-[11px] font-bold text-blue-700">
+                        2.1
+                      </span>
+
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Current Workpaper
+                      </span>
+                    </div>
+
+                    <h2 className="mt-2.5 text-xl font-bold text-slate-900">
+                      Transaction Cycles
+                    </h2>
+
+                    <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">
+                      Select a transaction cycle to document the
+                      relevant processes, risks, controls and audit
+                      considerations.
+                    </p>
+                  </div>
+
+                  <div className="hidden shrink-0 items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 sm:flex">
+                    <CheckCircle2
+                      size={15}
+                      className="text-emerald-600"
+                    />
+
+                    <span className="text-[11px] font-bold text-emerald-700">
+                      Active
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5">
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Significant Transaction Cycles
+                  </h3>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Open a cycle to continue the assessment.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                  {transactionCycles.map((cycle) => (
+                    <Link
+                      key={cycle.route}
+                      href={`${baseRoute}/transaction-cycles/${cycle.route}`}
+                      className="group flex min-h-[155px] min-w-0 flex-col rounded-lg border border-slate-200 bg-white p-4 transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-blue-50 group-hover:text-blue-600">
+                          <GitBranch size={17} />
+                        </div>
+
+                        <ArrowRight
+                          size={16}
+                          className="mt-1 shrink-0 text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-blue-600"
+                        />
+                      </div>
+
+                      <div className="mt-4 min-w-0">
+                        <h4 className="truncate text-sm font-bold text-slate-900">
+                          {cycle.title}
+                        </h4>
+
+                        <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                          {cycle.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-auto pt-4">
+                        <span className="text-[11px] font-bold text-blue-600">
+                          Configure cycle
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* =====================================================
+                CROSS-CUTTING
+            ====================================================== */}
+            <section className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-5 py-5">
+                <h2 className="text-lg font-bold text-slate-900">
+                  Cross-Cutting Workpapers
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Additional audit areas relevant to the risk
+                  assessment and audit strategy.
+                </p>
+              </div>
+
+              <div className="p-5">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {crossCuttingTopics.map((topic) => (
+                    <div
+                      key={topic}
+                      className="flex min-h-[42px] min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50 px-3.5"
+                    >
+                      <span className="mr-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+
+                      <span className="truncate text-xs font-medium text-slate-700">
+                        {topic}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* =====================================================
+                NEXT WORKPAPER
+            ====================================================== */}
+            <section className="w-full overflow-hidden rounded-xl bg-slate-900 shadow-sm">
+              <div className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    Next Workpaper
+                  </p>
+
+                  <h2 className="mt-1.5 text-base font-bold text-white">
+                    2.2 — Process Flow & Walkthroughs
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    Continue documenting the processes and walkthroughs
+                    after completing the relevant transaction cycles.
+                  </p>
+                </div>
+
+                <Link
+                  href={`${baseRoute}/2.2`}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-xs font-bold text-slate-900 transition-colors hover:bg-slate-100"
+                >
+                  Open 2.2
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </section>
+          </main>
         </div>
-
       </div>
-    </AppLayout>
-  );
-}
+    );
+  }
+
+
+

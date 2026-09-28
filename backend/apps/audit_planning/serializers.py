@@ -22,6 +22,8 @@ from .models import (
     QualityMonitoring,
     QualityFinding,
     RemediationAction,
+    DocumentationArchive,
+    ArchiveStatus,
 )
 
 
@@ -361,7 +363,6 @@ class InterimYearEndAssessmentSerializer(
     class Meta:
         model = InterimYearEndAssessment
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -420,7 +421,6 @@ class FraudJournalEntryAssessmentSerializer(
     class Meta:
         model = FraudJournalEntryAssessment
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -502,9 +502,7 @@ class SubstantiveProcedureAssessmentSerializer(
 
     class Meta:
         model = SubstantiveProcedureAssessment
-
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -594,9 +592,7 @@ class GeneralAuditProcedureSerializer(
 
     class Meta:
         model = GeneralAuditProcedure
-
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -620,7 +616,6 @@ class ReassessedCombinedRiskSerializer(
     class Meta:
         model = ReassessedCombinedRisk
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -648,7 +643,6 @@ class MisstatementAssessmentSerializer(
     class Meta:
         model = MisstatementAssessment
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -742,7 +736,6 @@ class MisstatementEvaluationSerializer(
     class Meta:
         model = MisstatementEvaluation
         fields = "__all__"
-
         read_only_fields = [
             "id",
             "created_at",
@@ -879,7 +872,8 @@ class MisstatementEvaluationSerializer(
 
         return attrs
 
-    # ============================================================
+
+# ============================================================
 # PHASE 4.7 — FIRM-LEVEL QUALITY MONITORING
 # ============================================================
 
@@ -931,4 +925,48 @@ class RemediationActionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "engagement_code",
+        ]
+
+
+# ============================================================
+# PHASE 4.6 — DOCUMENTATION ARCHIVE
+# ============================================================
+
+class DocumentationArchiveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentationArchive
+        fields = [
+            "id",
+            "engagement",
+            "data",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+        ]
+
+
+# ============================================================
+# PHASE 4.6 — ARCHIVE STATUS
+# ============================================================
+
+class ArchiveStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArchiveStatus
+        fields = [
+            "id",
+            "engagement",
+            "documentation_completed_at",
+            "retention_period_years",
+            "locked",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
         ]

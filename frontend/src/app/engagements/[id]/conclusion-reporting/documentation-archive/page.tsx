@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   Archive,
@@ -10,2179 +9,1752 @@ import {
   FileArchive,
   FileCheck2,
   FileText,
+  Loader2,
   Plus,
   Save,
   ShieldAlert,
   Trash2,
 } from "lucide-react";
 
-type CompletionStatus = "Not Started" | "In Progress" | "Completed";
-
-type ReviewStatus =
-  | "Not Started"
-  | "In Progress"
-  | "Completed"
-  | "Not Applicable";
-
-type MatterStatus = "Open" | "Resolved" | "Accepted" | "Not Applicable";
-
-type AssemblyStatus =
-  | "Not Started"
-  | "In Progress"
-  | "Completed"
-  | "Not Applicable";
-
-type ArchiveStatus =
-  | "Not Ready"
-  | "Ready for Assembly"
-  | "Assembled"
-  | "Archived";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 
 type DocumentationArea = {
   id: number;
-  reference: string;
   title: string;
   description: string;
-  reviewStatus: ReviewStatus;
-  reviewer: string;
-  reviewDate: string;
-  reviewNotes: string;
+  completed: boolean;
 };
 
 type OutstandingMatter = {
   id: number;
-  reference: string;
-  matter: string;
-  responsiblePerson: string;
-  dueDate: string;
-  status: MatterStatus;
-  resolution: string;
+  description: string;
+  resolved: boolean;
 };
 
 type AssemblySection = {
   id: number;
-  reference: string;
   title: string;
-  description: string;
-  assemblyStatus: AssemblyStatus;
-  fileLocation: string;
-  assemblyNotes: string;
+  completed: boolean;
 };
 
-const initialDocumentationAreas: DocumentationArea[] = [
+type ArchiveRecord = {
+  id?: number;
+  engagement?: number;
+  data?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type ArchiveStatusRecord = {
+  id?: number;
+  engagement?: number;
+  documentation_completed_at?: string | null;
+  retention_period_years?: number | null;
+  locked?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type DocumentationArchivePageData = {
+  completionStatus: string;
+  archiveStatus: string;
+
+  documentationCompletionDate: string;
+  retentionPeriod: string;
+  archiveReference: string;
+
+  documentationAreas: DocumentationArea[];
+  outstandingMatters: OutstandingMatter[];
+  assemblySections: AssemblySection[];
+
+  subsequentEventsReviewed: boolean;
+  subsequentEventsDetails: string;
+
+  finalReviewCompleted: boolean;
+  finalReviewNotes: string;
+
+  partnerApprovalCompleted: boolean;
+  partnerApprovalNotes: string;
+
+  archiveChecklistDocumentationComplete: boolean;
+  archiveChecklistOutstandingMattersResolved: boolean;
+  archiveChecklistFinalReviewComplete: boolean;
+  archiveChecklistPartnerApprovalComplete: boolean;
+  archiveChecklistRetentionConfirmed: boolean;
+};
+
+const getAuthHeaders = (): HeadersInit => {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("audit-token")
+      : null;
+
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Token ${token}` } : {}),
+  };
+};
+
+const createDefaultDocumentationAreas = (): DocumentationArea[] => [
   {
     id: 1,
-    reference: "01",
-    title: "Audit Planning",
+    title: "Audit documentation complete",
     description:
-      "Planning documentation supports the audit strategy, scope, risk assessment, materiality and planned responses.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "All significant audit work, evidence and conclusions have been documented.",
+    completed: false,
   },
   {
     id: 2,
-    reference: "02",
-    title: "Risk Assessment",
+    title: "Working papers reviewed",
     description:
-      "Risk assessment documentation identifies and assesses risks of material misstatement and links them to audit responses.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "Working papers have been reviewed and review notes have been cleared.",
+    completed: false,
   },
   {
     id: 3,
-    reference: "03",
-    title: "Internal Controls",
+    title: "Audit evidence retained",
     description:
-      "Documentation supports the understanding, evaluation and testing of relevant internal controls.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "Sufficient appropriate audit evidence has been retained in the audit file.",
+    completed: false,
   },
   {
     id: 4,
-    reference: "04",
-    title: "Substantive Procedures",
+    title: "Audit conclusions documented",
     description:
-      "Audit procedures, evidence obtained, results and conclusions are sufficiently documented.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "Final audit conclusions are documented and supported by the audit evidence.",
+    completed: false,
   },
   {
     id: 5,
-    reference: "05",
-    title: "Significant Audit Areas",
+    title: "Outstanding matters resolved",
     description:
-      "Significant risks, significant transactions, estimates and other significant matters have adequate supporting documentation.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "All outstanding matters have been resolved or appropriately documented.",
+    completed: false,
   },
   {
     id: 6,
-    reference: "06",
-    title: "Misstatements",
+    title: "Final review completed",
     description:
-      "Identified misstatements, management responses and final evaluation are completely documented.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "The final engagement quality and completion review has been completed.",
+    completed: false,
   },
   {
     id: 7,
-    reference: "07",
-    title: "Going Concern",
+    title: "Archive requirements confirmed",
     description:
-      "Going concern assessment and related audit evidence and conclusions are documented.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
-  },
-  {
-    id: 8,
-    reference: "08",
-    title: "Financial Statement Review",
-    description:
-      "Final financial statement procedures, disclosures and analytical review are documented.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
-  },
-  {
-    id: 9,
-    reference: "09",
-    title: "Audit Opinion",
-    description:
-      "The basis for the audit opinion and final auditor's report are supported by the audit file.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
-  },
-  {
-    id: 10,
-    reference: "10",
-    title: "Client Communications",
-    description:
-      "Required communications with management and those charged with governance are documented.",
-    reviewStatus: "Not Started",
-    reviewer: "",
-    reviewDate: "",
-    reviewNotes: "",
+      "The final documentation and retention requirements have been confirmed.",
+    completed: false,
   },
 ];
 
-const initialOutstandingMatters: OutstandingMatter[] = [
+const createDefaultAssemblySections = (): AssemblySection[] => [
   {
     id: 1,
-    reference: "OUT-001",
-    matter: "",
-    responsiblePerson: "",
-    dueDate: "",
-    status: "Open",
-    resolution: "",
-  },
-];
-
-const initialAssemblySections: AssemblySection[] = [
-  {
-    id: 1,
-    reference: "01",
-    title: "Permanent File",
-    description:
-      "Standing information relevant to the continuing relationship and future audits.",
-    assemblyStatus: "Not Started",
-    fileLocation: "",
-    assemblyNotes: "",
+    title: "Financial statements and report",
+    completed: false,
   },
   {
     id: 2,
-    reference: "02",
-    title: "Current Audit File",
-    description:
-      "Current-year audit planning, risk assessment, procedures, evidence and conclusions.",
-    assemblyStatus: "Not Started",
-    fileLocation: "",
-    assemblyNotes: "",
+    title: "Final audit documentation",
+    completed: false,
   },
   {
     id: 3,
-    reference: "03",
-    title: "Financial Statements",
-    description:
-      "Final financial statements and supporting final review documentation.",
-    assemblyStatus: "Not Started",
-    fileLocation: "",
-    assemblyNotes: "",
+    title: "Review notes and resolutions",
+    completed: false,
   },
   {
     id: 4,
-    reference: "04",
-    title: "Auditor's Report",
-    description:
-      "Final approved and issued auditor's report and related reporting documentation.",
-    assemblyStatus: "Not Started",
-    fileLocation: "",
-    assemblyNotes: "",
+    title: "Management and governance communications",
+    completed: false,
   },
   {
     id: 5,
-    reference: "05",
-    title: "Client Communications",
-    description:
-      "Final communications with management and those charged with governance.",
-    assemblyStatus: "Not Started",
-    fileLocation: "",
-    assemblyNotes: "",
+    title: "Final engagement file assembly",
+    completed: false,
   },
 ];
-
-type ChecklistItemProps = {
-  complete: boolean;
-  label: string;
-};
-
-function ChecklistItem({ complete, label }: ChecklistItemProps) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-      {complete ? (
-        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
-      ) : (
-        <ShieldAlert className="h-5 w-5 shrink-0 text-amber-500" />
-      )}
-
-      <span className="min-w-0 flex-1 text-sm font-medium text-slate-700">
-        {label}
-      </span>
-
-      <span
-        className={`text-xs font-semibold ${
-          complete ? "text-emerald-600" : "text-amber-600"
-        }`}
-      >
-        {complete ? "Complete" : "Pending"}
-      </span>
-    </div>
-  );
-}
 
 export default function DocumentationArchivePage() {
   const params = useParams();
   const router = useRouter();
 
-  const engagementId = String(params.id);
+  const engagementId = String(params?.id ?? "");
 
-  const [completionStatus, setCompletionStatus] =
-    useState<CompletionStatus>("Not Started");
-
-  const [saved, setSaved] = useState(false);
-
-  const [documentationAreas, setDocumentationAreas] = useState<
-    DocumentationArea[]
-  >(initialDocumentationAreas);
-
-  const [outstandingMatters, setOutstandingMatters] = useState<
-    OutstandingMatter[]
-  >(initialOutstandingMatters);
-
-  const [assemblySections, setAssemblySections] = useState<AssemblySection[]>(
-    initialAssemblySections
+  const [archiveRecordId, setArchiveRecordId] = useState<number | null>(
+    null
   );
 
-  const [subsequentEventExists, setSubsequentEventExists] =
-    useState<boolean>(false);
+  const [archiveStatusRecordId, setArchiveStatusRecordId] = useState<
+    number | null
+  >(null);
 
-  const [subsequentEventDescription, setSubsequentEventDescription] =
-    useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const [subsequentEventAction, setSubsequentEventAction] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const [
-    finalDocumentationReviewCompleted,
-    setFinalDocumentationReviewCompleted,
-  ] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
 
-  const [reviewNotesCleared, setReviewNotesCleared] = useState(false);
-
-  const [finalFileAssembled, setFinalFileAssembled] = useState(false);
-
-  const [archiveIntegrityConfirmed, setArchiveIntegrityConfirmed] =
-    useState(false);
-
-  const [retentionRequirementsConfirmed, setRetentionRequirementsConfirmed] =
-    useState(false);
-
-  const [accessRestrictionsConfirmed, setAccessRestrictionsConfirmed] =
-    useState(false);
-
-  const [finalFileApproved, setFinalFileApproved] = useState(false);
-
-  const [engagementPartner, setEngagementPartner] = useState("");
-
-  const [finalFileReviewer, setFinalFileReviewer] = useState("");
+  const [completionStatus, setCompletionStatus] = useState("Not Started");
+  const [archiveStatus, setArchiveStatus] = useState("Not Archived");
 
   const [documentationCompletionDate, setDocumentationCompletionDate] =
     useState("");
 
-  const [finalReviewDate, setFinalReviewDate] = useState("");
-
-  const [finalDocumentationConclusion, setFinalDocumentationConclusion] =
-    useState("");
-
-  const [archiveStatus, setArchiveStatus] =
-    useState<ArchiveStatus>("Not Ready");
-
+  const [retentionPeriod, setRetentionPeriod] = useState("7 years");
   const [archiveReference, setArchiveReference] = useState("");
 
-  const [archiveDate, setArchiveDate] = useState("");
+  const [documentationAreas, setDocumentationAreas] = useState<
+    DocumentationArea[]
+  >(createDefaultDocumentationAreas);
 
-  const [retentionPeriod, setRetentionPeriod] = useState("");
+  const [outstandingMatters, setOutstandingMatters] = useState<
+    OutstandingMatter[]
+  >([]);
 
-  const [archiveIntegrityConfirmed2, setArchiveIntegrityConfirmed2] =
+  const [assemblySections, setAssemblySections] = useState<
+    AssemblySection[]
+  >(createDefaultAssemblySections);
+
+  const [subsequentEventsReviewed, setSubsequentEventsReviewed] =
     useState(false);
 
-  const [retentionConfirmed2, setRetentionConfirmed2] = useState(false);
+  const [subsequentEventsDetails, setSubsequentEventsDetails] =
+    useState("");
 
-  const [accessConfirmed2, setAccessConfirmed2] = useState(false);
+  const [finalReviewCompleted, setFinalReviewCompleted] =
+    useState(false);
 
-  const [approvalConfirmed2, setApprovalConfirmed2] = useState(false);
+  const [finalReviewNotes, setFinalReviewNotes] = useState("");
 
-  /* =========================================================
-     DERIVED VALUES
-  ========================================================= */
+  const [partnerApprovalCompleted, setPartnerApprovalCompleted] =
+    useState(false);
 
-  const completedDocumentationAreas = useMemo(() => {
-    return documentationAreas.filter(
-      (area) =>
-        area.reviewStatus === "Completed" ||
-        area.reviewStatus === "Not Applicable"
-    ).length;
-  }, [documentationAreas]);
+  const [partnerApprovalNotes, setPartnerApprovalNotes] = useState("");
 
-  const documentationProgress = useMemo(() => {
-    return Math.round(
-      (completedDocumentationAreas / documentationAreas.length) * 100
-    );
-  }, [completedDocumentationAreas, documentationAreas.length]);
+  const [
+    archiveChecklistDocumentationComplete,
+    setArchiveChecklistDocumentationComplete,
+  ] = useState(false);
 
-  const openMattersCount = useMemo(() => {
-    return outstandingMatters.filter((matter) => matter.status === "Open")
-      .length;
-  }, [outstandingMatters]);
+  const [
+    archiveChecklistOutstandingMattersResolved,
+    setArchiveChecklistOutstandingMattersResolved,
+  ] = useState(false);
 
-  const resolvedMattersCount = useMemo(() => {
-    return outstandingMatters.filter(
-      (matter) =>
-        matter.status === "Resolved" ||
-        matter.status === "Accepted" ||
-        matter.status === "Not Applicable"
-    ).length;
-  }, [outstandingMatters]);
+  const [
+    archiveChecklistFinalReviewComplete,
+    setArchiveChecklistFinalReviewComplete,
+  ] = useState(false);
 
-  const completedAssemblySections = useMemo(() => {
-    return assemblySections.filter(
-      (section) =>
-        section.assemblyStatus === "Completed" ||
-        section.assemblyStatus === "Not Applicable"
-    ).length;
-  }, [assemblySections]);
+  const [
+    archiveChecklistPartnerApprovalComplete,
+    setArchiveChecklistPartnerApprovalComplete,
+  ] = useState(false);
 
-  const assemblyProgress = useMemo(() => {
-    return Math.round(
-      (completedAssemblySections / assemblySections.length) * 100
-    );
-  }, [completedAssemblySections, assemblySections.length]);
+  const [
+    archiveChecklistRetentionConfirmed,
+    setArchiveChecklistRetentionConfirmed,
+  ] = useState(false);
 
-  const allDocumentationAreasComplete =
+  const documentationCompletedCount = useMemo(
+    () => documentationAreas.filter((item) => item.completed).length,
+    [documentationAreas]
+  );
+
+  const assemblyCompletedCount = useMemo(
+    () => assemblySections.filter((item) => item.completed).length,
+    [assemblySections]
+  );
+
+  const outstandingResolvedCount = useMemo(
+    () => outstandingMatters.filter((item) => item.resolved).length,
+    [outstandingMatters]
+  );
+
+  const allDocumentationComplete =
     documentationAreas.length > 0 &&
-    documentationAreas.every(
-      (area) =>
-        area.reviewStatus === "Completed" ||
-        area.reviewStatus === "Not Applicable"
-    );
-
-  const allOutstandingMattersCleared =
-    outstandingMatters.length === 0 ||
-    outstandingMatters.every(
-      (matter) =>
-        matter.status === "Resolved" ||
-        matter.status === "Accepted" ||
-        matter.status === "Not Applicable"
-    );
-
-  const subsequentEventComplete =
-    !subsequentEventExists ||
-    (subsequentEventDescription.trim() !== "" &&
-      subsequentEventAction.trim() !== "");
+    documentationAreas.every((item) => item.completed);
 
   const allAssemblyComplete =
     assemblySections.length > 0 &&
-    assemblySections.every(
-      (section) =>
-        section.assemblyStatus === "Completed" ||
-        section.assemblyStatus === "Not Applicable"
+    assemblySections.every((item) => item.completed);
+
+  const allOutstandingMattersResolved =
+    outstandingMatters.length === 0 ||
+    outstandingMatters.every((item) => item.resolved);
+
+  const allRequirementsComplete =
+    allDocumentationComplete &&
+    allAssemblyComplete &&
+    allOutstandingMattersResolved &&
+    subsequentEventsReviewed &&
+    finalReviewCompleted &&
+    partnerApprovalCompleted &&
+    archiveChecklistDocumentationComplete &&
+    archiveChecklistOutstandingMattersResolved &&
+    archiveChecklistFinalReviewComplete &&
+    archiveChecklistPartnerApprovalComplete &&
+    archiveChecklistRetentionConfirmed;
+
+  const completionPercentage = useMemo(() => {
+    const totalRequirements =
+      documentationAreas.length +
+      assemblySections.length +
+      1 +
+      1 +
+      1 +
+      5;
+
+    const completedRequirements =
+      documentationCompletedCount +
+      assemblyCompletedCount +
+      (allOutstandingMattersResolved ? 1 : 0) +
+      (subsequentEventsReviewed ? 1 : 0) +
+      (finalReviewCompleted ? 1 : 0) +
+      (partnerApprovalCompleted ? 1 : 0) +
+      (archiveChecklistDocumentationComplete ? 1 : 0) +
+      (archiveChecklistOutstandingMattersResolved ? 1 : 0) +
+      (archiveChecklistFinalReviewComplete ? 1 : 0) +
+      (archiveChecklistPartnerApprovalComplete ? 1 : 0) +
+      (archiveChecklistRetentionConfirmed ? 1 : 0);
+
+    if (totalRequirements === 0) {
+      return 0;
+    }
+
+    return Math.round(
+      (completedRequirements / totalRequirements) * 100
     );
+  }, [
+    documentationAreas.length,
+    assemblySections.length,
+    documentationCompletedCount,
+    assemblyCompletedCount,
+    allOutstandingMattersResolved,
+    subsequentEventsReviewed,
+    finalReviewCompleted,
+    partnerApprovalCompleted,
+    archiveChecklistDocumentationComplete,
+    archiveChecklistOutstandingMattersResolved,
+    archiveChecklistFinalReviewComplete,
+    archiveChecklistPartnerApprovalComplete,
+    archiveChecklistRetentionConfirmed,
+  ]);
 
-  /* =========================================================
-     FINAL CHECKLIST
-     
-     IMPORTANT:
-     This checklist is now the SINGLE navigation gate
-     for moving from 4.6 to 4.7.
-  ========================================================= */
+  useEffect(() => {
+    if (!engagementId) {
+      return;
+    }
 
-  const checklist = [
-    {
-      label: "Final audit documentation reviewed",
-      complete: finalDocumentationReviewCompleted,
-    },
-    {
-      label: "All documentation areas completed",
-      complete: allDocumentationAreasComplete,
-    },
-    {
-      label: "Outstanding matters resolved or accepted",
-      complete: allOutstandingMattersCleared,
-    },
-    {
-      label: "Review notes cleared",
-      complete: reviewNotesCleared,
-    },
-    {
-      label: "Audit file assembled",
-      complete: finalFileAssembled && allAssemblyComplete,
-    },
-    {
-      label: "Permanent and current files accounted for",
-      complete:
-        (assemblySections.find((section) => section.id === 1)
-          ?.assemblyStatus === "Completed" ||
-          assemblySections.find((section) => section.id === 1)
-            ?.assemblyStatus === "Not Applicable") &&
-        (assemblySections.find((section) => section.id === 2)
-          ?.assemblyStatus === "Completed" ||
-          assemblySections.find((section) => section.id === 2)
-            ?.assemblyStatus === "Not Applicable"),
-    },
-    {
-      label: "Final auditor's report included",
-      complete:
-        assemblySections.find((section) => section.id === 4)
-          ?.assemblyStatus === "Completed" ||
-        assemblySections.find((section) => section.id === 4)
-          ?.assemblyStatus === "Not Applicable",
-    },
-    {
-      label: "Retention requirements confirmed",
-      complete: retentionRequirementsConfirmed && retentionConfirmed2,
-    },
-    {
-      label: "Access restrictions confirmed",
-      complete: accessRestrictionsConfirmed && accessConfirmed2,
-    },
-    {
-      label: "Archive integrity confirmed",
-      complete: archiveIntegrityConfirmed && archiveIntegrityConfirmed2,
-    },
-    {
-      label: "Final file approval obtained",
-      complete: finalFileApproved && approvalConfirmed2,
-    },
-    {
-      label: "Final documentation conclusion recorded",
-      complete: finalDocumentationConclusion.trim() !== "",
-    },
-  ];
+    let cancelled = false;
 
-  const completedChecklistItems = checklist.filter(
-    (item) => item.complete
-  ).length;
+    const loadArchive = async () => {
+      setLoading(true);
+      setErrorMessage("");
 
-  /*
-   * THIS IS THE IMPORTANT FIX.
-   *
-   * Continue to 4.7 is controlled ONLY by the
-   * visible 12-item checklist.
-   */
-  const checklistComplete =
-    completedChecklistItems === checklist.length;
+      try {
+        const archiveResponse = await fetch(
+          `${API_URL}/documentation-archives/?engagement=${engagementId}`,
+          {
+            method: "GET",
+            headers: getAuthHeaders(),
+          }
+        );
 
-  const allRequirementsComplete = checklistComplete;
+        const archiveData = await archiveResponse
+          .json()
+          .catch(() => null);
 
-  /* =========================================================
-     UPDATE FUNCTIONS
-  ========================================================= */
+        if (!archiveResponse.ok) {
+          throw new Error(
+            archiveData?.detail ||
+              archiveData?.message ||
+              JSON.stringify(archiveData) ||
+              `Failed to load documentation archive (${archiveResponse.status})`
+          );
+        }
+
+        const archiveResults = Array.isArray(archiveData)
+          ? archiveData
+          : archiveData?.results ?? [];
+
+        const archiveRecord: ArchiveRecord | null =
+          archiveResults.length > 0 ? archiveResults[0] : null;
+
+        const statusResponse = await fetch(
+          `${API_URL}/archive-statuses/?engagement=${engagementId}`,
+          {
+            method: "GET",
+            headers: getAuthHeaders(),
+          }
+        );
+
+        const statusData = await statusResponse
+          .json()
+          .catch(() => null);
+
+        if (!statusResponse.ok) {
+          throw new Error(
+            statusData?.detail ||
+              statusData?.message ||
+              JSON.stringify(statusData) ||
+              `Failed to load archive status (${statusResponse.status})`
+          );
+        }
+
+        const statusResults = Array.isArray(statusData)
+          ? statusData
+          : statusData?.results ?? [];
+
+        const statusRecord: ArchiveStatusRecord | null =
+          statusResults.length > 0 ? statusResults[0] : null;
+
+        if (cancelled) {
+          return;
+        }
+
+        if (archiveRecord?.id) {
+          setArchiveRecordId(Number(archiveRecord.id));
+        }
+
+        if (statusRecord?.id) {
+          setArchiveStatusRecordId(Number(statusRecord.id));
+        }
+
+        if (archiveRecord?.data) {
+          const data = archiveRecord.data;
+
+          setCompletionStatus(
+            typeof data.completionStatus === "string"
+              ? data.completionStatus
+              : "Not Started"
+          );
+
+          setArchiveStatus(
+            typeof data.archiveStatus === "string"
+              ? data.archiveStatus
+              : "Not Archived"
+          );
+
+          setDocumentationCompletionDate(
+            typeof data.documentationCompletionDate === "string"
+              ? data.documentationCompletionDate
+              : ""
+          );
+
+          setRetentionPeriod(
+            typeof data.retentionPeriod === "string"
+              ? data.retentionPeriod
+              : "7 years"
+          );
+
+          setArchiveReference(
+            typeof data.archiveReference === "string"
+              ? data.archiveReference
+              : ""
+          );
+
+          if (Array.isArray(data.documentationAreas)) {
+            setDocumentationAreas(data.documentationAreas as DocumentationArea[]);
+          }
+
+          if (Array.isArray(data.outstandingMatters)) {
+            setOutstandingMatters(
+              data.outstandingMatters as OutstandingMatter[]
+            );
+          }
+
+          if (Array.isArray(data.assemblySections)) {
+            setAssemblySections(
+              data.assemblySections as AssemblySection[]
+            );
+          }
+
+          setSubsequentEventsReviewed(
+            Boolean(data.subsequentEventsReviewed)
+          );
+
+          setSubsequentEventsDetails(
+            typeof data.subsequentEventsDetails === "string"
+              ? data.subsequentEventsDetails
+              : ""
+          );
+
+          setFinalReviewCompleted(
+            Boolean(data.finalReviewCompleted)
+          );
+
+          setFinalReviewNotes(
+            typeof data.finalReviewNotes === "string"
+              ? data.finalReviewNotes
+              : ""
+          );
+
+          setPartnerApprovalCompleted(
+            Boolean(data.partnerApprovalCompleted)
+          );
+
+          setPartnerApprovalNotes(
+            typeof data.partnerApprovalNotes === "string"
+              ? data.partnerApprovalNotes
+              : ""
+          );
+
+          setArchiveChecklistDocumentationComplete(
+            Boolean(data.archiveChecklistDocumentationComplete)
+          );
+
+          setArchiveChecklistOutstandingMattersResolved(
+            Boolean(data.archiveChecklistOutstandingMattersResolved)
+          );
+
+          setArchiveChecklistFinalReviewComplete(
+            Boolean(data.archiveChecklistFinalReviewComplete)
+          );
+
+          setArchiveChecklistPartnerApprovalComplete(
+            Boolean(data.archiveChecklistPartnerApprovalComplete)
+          );
+
+          setArchiveChecklistRetentionConfirmed(
+            Boolean(data.archiveChecklistRetentionConfirmed)
+          );
+        }
+
+        if (statusRecord) {
+          setArchiveStatus(
+            statusRecord.locked
+              ? "Archived"
+              : archiveStatus || "Not Archived"
+          );
+
+          if (statusRecord.locked) {
+            setIsArchived(true);
+            setCompletionStatus("Completed");
+          }
+
+          if (statusRecord.retention_period_years) {
+            setRetentionPeriod(
+              `${statusRecord.retention_period_years} years`
+            );
+          }
+
+          if (statusRecord.documentation_completed_at) {
+            setDocumentationCompletionDate(
+              statusRecord.documentation_completed_at.slice(0, 10)
+            );
+          }
+        }
+
+        setSaved(Boolean(archiveRecord));
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to load documentation archive."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadArchive();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [engagementId]);
 
   const updateDocumentationArea = (
     id: number,
-    field: keyof DocumentationArea,
-    value: string | ReviewStatus
+    completed: boolean
   ) => {
+    if (isArchived) {
+      return;
+    }
+
     setDocumentationAreas((current) =>
-      current.map((area) =>
-        area.id === id ? { ...area, [field]: value } : area
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              completed,
+            }
+          : item
       )
     );
-
-    setSaved(false);
   };
-
-  const updateOutstandingMatter = (
-    id: number,
-    field: keyof OutstandingMatter,
-    value: string | MatterStatus
-  ) => {
-    setOutstandingMatters((current) =>
-      current.map((matter) =>
-        matter.id === id ? { ...matter, [field]: value } : matter
-      )
-    );
-
-    setSaved(false);
-  };
-
-  const updateAssemblySection = (
-    id: number,
-    field: keyof AssemblySection,
-    value: string | AssemblyStatus
-  ) => {
-    setAssemblySections((current) =>
-      current.map((section) =>
-        section.id === id ? { ...section, [field]: value } : section
-      )
-    );
-
-    setSaved(false);
-  };
-
-  /* =========================================================
-     OUTSTANDING MATTERS
-  ========================================================= */
 
   const addOutstandingMatter = () => {
-    const nextNumber =
-      outstandingMatters.length > 0
-        ? Math.max(...outstandingMatters.map((item) => item.id)) + 1
-        : 1;
+    if (isArchived) {
+      return;
+    }
 
     setOutstandingMatters((current) => [
       ...current,
       {
-        id: nextNumber,
-        reference: `OUT-${String(nextNumber).padStart(3, "0")}`,
-        matter: "",
-        responsiblePerson: "",
-        dueDate: "",
-        status: "Open",
-        resolution: "",
+        id: Date.now(),
+        description: "",
+        resolved: false,
       },
     ]);
+  };
 
-    setSaved(false);
+  const updateOutstandingMatter = (
+    id: number,
+    field: "description" | "resolved",
+    value: string | boolean
+  ) => {
+    if (isArchived) {
+      return;
+    }
+
+    setOutstandingMatters((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )
+    );
   };
 
   const removeOutstandingMatter = (id: number) => {
+    if (isArchived) {
+      return;
+    }
+
     setOutstandingMatters((current) =>
-      current.filter((matter) => matter.id !== id)
-    );
-
-    setSaved(false);
-  };
-
-  /* =========================================================
-     SAVE
-  ========================================================= */
-
-  const handleSave = () => {
-    const workpaperData = {
-      engagementId,
-      completionStatus,
-      documentationAreas,
-      outstandingMatters,
-      subsequentEventExists,
-      subsequentEventDescription,
-      subsequentEventAction,
-      finalDocumentationReviewCompleted,
-      reviewNotesCleared,
-      finalFileAssembled,
-      archiveIntegrityConfirmed,
-      retentionRequirementsConfirmed,
-      accessRestrictionsConfirmed,
-      finalFileApproved,
-      engagementPartner,
-      finalFileReviewer,
-      documentationCompletionDate,
-      finalReviewDate,
-      finalDocumentationConclusion,
-      assemblySections,
-      archiveStatus,
-      archiveReference,
-      archiveDate,
-      retentionPeriod,
-      archiveIntegrityConfirmed2,
-      retentionConfirmed2,
-      accessConfirmed2,
-      approvalConfirmed2,
-    };
-
-    console.log("4.6 Documentation Archive Workpaper:", workpaperData);
-
-    setSaved(true);
-
-    setCompletionStatus((current) =>
-      current === "Not Started" ? "In Progress" : current
+      current.filter((item) => item.id !== id)
     );
   };
 
-  /* =========================================================
-     MARK READY
-  ========================================================= */
-
-  const handleMarkReady = () => {
-    if (!checklistComplete) {
-      window.alert(
-        `The 4.6 workpaper still has outstanding requirements. Current checklist: ${completedChecklistItems}/${checklist.length}.`
-      );
+  const updateAssemblySection = (
+    id: number,
+    completed: boolean
+  ) => {
+    if (isArchived) {
       return;
     }
 
-    setArchiveStatus("Archived");
-    setCompletionStatus("Completed");
-    setSaved(false);
-
-    window.alert("4.6 Complete Documentation and Archive is ready.");
-  };
-
-  /* =========================================================
-     COMPLETE & ARCHIVE
-  ========================================================= */
-
-  const handleCompleteAndArchive = () => {
-    if (!checklistComplete) {
-      window.alert(
-        `Please complete all 4.6 requirements before completing and archiving the engagement. Current checklist: ${completedChecklistItems}/${checklist.length}.`
-      );
-      return;
-    }
-
-    setArchiveStatus("Archived");
-    setCompletionStatus("Completed");
-
-    window.alert(
-      "4.6 Complete Documentation and Archive has been completed and archived."
+    setAssemblySections((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              completed,
+            }
+          : item
+      )
     );
   };
 
-  /* =========================================================
-     NAVIGATION
-  ========================================================= */
+  const buildArchiveData = (
+    overrides?: Partial<
+      Pick<
+        DocumentationArchivePageData,
+        "completionStatus" | "archiveStatus"
+      >
+    >
+  ): DocumentationArchivePageData => ({
+    completionStatus:
+      overrides?.completionStatus ?? completionStatus,
+
+    archiveStatus:
+      overrides?.archiveStatus ?? archiveStatus,
+
+    documentationCompletionDate,
+    retentionPeriod,
+    archiveReference,
+
+    documentationAreas,
+    outstandingMatters,
+    assemblySections,
+
+    subsequentEventsReviewed,
+    subsequentEventsDetails,
+
+    finalReviewCompleted,
+    finalReviewNotes,
+
+    partnerApprovalCompleted,
+    partnerApprovalNotes,
+
+    archiveChecklistDocumentationComplete,
+    archiveChecklistOutstandingMattersResolved,
+    archiveChecklistFinalReviewComplete,
+    archiveChecklistPartnerApprovalComplete,
+    archiveChecklistRetentionConfirmed,
+  });
+
+  const handleSave = async (
+    overrides?: Partial<
+      Pick<
+        DocumentationArchivePageData,
+        "completionStatus" | "archiveStatus"
+      >
+    >
+  ): Promise<boolean> => {
+    if (isArchived) {
+      setErrorMessage(
+        "This engagement has already been archived and is read-only."
+      );
+
+      return false;
+    }
+
+    if (!engagementId) {
+      setErrorMessage("Engagement ID is missing.");
+
+      return false;
+    }
+
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const payload = {
+        engagement: Number(engagementId),
+        data: buildArchiveData(overrides),
+      };
+
+      const response = await fetch(
+        archiveRecordId
+          ? `${API_URL}/documentation-archives/${archiveRecordId}/`
+          : `${API_URL}/documentation-archives/`,
+        {
+          method: archiveRecordId ? "PATCH" : "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data: ArchiveRecord | { detail?: string; message?: string } =
+        await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          (data as { detail?: string })?.detail ||
+            (data as { message?: string })?.message ||
+            JSON.stringify(data) ||
+            `Save failed (${response.status})`
+        );
+      }
+
+      if ("id" in data && data.id) {
+        setArchiveRecordId(Number(data.id));
+      }
+
+      if (overrides?.completionStatus) {
+        setCompletionStatus(overrides.completionStatus);
+      }
+
+      if (overrides?.archiveStatus) {
+        setArchiveStatus(overrides.archiveStatus);
+      }
+
+      setSaved(true);
+
+      if (!overrides?.archiveStatus) {
+        setSuccessMessage("Documentation archive saved successfully.");
+      }
+
+      return true;
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to save documentation archive."
+      );
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /*
+   * COMPLETE & ARCHIVE
+   *
+   * Important change:
+   * After the archive has been successfully saved and locked,
+   * the user is redirected away from this completed workflow.
+   *
+   * router.replace("/engagements") is intentional:
+   * it replaces the current history entry so the browser Back button
+   * does not immediately return the user to the completed archive page.
+   */
+  const handleCompleteAndArchive = async () => {
+    if (isArchived) {
+      setErrorMessage(
+        "This engagement has already been archived."
+      );
+
+      return;
+    }
+
+    if (!allRequirementsComplete) {
+      setErrorMessage(
+        "Complete all documentation, review, assembly and archive requirements before archiving."
+      );
+
+      return;
+    }
+
+    const retentionMatch = retentionPeriod.match(/\d+/);
+
+    if (!retentionMatch) {
+      setErrorMessage(
+        "Enter a valid retention period, for example 7 years."
+      );
+
+      return;
+    }
+
+    setActionLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const savedSuccessfully = await handleSave({
+        completionStatus: "Completed",
+        archiveStatus: "Archived",
+      });
+
+      if (!savedSuccessfully) {
+        return;
+      }
+
+      const retentionYears = Number(retentionMatch[0]);
+
+      const archivePayload = {
+        engagement: Number(engagementId),
+
+        documentation_completed_at:
+          documentationCompletionDate
+            ? `${documentationCompletionDate}T00:00:00Z`
+            : new Date().toISOString(),
+
+        retention_period_years: retentionYears,
+
+        locked: true,
+      };
+
+      const response = await fetch(
+        archiveStatusRecordId
+          ? `${API_URL}/archive-statuses/${archiveStatusRecordId}/`
+          : `${API_URL}/archive-statuses/`,
+        {
+          method: archiveStatusRecordId ? "PATCH" : "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(archivePayload),
+        }
+      );
+
+      const data = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+            data?.message ||
+            JSON.stringify(data) ||
+            `Archive failed (${response.status})`
+        );
+      }
+
+      if (data?.id) {
+        setArchiveStatusRecordId(Number(data.id));
+      }
+
+      setArchiveStatus("Archived");
+      setCompletionStatus("Completed");
+      setSaved(true);
+      setIsArchived(true);
+
+      setSuccessMessage(
+        "Engagement completed and archived successfully. Leaving the completed workflow..."
+      );
+
+      /*
+       * Give the user a short moment to see the success message,
+       * then leave the completed Documentation Archive page.
+       *
+       * replace() is used instead of push() so the completed page
+       * is not kept as the previous browser-history page.
+       */
+      window.setTimeout(() => {
+        router.replace("/engagements");
+      }, 1500);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to complete and archive engagement."
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleBack = () => {
-    router.push(`/engagements/${engagementId}/conclusion-reporting`);
+    router.push(`/engagements/${engagementId}`);
   };
 
-  const handleNext = () => {
-    /*
-     * IMPORTANT:
-     * The Continue button is unlocked when the visible
-     * checklist reaches 12/12.
-     */
-    if (!checklistComplete) {
-      window.alert(
-        `Please complete all 4.6 requirements before continuing. Current checklist: ${completedChecklistItems}/${checklist.length}.`
-      );
-      return;
-    }
+  if (loading) {
+    return (
 
-    setCompletionStatus("Completed");
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading documentation archive...
+          </div>
+        </div>
 
-    router.push(
-      `/engagements/${engagementId}/conclusion-reporting/quality-monitoring`
     );
-  };
+  }
 
   return (
-    <AppLayout>
-      <main className="min-w-0 flex-1 bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          {/* =====================================================
-              HEADER
-          ===================================================== */}
 
-          <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-bold text-white">
-                      4.6
-                    </span>
+      <div className="min-h-screen bg-[#f6f4ef] px-4 py-6 md:px-8">
+        <div className="w-full">
+          {/* Header */}
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Engagement
+            </button>
 
-                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                      ISA 230
-                    </span>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-2">
+                  <FileArchive className="h-6 w-6 text-slate-700" />
 
-                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                      Documentation Archive
-                    </span>
+                  <span className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    Phase 4.6
+                  </span>
+                </div>
 
-                    <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                      Engagement: {engagementId}
+                <h1 className="text-2xl font-bold text-[#172323] md:text-3xl">
+                  ISA 230 Documentation Archive
+                </h1>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Complete the final audit documentation, review,
+                  assembly and retention requirements before locking
+                  the engagement file.
+                </p>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Engagement:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {engagementId}
+                  </span>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${
+                    isArchived
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {isArchived ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )}
+
+                  {isArchived ? "Archived" : completionStatus}
+                </span>
+
+                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">
+                  {archiveStatus}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Alerts */}
+          {errorMessage && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+
+              <div>
+                <p className="font-semibold">Workflow Error</p>
+                <p className="mt-1">{errorMessage}</p>
+              </div>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+
+              <div>
+                <p className="font-semibold">Success</p>
+                <p className="mt-1">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Archived banner */}
+          {isArchived && (
+            <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+              <div className="flex items-start gap-3">
+                <Archive className="mt-0.5 h-6 w-6 text-emerald-700" />
+
+                <div>
+                  <h2 className="font-bold text-emerald-900">
+                    Engagement Completed and Archived
+                  </h2>
+
+                  <p className="mt-1 text-sm leading-6 text-emerald-800">
+                    This engagement has been completed and the audit
+                    file is locked. The workflow is now read-only.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Progress */}
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Completion Progress
+                </h2>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Complete all required items before archiving.
+                </p>
+              </div>
+
+              <span className="text-sm font-bold text-slate-800">
+                {completionPercentage}%
+              </span>
+            </div>
+
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-[#0c766d] transition-all duration-300"
+                style={{
+                  width: `${completionPercentage}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Main content */}
+            <div className="space-y-6 lg:col-span-2">
+              {/* Documentation */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-bold text-slate-900">
+                        Final Documentation
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Confirm that all required audit documentation
+                        has been completed.
+                      </p>
+                    </div>
+
+                    <span className="text-sm font-semibold text-slate-600">
+                      {documentationCompletedCount}/
+                      {documentationAreas.length}
                     </span>
                   </div>
+                </div>
 
-                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                    Complete Documentation and Archive
-                  </h1>
+                <div className="divide-y divide-slate-100">
+                  {documentationAreas.map((item) => (
+                    <label
+                      key={item.id}
+                      className={`flex cursor-pointer gap-4 p-5 ${
+                        isArchived
+                          ? "cursor-not-allowed opacity-80"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        disabled={isArchived}
+                        onChange={(event) =>
+                          updateDocumentationArea(
+                            item.id,
+                            event.target.checked
+                          )
+                        }
+                        className="mt-1 h-5 w-5 rounded border-slate-300"
+                      />
 
-                  <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600 sm:text-base">
-                    Complete the audit documentation review, clear outstanding
-                    matters, assemble the final audit file, document retention
-                    requirements, and confirm that the audit file is ready for
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {item.title}
+                        </p>
+
+                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                          {item.description}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              {/* Outstanding matters */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="font-bold text-slate-900">
+                      Outstanding Matters
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Resolve all outstanding matters before final
+                      archive.
+                    </p>
+                  </div>
+
+                  {!isArchived && (
+                    <button
+                      type="button"
+                      onClick={addOutstandingMatter}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Matter
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-5">
+                  {outstandingMatters.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+                      <p className="text-sm font-medium text-slate-700">
+                        No outstanding matters recorded.
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        The engagement currently has no unresolved
+                        outstanding matters.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {outstandingMatters.map((matter) => (
+                        <div
+                          key={matter.id}
+                          className="rounded-lg border border-slate-200 p-4"
+                        >
+                          <div className="flex gap-3">
+                            <input
+                              type="checkbox"
+                              checked={matter.resolved}
+                              disabled={isArchived}
+                              onChange={(event) =>
+                                updateOutstandingMatter(
+                                  matter.id,
+                                  "resolved",
+                                  event.target.checked
+                                )
+                              }
+                              className="mt-1 h-5 w-5 rounded border-slate-300"
+                            />
+
+                            <div className="min-w-0 flex-1">
+                              <textarea
+                                value={matter.description}
+                                disabled={isArchived}
+                                onChange={(event) =>
+                                  updateOutstandingMatter(
+                                    matter.id,
+                                    "description",
+                                    event.target.value
+                                  )
+                                }
+                                placeholder="Describe the outstanding matter..."
+                                rows={3}
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                              />
+
+                              <div className="mt-2 flex items-center justify-between">
+                                <span
+                                  className={`text-xs font-semibold ${
+                                    matter.resolved
+                                      ? "text-emerald-700"
+                                      : "text-amber-700"
+                                  }`}
+                                >
+                                  {matter.resolved
+                                    ? "Resolved"
+                                    : "Outstanding"}
+                                </span>
+
+                                {!isArchived && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeOutstandingMatter(
+                                        matter.id
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="mt-4 text-xs text-slate-500">
+                    Resolved: {outstandingResolvedCount}/
+                    {outstandingMatters.length}
+                  </p>
+                </div>
+              </section>
+
+              {/* Assembly */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-bold text-slate-900">
+                        Final Audit File Assembly
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Confirm each required section is assembled in
+                        the final audit file.
+                      </p>
+                    </div>
+
+                    <span className="text-sm font-semibold text-slate-600">
+                      {assemblyCompletedCount}/
+                      {assemblySections.length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {assemblySections.map((section) => (
+                    <label
+                      key={section.id}
+                      className={`flex cursor-pointer gap-4 p-5 ${
+                        isArchived
+                          ? "cursor-not-allowed opacity-80"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={section.completed}
+                        disabled={isArchived}
+                        onChange={(event) =>
+                          updateAssemblySection(
+                            section.id,
+                            event.target.checked
+                          )
+                        }
+                        className="mt-1 h-5 w-5 rounded border-slate-300"
+                      />
+
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {section.title}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              {/* Subsequent events */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <h2 className="font-bold text-slate-900">
+                    Subsequent Events
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Document the final review of subsequent events.
+                  </p>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <label
+                    className={`flex items-center gap-3 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={subsequentEventsReviewed}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setSubsequentEventsReviewed(
+                          event.target.checked
+                        )
+                      }
+                      className="h-5 w-5 rounded border-slate-300"
+                    />
+
+                    <span className="text-sm font-semibold text-slate-800">
+                      Subsequent events review completed
+                    </span>
+                  </label>
+
+                  <textarea
+                    value={subsequentEventsDetails}
+                    disabled={isArchived}
+                    onChange={(event) =>
+                      setSubsequentEventsDetails(event.target.value)
+                    }
+                    placeholder="Enter details of the subsequent events review..."
+                    rows={4}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                  />
+                </div>
+              </section>
+
+              {/* Final review */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <h2 className="font-bold text-slate-900">
+                    Final Review
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Confirm completion of the final engagement review.
+                  </p>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <label
+                    className={`flex items-center gap-3 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={finalReviewCompleted}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setFinalReviewCompleted(
+                          event.target.checked
+                        )
+                      }
+                      className="h-5 w-5 rounded border-slate-300"
+                    />
+
+                    <span className="text-sm font-semibold text-slate-800">
+                      Final engagement review completed
+                    </span>
+                  </label>
+
+                  <textarea
+                    value={finalReviewNotes}
+                    disabled={isArchived}
+                    onChange={(event) =>
+                      setFinalReviewNotes(event.target.value)
+                    }
+                    placeholder="Enter final review notes..."
+                    rows={4}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                  />
+                </div>
+              </section>
+
+              {/* Partner approval */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <h2 className="font-bold text-slate-900">
+                    Partner / Engagement Approval
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Confirm that the final engagement approval has
+                    been completed.
+                  </p>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <label
+                    className={`flex items-center gap-3 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={partnerApprovalCompleted}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setPartnerApprovalCompleted(
+                          event.target.checked
+                        )
+                      }
+                      className="h-5 w-5 rounded border-slate-300"
+                    />
+
+                    <span className="text-sm font-semibold text-slate-800">
+                      Final partner / engagement approval completed
+                    </span>
+                  </label>
+
+                  <textarea
+                    value={partnerApprovalNotes}
+                    disabled={isArchived}
+                    onChange={(event) =>
+                      setPartnerApprovalNotes(event.target.value)
+                    }
+                    placeholder="Enter approval notes..."
+                    rows={4}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                  />
+                </div>
+              </section>
+            </div>
+
+            {/* Right sidebar */}
+            <aside className="space-y-6">
+              {/* Archive details */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <h2 className="font-bold text-slate-900">
+                    Archive Details
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Final archive and retention information.
+                  </p>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Documentation completion date
+                    </label>
+
+                    <input
+                      type="date"
+                      value={documentationCompletionDate}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setDocumentationCompletionDate(
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Retention period
+                    </label>
+
+                    <input
+                      type="text"
+                      value={retentionPeriod}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setRetentionPeriod(event.target.value)
+                      }
+                      placeholder="Example: 7 years"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Archive reference
+                    </label>
+
+                    <input
+                      type="text"
+                      value={archiveReference}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setArchiveReference(event.target.value)
+                      }
+                      placeholder="Archive reference"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Archive checklist */}
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 p-5">
+                  <h2 className="font-bold text-slate-900">
+                    Archive Checklist
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Every item must be confirmed before final
                     archive.
                   </p>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                      archiveStatus === "Archived"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : archiveStatus === "Assembled"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-amber-100 text-amber-700"
+                <div className="divide-y divide-slate-100">
+                  <label
+                    className={`flex gap-3 p-4 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer hover:bg-slate-50"
                     }`}
                   >
-                    {archiveStatus === "Archived"
-                      ? "Archive: Archived"
-                      : `Archive: ${archiveStatus}`}
-                  </span>
+                    <input
+                      type="checkbox"
+                      checked={archiveChecklistDocumentationComplete}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setArchiveChecklistDocumentationComplete(
+                          event.target.checked
+                        )
+                      }
+                      className="mt-0.5 h-5 w-5 rounded border-slate-300"
+                    />
 
-                  <span
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                      completionStatus === "Completed"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : completionStatus === "In Progress"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-slate-100 text-slate-600"
+                    <span className="text-sm font-medium text-slate-800">
+                      Final documentation is complete
+                    </span>
+                  </label>
+
+                  <label
+                    className={`flex gap-3 p-4 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer hover:bg-slate-50"
                     }`}
                   >
-                    {completionStatus}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <button
-                type="button"
-                onClick={handleBack}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Phase 4 Overview
-              </button>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Save className="h-4 w-4" />
-                  {saved ? "Saved" : "Save Workpaper"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleMarkReady}
-                  disabled={!checklistComplete}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition ${
-                    checklistComplete
-                      ? "bg-blue-600 hover:bg-blue-700"
-                      : "cursor-not-allowed bg-slate-300"
-                  }`}
-                >
-                  <FileCheck2 className="h-4 w-4" />
-                  Mark Ready
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCompleteAndArchive}
-                  disabled={!checklistComplete}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition ${
-                    checklistComplete
-                      ? "bg-emerald-600 hover:bg-emerald-700"
-                      : "cursor-not-allowed bg-slate-300"
-                  }`}
-                >
-                  <Archive className="h-4 w-4" />
-                  Complete & Archive
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* =====================================================
-              SUMMARY CARDS
-          ===================================================== */}
-
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">
-                    Documentation
-                  </p>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {documentationProgress}%
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    {completedDocumentationAreas}/10 areas completed
-                  </p>
-                </div>
-
-                <FileText className="h-6 w-6 text-slate-400" />
-              </div>
-
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-slate-900 transition-all"
-                  style={{ width: `${documentationProgress}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">
-                    Outstanding
-                  </p>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {openMattersCount}
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    Matter(s) require resolution
-                  </p>
-                </div>
-
-                <ShieldAlert className="h-6 w-6 text-amber-500" />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">
-                    File Assembly
-                  </p>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {assemblyProgress}%
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    {completedAssemblySections}/5 sections complete
-                  </p>
-                </div>
-
-                <FileArchive className="h-6 w-6 text-slate-400" />
-              </div>
-
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-slate-900 transition-all"
-                  style={{ width: `${assemblyProgress}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-500">
-                Archive Status
-              </p>
-
-              <p className="mt-2 text-xl font-bold text-slate-900">
-                {archiveStatus}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                {archiveStatus === "Archived"
-                  ? "Final archive completed"
-                  : "Requirements pending"}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-slate-500">
-                Completion
-              </p>
-
-              <p className="mt-2 text-xl font-bold text-slate-900">
-                {completionStatus}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                ISA 230 completion status
-              </p>
-            </div>
-          </div>
-
-          {/* =====================================================
-              SECTION 1
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  1
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    ISA 230 — Final Documentation Review
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Review whether the audit documentation provides a
-                    sufficient record of the basis for the auditor's report
-                    and evidence that the audit was planned and performed in
-                    accordance with applicable standards.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-blue-700">
-                  Documentation review principle
-                </p>
-
-                <p className="mt-2 text-sm leading-6 text-blue-900">
-                  The final audit file should allow an experienced auditor,
-                  having no previous connection with the engagement, to
-                  understand the significant matters, procedures performed,
-                  evidence obtained, conclusions reached, and significant
-                  professional judgments made.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {documentationAreas.map((area) => (
-                  <div
-                    key={area.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
-                  >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm">
-                          {area.reference}
-                        </span>
-
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold text-slate-900">
-                              {area.title}
-                            </h3>
-
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                area.reviewStatus === "Completed"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : area.reviewStatus === "In Progress"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : area.reviewStatus === "Not Applicable"
-                                  ? "bg-slate-200 text-slate-600"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {area.reviewStatus}
-                            </span>
-                          </div>
-
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
-                            {area.description}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Review Status
-                        </span>
-
-                        <select
-                          value={area.reviewStatus}
-                          onChange={(e) =>
-                            updateDocumentationArea(
-                              area.id,
-                              "reviewStatus",
-                              e.target.value as ReviewStatus
-                            )
-                          }
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        >
-                          <option value="Not Started">Not Started</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Completed</option>
-                          <option value="Not Applicable">
-                            Not Applicable
-                          </option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Reviewer
-                        </span>
-
-                        <input
-                          type="text"
-                          value={area.reviewer}
-                          onChange={(e) =>
-                            updateDocumentationArea(
-                              area.id,
-                              "reviewer",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Enter reviewer"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Review Date
-                        </span>
-
-                        <input
-                          type="date"
-                          value={area.reviewDate}
-                          onChange={(e) =>
-                            updateDocumentationArea(
-                              area.id,
-                              "reviewDate",
-                              e.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-
-                      <label className="block lg:col-span-2">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Review Notes
-                        </span>
-
-                        <textarea
-                          value={area.reviewNotes}
-                          onChange={(e) =>
-                            updateDocumentationArea(
-                              area.id,
-                              "reviewNotes",
-                              e.target.value
-                            )
-                          }
-                          rows={3}
-                          placeholder="Document final review observations, exceptions, or conclusion..."
-                          className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* =====================================================
-              SECTION 2
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  2
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Outstanding Documentation and Review Matters
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Identify and track documentation gaps, review notes,
-                    unresolved audit matters, or other items that must be
-                    resolved before final file assembly.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <div className="mb-5 rounded-xl border border-amber-100 bg-amber-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                  Outstanding matters
-                </p>
-
-                <p className="mt-2 text-sm leading-6 text-amber-900">
-                  Open items should be resolved, appropriately documented, or
-                  formally accepted before archive.
-                </p>
-              </div>
-
-              <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Open
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-slate-900">
-                    {openMattersCount}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Resolved / Accepted
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-emerald-600">
-                    {resolvedMattersCount}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Open Matters
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-amber-600">
-                    {openMattersCount}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {outstandingMatters.map((matter) => (
-                  <div
-                    key={matter.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm">
-                          {matter.reference}
-                        </span>
-
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            matter.status === "Open"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-emerald-100 text-emerald-700"
-                          }`}
-                        >
-                          {matter.status}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => removeOutstandingMatter(matter.id)}
-                        className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 sm:self-auto"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Remove
-                      </button>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <label className="block lg:col-span-2">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Outstanding Matter
-                        </span>
-
-                        <textarea
-                          value={matter.matter}
-                          onChange={(e) =>
-                            updateOutstandingMatter(
-                              matter.id,
-                              "matter",
-                              e.target.value
-                            )
-                          }
-                          rows={3}
-                          placeholder="Describe the documentation gap, review note or unresolved matter..."
-                          className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Responsible Person
-                        </span>
-
-                        <input
-                          type="text"
-                          value={matter.responsiblePerson}
-                          onChange={(e) =>
-                            updateOutstandingMatter(
-                              matter.id,
-                              "responsiblePerson",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Responsible person"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Due Date
-                        </span>
-
-                        <input
-                          type="date"
-                          value={matter.dueDate}
-                          onChange={(e) =>
-                            updateOutstandingMatter(
-                              matter.id,
-                              "dueDate",
-                              e.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Status
-                        </span>
-
-                        <select
-                          value={matter.status}
-                          onChange={(e) =>
-                            updateOutstandingMatter(
-                              matter.id,
-                              "status",
-                              e.target.value as MatterStatus
-                            )
-                          }
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        >
-                          <option value="Open">Open</option>
-                          <option value="Resolved">Resolved</option>
-                          <option value="Accepted">Accepted</option>
-                          <option value="Not Applicable">
-                            Not Applicable
-                          </option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Resolution / Final Action
-                        </span>
-
-                        <input
-                          type="text"
-                          value={matter.resolution}
-                          onChange={(e) =>
-                            updateOutstandingMatter(
-                              matter.id,
-                              "resolution",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Describe resolution or final action"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addOutstandingMatter}
-                className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                <Plus className="h-4 w-4" />
-                Add Outstanding Matter
-              </button>
-            </div>
-          </section>
-
-          {/* =====================================================
-              SECTION 3
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  3
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Subsequent Changes and Events After the Auditor's Report
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Document whether information or events came to the
-                    auditor's attention after the auditor's report date that
-                    require consideration or action.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <input
-                  type="checkbox"
-                  checked={subsequentEventExists}
-                  onChange={(e) => {
-                    setSubsequentEventExists(e.target.checked);
-                    setSaved(false);
-                  }}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                />
-
-                <span className="text-sm font-medium leading-6 text-slate-700">
-                  Information or an event came to the auditor's attention
-                  after the auditor's report date that requires consideration.
-                </span>
-              </label>
-
-              {subsequentEventExists && (
-                <div className="mt-5 grid grid-cols-1 gap-4">
-                  <label className="block">
-                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Event / Information Description
-                    </span>
-
-                    <textarea
-                      value={subsequentEventDescription}
-                      onChange={(e) => {
-                        setSubsequentEventDescription(e.target.value);
-                        setSaved(false);
-                      }}
-                      rows={4}
-                      placeholder="Describe the information or subsequent event..."
-                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    <input
+                      type="checkbox"
+                      checked={
+                        archiveChecklistOutstandingMattersResolved
+                      }
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setArchiveChecklistOutstandingMattersResolved(
+                          event.target.checked
+                        )
+                      }
+                      className="mt-0.5 h-5 w-5 rounded border-slate-300"
                     />
+
+                    <span className="text-sm font-medium text-slate-800">
+                      Outstanding matters are resolved
+                    </span>
                   </label>
 
-                  <label className="block">
-                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Action Taken
-                    </span>
-
-                    <textarea
-                      value={subsequentEventAction}
-                      onChange={(e) => {
-                        setSubsequentEventAction(e.target.value);
-                        setSaved(false);
-                      }}
-                      rows={4}
-                      placeholder="Document the audit action, evaluation, consultation or reporting response..."
-                      className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  <label
+                    className={`flex gap-3 p-4 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={archiveChecklistFinalReviewComplete}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setArchiveChecklistFinalReviewComplete(
+                          event.target.checked
+                        )
+                      }
+                      className="mt-0.5 h-5 w-5 rounded border-slate-300"
                     />
+
+                    <span className="text-sm font-medium text-slate-800">
+                      Final review is complete
+                    </span>
+                  </label>
+
+                  <label
+                    className={`flex gap-3 p-4 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={archiveChecklistPartnerApprovalComplete}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setArchiveChecklistPartnerApprovalComplete(
+                          event.target.checked
+                        )
+                      }
+                      className="mt-0.5 h-5 w-5 rounded border-slate-300"
+                    />
+
+                    <span className="text-sm font-medium text-slate-800">
+                      Partner approval is complete
+                    </span>
+                  </label>
+
+                  <label
+                    className={`flex gap-3 p-4 ${
+                      isArchived
+                        ? "cursor-not-allowed opacity-80"
+                        : "cursor-pointer hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={archiveChecklistRetentionConfirmed}
+                      disabled={isArchived}
+                      onChange={(event) =>
+                        setArchiveChecklistRetentionConfirmed(
+                          event.target.checked
+                        )
+                      }
+                      className="mt-0.5 h-5 w-5 rounded border-slate-300"
+                    />
+
+                    <span className="text-sm font-medium text-slate-800">
+                      Retention period is confirmed
+                    </span>
                   </label>
                 </div>
-              )}
-            </div>
-          </section>
+              </section>
 
-          {/* =====================================================
-              SECTION 4
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  4
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Final Audit File Assembly
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Confirm that the permanent file, current audit file,
-                    financial statements, auditor's report and communications
-                    have been assembled in the firm's approved documentation
-                    system.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Assembly Progress
-                    </p>
-
-                    <p className="mt-1 text-2xl font-bold text-slate-900">
-                      {assemblyProgress}%
-                    </p>
-
-                    <p className="text-xs text-slate-500">
-                      {completedAssemblySections}/5 sections complete
-                    </p>
-                  </div>
-
-                  <div className="w-full sm:max-w-xs">
-                    <div className="h-2 overflow-hidden rounded-full bg-white">
-                      <div
-                        className="h-full rounded-full bg-slate-900 transition-all"
-                        style={{ width: `${assemblyProgress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Archive Status
-                    </p>
-
-                    <p className="mt-1 font-bold text-slate-900">
-                      {archiveStatus}
-                    </p>
-
-                    <p className="text-xs text-slate-500">
-                      Current file assembly stage
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {assemblySections.map((section) => (
-                  <div
-                    key={section.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
+              {/* Actions */}
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    disabled={isArchived || saving || actionLoading}
+                    onClick={() => void handleSave()}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex items-start gap-3">
-                        <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm">
-                          {section.reference}
-                        </span>
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
 
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold text-slate-900">
-                              {section.title}
-                            </h3>
+                    {saving ? "Saving..." : "Save Draft"}
+                  </button>
 
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                section.assemblyStatus === "Completed"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : section.assemblyStatus === "In Progress"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : section.assemblyStatus ===
-                                    "Not Applicable"
-                                  ? "bg-slate-200 text-slate-600"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {section.assemblyStatus}
-                            </span>
-                          </div>
-
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
-                            {section.description}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Assembly Status
-                        </span>
-
-                        <select
-                          value={section.assemblyStatus}
-                          onChange={(e) =>
-                            updateAssemblySection(
-                              section.id,
-                              "assemblyStatus",
-                              e.target.value as AssemblyStatus
-                            )
-                          }
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        >
-                          <option value="Not Started">Not Started</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Completed</option>
-                          <option value="Not Applicable">
-                            Not Applicable
-                          </option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          File Location / Reference
-                        </span>
-
-                        <input
-                          type="text"
-                          value={section.fileLocation}
-                          onChange={(e) =>
-                            updateAssemblySection(
-                              section.id,
-                              "fileLocation",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Enter file location or reference"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-
-                      <label className="block lg:col-span-2">
-                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Assembly Notes
-                        </span>
-
-                        <textarea
-                          value={section.assemblyNotes}
-                          onChange={(e) =>
-                            updateAssemblySection(
-                              section.id,
-                              "assemblyNotes",
-                              e.target.value
-                            )
-                          }
-                          rows={3}
-                          placeholder="Document assembly observations or final file notes..."
-                          className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* =====================================================
-              SECTION 5
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  5
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Final File Review and Approval
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Document the final engagement file review and confirm that
-                    review notes, documentation gaps and significant matters
-                    have been addressed.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <div className="grid grid-cols-1 gap-3">
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={finalDocumentationReviewCompleted}
-                    onChange={(e) => {
-                      setFinalDocumentationReviewCompleted(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Final documentation review has been completed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={reviewNotesCleared}
-                    onChange={(e) => {
-                      setReviewNotesCleared(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    All review notes and outstanding review points have been
-                    cleared or appropriately resolved.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={finalFileAssembled}
-                    onChange={(e) => {
-                      setFinalFileAssembled(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    The final audit file has been assembled.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={archiveIntegrityConfirmed}
-                    onChange={(e) => {
-                      setArchiveIntegrityConfirmed(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    The integrity of the archived documentation has been
-                    confirmed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={retentionRequirementsConfirmed}
-                    onChange={(e) => {
-                      setRetentionRequirementsConfirmed(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Applicable documentation retention requirements have been
-                    confirmed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={accessRestrictionsConfirmed}
-                    onChange={(e) => {
-                      setAccessRestrictionsConfirmed(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Access restrictions and confidentiality controls have been
-                    confirmed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={finalFileApproved}
-                    onChange={(e) => {
-                      setFinalFileApproved(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    The final audit file has been approved by the authorized
-                    reviewer.
-                  </span>
-                </label>
-              </div>
-
-              <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Engagement Partner
-                  </span>
-
-                  <input
-                    type="text"
-                    value={engagementPartner}
-                    onChange={(e) => {
-                      setEngagementPartner(e.target.value);
-                      setSaved(false);
-                    }}
-                    placeholder="Enter engagement partner"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Final File Reviewer
-                  </span>
-
-                  <input
-                    type="text"
-                    value={finalFileReviewer}
-                    onChange={(e) => {
-                      setFinalFileReviewer(e.target.value);
-                      setSaved(false);
-                    }}
-                    placeholder="Enter final file reviewer"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Documentation Completion Date
-                  </span>
-
-                  <input
-                    type="date"
-                    value={documentationCompletionDate}
-                    onChange={(e) => {
-                      setDocumentationCompletionDate(e.target.value);
-                      setSaved(false);
-                    }}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Final Review Date
-                  </span>
-
-                  <input
-                    type="date"
-                    value={finalReviewDate}
-                    onChange={(e) => {
-                      setFinalReviewDate(e.target.value);
-                      setSaved(false);
-                    }}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-
-                <label className="block lg:col-span-2">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Final Documentation Conclusion
-                  </span>
-
-                  <textarea
-                    value={finalDocumentationConclusion}
-                    onChange={(e) => {
-                      setFinalDocumentationConclusion(e.target.value);
-                      setSaved(false);
-                    }}
-                    rows={5}
-                    placeholder="Document the final conclusion regarding the completeness and adequacy of the audit documentation..."
-                    className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-              </div>
-            </div>
-          </section>
-
-          {/* =====================================================
-              SECTION 6
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  6
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Archive and Retention
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Record the archive reference and retention information and
-                    confirm that the completed audit file is protected against
-                    unauthorized alteration or deletion.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-5 sm:px-6">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Archive Status
-                  </span>
-
-                  <select
-                    value={archiveStatus}
-                    onChange={(e) => {
-                      setArchiveStatus(e.target.value as ArchiveStatus);
-                      setSaved(false);
-                    }}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  <button
+                    type="button"
+                    disabled={
+                      !allRequirementsComplete ||
+                      completionStatus === "Completed" ||
+                      actionLoading ||
+                      loading ||
+                      isArchived
+                    }
+                    onClick={() => void handleCompleteAndArchive()}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0c766d] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#095f58] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="Not Ready">Not Ready</option>
-                    <option value="Ready for Assembly">
-                      Ready for Assembly
-                    </option>
-                    <option value="Assembled">Assembled</option>
-                    <option value="Archived">Archived</option>
-                  </select>
-                </label>
+                    {actionLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Archive className="h-4 w-4" />
+                    )}
 
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Archive Reference
-                  </span>
-
-                  <input
-                    type="text"
-                    value={archiveReference}
-                    onChange={(e) => {
-                      setArchiveReference(e.target.value);
-                      setSaved(false);
-                    }}
-                    placeholder="Enter archive reference"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Archive Date
-                  </span>
-
-                  <input
-                    type="date"
-                    value={archiveDate}
-                    onChange={(e) => {
-                      setArchiveDate(e.target.value);
-                      setSaved(false);
-                    }}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Retention Period
-                  </span>
-
-                  <input
-                    type="text"
-                    value={retentionPeriod}
-                    onChange={(e) => {
-                      setRetentionPeriod(e.target.value);
-                      setSaved(false);
-                    }}
-                    placeholder="e.g. 7 years"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-6 grid grid-cols-1 gap-3">
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={archiveIntegrityConfirmed2}
-                    onChange={(e) => {
-                      setArchiveIntegrityConfirmed2(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Archive integrity has been confirmed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={retentionConfirmed2}
-                    onChange={(e) => {
-                      setRetentionConfirmed2(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Retention requirements have been confirmed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={accessConfirmed2}
-                    onChange={(e) => {
-                      setAccessConfirmed2(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Access and confidentiality restrictions have been
-                    confirmed.
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <input
-                    type="checkbox"
-                    checked={approvalConfirmed2}
-                    onChange={(e) => {
-                      setApprovalConfirmed2(e.target.checked);
-                      setSaved(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300"
-                  />
-
-                  <span className="text-sm font-medium text-slate-700">
-                    Final file approval has been obtained.
-                  </span>
-                </label>
-              </div>
-
-              <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-4">
-                <div className="flex items-start gap-3">
-                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-
-                  <div>
-                    <p className="text-sm font-bold text-blue-900">
-                      Important
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6 text-blue-800">
-                      Once the audit file has been assembled and the applicable
-                      documentation completion period has elapsed, changes to
-                      the audit documentation should be controlled and should
-                      preserve the original documentation and the reason for
-                      any subsequent change.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* =====================================================
-              SECTION 7 — FINAL CHECKLIST
-          ===================================================== */}
-
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
-                  7
+                    {actionLoading
+                      ? "Completing & Archiving..."
+                      : "Complete & Archive"}
+                  </button>
                 </div>
 
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Final Completion Checklist
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Confirm that the engagement documentation and archive
-                    process is complete before closing this workpaper.
+                {!allRequirementsComplete && !isArchived && (
+                  <p className="mt-3 text-xs leading-5 text-amber-700">
+                    Complete all required checklist, documentation,
+                    review and assembly items before archiving.
                   </p>
-                </div>
-              </div>
-            </div>
+                )}
 
-            <div className="px-5 py-5 sm:px-6">
-              <div className="space-y-3">
-                {checklist.map((item) => (
-                  <ChecklistItem
-                    key={item.label}
-                    complete={item.complete}
-                    label={item.label}
-                  />
-                ))}
-              </div>
+                {isArchived && (
+                  <p className="mt-3 text-xs leading-5 text-emerald-700">
+                    This engagement is archived and locked. You have
+                    completed this workflow.
+                  </p>
+                )}
+              </section>
+            </aside>
+          </div>
 
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">
-                      Checklist Progress
-                    </p>
+          {/* Bottom actions */}
+          <div className="mt-8 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Engagement
+            </button>
 
-                    <p className="mt-1 text-sm text-slate-600">
-                      {completedChecklistItems}/{checklist.length} completion
-                      requirements satisfied
-                    </p>
-                  </div>
-
-                  <div className="w-full sm:max-w-xs">
-                    <div className="h-2 overflow-hidden rounded-full bg-white">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          checklistComplete
-                            ? "bg-emerald-600"
-                            : "bg-slate-900"
-                        }`}
-                        style={{
-                          width: `${
-                            (completedChecklistItems / checklist.length) * 100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* =====================================================
-              FINAL STATUS
-          ===================================================== */}
-
-          <section
-            className={`mb-6 rounded-2xl border p-5 shadow-sm sm:p-6 ${
-              checklistComplete
-                ? "border-emerald-200 bg-emerald-50"
-                : "border-amber-200 bg-amber-50"
-            }`}
-          >
-            <div className="flex items-start gap-4">
-              {checklistComplete ? (
-                <CheckCircle2 className="mt-0.5 h-7 w-7 shrink-0 text-emerald-600" />
+            <button
+              type="button"
+              disabled={
+                !allRequirementsComplete ||
+                completionStatus === "Completed" ||
+                actionLoading ||
+                loading ||
+                isArchived
+              }
+              onClick={() => void handleCompleteAndArchive()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0c766d] px-5 py-3 text-sm font-bold text-white hover:bg-[#095f58] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {actionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <ShieldAlert className="mt-0.5 h-7 w-7 shrink-0 text-amber-600" />
+                <FileCheck2 className="h-4 w-4" />
               )}
 
-              <div className="min-w-0">
-                <h2
-                  className={`text-lg font-bold ${
-                    checklistComplete
-                      ? "text-emerald-900"
-                      : "text-amber-900"
-                  }`}
-                >
-                  {checklistComplete
-                    ? "4.6 Complete Documentation and Archive is complete"
-                    : "4.6 still has completion requirements"}
-                </h2>
-
-                <p
-                  className={`mt-1 text-sm leading-6 ${
-                    checklistComplete
-                      ? "text-emerald-800"
-                      : "text-amber-800"
-                  }`}
-                >
-                  {checklistComplete
-                    ? "All 12 checklist requirements have been satisfied. You can continue to 4.7 Quality Monitoring."
-                    : `Complete the remaining checklist requirements before continuing. Current progress: ${completedChecklistItems}/${checklist.length}.`}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* =====================================================
-              FOOTER ACTIONS
-          ===================================================== */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-900">
-                  4.6 Complete Documentation and Archive
-                </p>
-
-                <p className="mt-1 text-sm text-slate-600">
-                  Complete this workpaper before proceeding to 4.7 Quality
-                  Monitoring and Root Cause Analysis.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Save className="h-4 w-4" />
-                  {saved ? "Saved" : "Save"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!checklistComplete}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition ${
-                    checklistComplete
-                      ? "bg-slate-900 hover:bg-slate-800"
-                      : "cursor-not-allowed bg-slate-300"
-                  }`}
-                >
-                  Continue to 4.7
-                  <ArrowLeft className="h-4 w-4 rotate-180" />
-                </button>
-              </div>
-            </div>
+              {actionLoading
+                ? "Completing & Archiving..."
+                : "Complete & Archive"}
+            </button>
           </div>
         </div>
-      </main>
-    </AppLayout>
+      </div>
+
   );
 }

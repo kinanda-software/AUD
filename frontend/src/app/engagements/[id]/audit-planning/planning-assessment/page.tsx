@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -92,16 +91,16 @@ function normalizeStatus(status: string): AssessmentStatus {
 function getStatusClasses(status: AssessmentStatus) {
   switch (status) {
     case "approved":
-      return "bg-green-100 text-green-700 border-green-200";
+      return "border-green-200 bg-green-50 text-green-700";
 
     case "completed":
-      return "bg-blue-100 text-blue-700 border-blue-200";
+      return "border-blue-200 bg-blue-50 text-blue-700";
 
     case "in_progress":
-      return "bg-amber-100 text-amber-700 border-amber-200";
+      return "border-amber-200 bg-amber-50 text-amber-700";
 
     default:
-      return "bg-gray-100 text-gray-700 border-gray-200";
+      return "border-gray-200 bg-gray-50 text-gray-700";
   }
 }
 
@@ -241,13 +240,6 @@ export default function PlanningAssessmentPage() {
     setSuccess("");
   }
 
-  /*
-   * This is the common save function.
-   *
-   * It saves 1.1 first.
-   * If the save succeeds and continueToNext is true,
-   * it moves to 1.2 using the same engagement ID.
-   */
   async function saveAssessment(
     continueToNext: boolean
   ) {
@@ -284,14 +276,6 @@ export default function PlanningAssessmentPage() {
       setForm(assessmentToForm(savedAssessment));
 
       if (continueToNext) {
-        /*
-         * The 1.1 workpaper has now been successfully saved.
-         *
-         * Move to:
-         * Phase 1 → 1.2 Materiality Assessment
-         *
-         * The engagement ID remains the same.
-         */
         router.push(
           `/engagements/${engagementId}/audit-planning/materiality-assessment`
         );
@@ -339,202 +323,220 @@ export default function PlanningAssessmentPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex min-h-[70vh] items-center justify-center">
+        <div className="flex min-h-[70vh] w-full items-center justify-center">
           <div className="flex items-center gap-3 text-gray-600">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
 
-            <span>
+            <span className="text-sm">
               Loading planning assessment...
             </span>
           </div>
         </div>
-      </AppLayout>
+
     );
   }
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-7xl space-y-6">
+    <>
+    
+      {/* =====================================================
+          PAGE CONTENT
+          IMPORTANT:
+          AppLayout already provides the <main>.
+          Do NOT add another <main> here.
+      ====================================================== */}
+
+      <div className="w-full min-w-0 space-y-6 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
 
         {/* =====================================================
             PAGE HEADER
         ====================================================== */}
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
+        <section className="w-full min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex min-w-0 flex-col gap-5 p-5 sm:p-6 xl:flex-row xl:items-center xl:justify-between">
 
-            <button
-              type="button"
-              onClick={handleBack}
-              className="mt-1 rounded-lg border border-gray-200 bg-white p-2 text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
-              title="Back to Audit Planning"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
 
-            <div>
-              <div className="mb-1 flex items-center gap-2 text-sm text-gray-500">
-                <span>Phase 1</span>
-                <span>/</span>
-                <span>Audit Planning</span>
-                <span>/</span>
+              <button
+                type="button"
+                onClick={handleBack}
+                className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
+                title="Back to Audit Planning"
+                aria-label="Back to Audit Planning"
+              >
+                <ArrowLeft className="h-5 w-5 shrink-0" />
+              </button>
 
-                <span className="font-medium text-gray-700">
+              <div className="min-w-0">
+
+                <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 sm:text-sm">
+                  <span>Phase 1</span>
+                  <span>/</span>
+                  <span>Audit Planning</span>
+                  <span>/</span>
+
+                  <span className="font-medium text-gray-700">
+                    1.1 Planning Assessment
+                  </span>
+                </div>
+
+                <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+                  1.1 Planning Assessment
+                </h1>
+
+                <p className="mt-1.5 max-w-4xl text-sm leading-6 text-gray-500">
+                  Document the auditor&apos;s understanding
+                  of the entity, environment, risks, and
+                  key planning considerations.
+                </p>
+
+              </div>
+            </div>
+
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5 xl:justify-end">
+
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-xs font-semibold sm:text-sm ${getStatusClasses(
+                  form.status
+                )}`}
+              >
+                {statusLabels[form.status]}
+              </span>
+
+              <button
+                type="submit"
+                form="planning-assessment-form"
+                disabled={saving || continuing}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 shrink-0" />
+                )}
+
+                <span>
+                  {saving
+                    ? "Saving..."
+                    : "Save Assessment"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveAndContinue}
+                disabled={saving || continuing}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {continuing ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-4 w-4 shrink-0" />
+                )}
+
+                <span>
+                  {continuing
+                    ? "Saving..."
+                    : "Save & Continue"}
+                </span>
+              </button>
+
+            </div>
+          </div>
+        </section>
+
+        {/* =====================================================
+            WORKFLOW
+        ====================================================== */}
+
+        <section className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="p-4 sm:p-5">
+
+            <div className="mb-3 flex items-center justify-between gap-3">
+
+              <p className="text-sm font-semibold text-gray-900">
+                Audit Planning Workflow
+              </p>
+
+              <p className="shrink-0 text-xs font-medium text-gray-500">
+                Step 1 of 6
+              </p>
+
+            </div>
+
+            <div className="flex w-full min-w-0 items-center gap-2 overflow-x-auto pb-1">
+
+              <div className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white sm:text-sm">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+
+                <span>
                   1.1 Planning Assessment
                 </span>
               </div>
 
-              <h1 className="text-2xl font-bold text-gray-900">
-                1.1 Planning Assessment
-              </h1>
+              <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
 
-              <p className="mt-1 text-sm text-gray-500">
-                Document the auditor&apos;s understanding
-                of the entity, environment, risks, and
-                key planning considerations.
-              </p>
+              <div className="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 sm:text-sm">
+                <span>
+                  1.2 Materiality Assessment
+                </span>
+              </div>
+
+              <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
+
+              <div className="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 sm:text-sm">
+                <span>
+                  1.3 Audit Scope
+                </span>
+              </div>
+
+              <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
+
+              <div className="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 sm:text-sm">
+                <span>
+                  1.4 Audit Team
+                </span>
+              </div>
+
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-
-            <span
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${getStatusClasses(
-                form.status
-              )}`}
-            >
-              {statusLabels[form.status]}
-            </span>
-
-            {/* Save only */}
-            <button
-              type="submit"
-              form="planning-assessment-form"
-              disabled={saving || continuing}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-
-              {saving
-                ? "Saving..."
-                : "Save Assessment"}
-            </button>
-
-            {/* Save & Continue */}
-            <button
-              type="button"
-              onClick={handleSaveAndContinue}
-              disabled={saving || continuing}
-              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {continuing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowRight className="h-4 w-4" />
-              )}
-
-              {continuing
-                ? "Saving..."
-                : "Save & Continue"}
-            </button>
-          </div>
-        </div>
-
-        {/* =====================================================
-            WORKFLOW INDICATOR
-        ====================================================== */}
-
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-            <div className="flex items-center gap-2 overflow-x-auto">
-
-              <div className="flex shrink-0 items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>1.1 Planning Assessment</span>
-              </div>
-
-              <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
-
-              <div className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600">
-                <span>1.2 Materiality Assessment</span>
-              </div>
-
-              <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
-
-              <div className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500">
-                <span>1.3 Audit Scope</span>
-              </div>
-
-              <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
-
-              <div className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500">
-                <span>1.4 Audit Team</span>
-              </div>
-            </div>
-
-            <p className="shrink-0 text-xs text-gray-500">
-              Step 1 of 6
-            </p>
-          </div>
-        </div>
+        </section>
 
         {/* =====================================================
             ENGAGEMENT INFORMATION
         ====================================================== */}
 
         {engagement && (
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <section className="w-full min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm">
 
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Engagement
-                </p>
+            <div className="grid min-w-0 gap-5 p-5 sm:p-6 md:grid-cols-2 lg:grid-cols-4">
 
-                <p className="mt-1 font-semibold text-gray-900">
-                  {engagement.engagement_code}
-                </p>
-              </div>
+              <InfoItem
+                label="Engagement"
+                value={engagement.engagement_code}
+              />
 
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Title
-                </p>
+              <InfoItem
+                label="Title"
+                value={engagement.title}
+              />
 
-                <p className="mt-1 font-semibold text-gray-900">
-                  {engagement.title}
-                </p>
-              </div>
+              <InfoItem
+                label="Risk Level"
+                value={engagement.risk_level}
+                capitalize
+              />
 
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Risk Level
-                </p>
-
-                <p className="mt-1 font-semibold capitalize text-gray-900">
-                  {engagement.risk_level}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Financial Year End
-                </p>
-
-                <p className="mt-1 font-semibold text-gray-900">
-                  {engagement.financial_year_end ||
-                    "Not specified"}
-                </p>
-              </div>
+              <InfoItem
+                label="Financial Year End"
+                value={
+                  engagement.financial_year_end ||
+                  "Not specified"
+                }
+              />
 
             </div>
-          </div>
+          </section>
         )}
 
         {/* =====================================================
@@ -542,75 +544,69 @@ export default function PlanningAssessmentPage() {
         ====================================================== */}
 
         {error && (
-          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <div className="flex w-full min-w-0 items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
 
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
 
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold">
                 Unable to complete request
               </p>
 
-              <p className="mt-1 text-sm">
+              <p className="mt-1 break-words text-sm leading-6">
                 {error}
               </p>
             </div>
+
           </div>
         )}
 
         {success && (
-          <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
+          <div className="flex w-full min-w-0 items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
 
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
 
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold">
                 Saved
               </p>
 
-              <p className="mt-1 text-sm">
+              <p className="mt-1 text-sm leading-6">
                 {success}
               </p>
             </div>
+
           </div>
         )}
+
+        {/* =====================================================
+            FORM
+        ====================================================== */}
 
         <form
           id="planning-assessment-form"
           onSubmit={handleSave}
-          className="space-y-6"
+          className="w-full min-w-0 space-y-6"
         >
 
           {/* =====================================================
               WORKPAPER STATUS
           ====================================================== */}
 
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <section className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 
-            <div className="border-b border-gray-200 px-6 py-5">
-              <div className="flex items-center gap-3">
+            <SectionHeader
+              icon={
+                <FileText className="h-5 w-5 shrink-0 text-gray-700" />
+              }
+              iconClassName="bg-gray-100"
+              title="Workpaper Status"
+              description="Track the preparation and approval status of this planning assessment."
+            />
 
-                <div className="rounded-lg bg-gray-100 p-2">
-                  <FileText className="h-5 w-5 text-gray-700" />
-                </div>
+            <div className="p-5 sm:p-6">
 
-                <div>
-                  <h2 className="font-semibold text-gray-900">
-                    Workpaper Status
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Track the preparation and approval
-                    status of this planning assessment.
-                  </p>
-                </div>
-
-              </div>
-            </div>
-
-            <div className="p-6">
-
-              <label className="block max-w-md">
+              <label className="block w-full max-w-md">
 
                 <span className="mb-2 block text-sm font-medium text-gray-700">
                   Assessment Status
@@ -644,6 +640,7 @@ export default function PlanningAssessmentPage() {
                 </select>
 
               </label>
+
             </div>
           </section>
 
@@ -651,32 +648,18 @@ export default function PlanningAssessmentPage() {
               A. UNDERSTANDING ENTITY
           ====================================================== */}
 
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <section className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 
-            <div className="border-b border-gray-200 px-6 py-5">
+            <SectionHeader
+              icon={
+                <FileText className="h-5 w-5 shrink-0 text-blue-600" />
+              }
+              iconClassName="bg-blue-50"
+              title="A. Understanding the Entity and Its Environment"
+              description="Document the information obtained during planning."
+            />
 
-              <div className="flex items-center gap-3">
-
-                <div className="rounded-lg bg-blue-50 p-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                </div>
-
-                <div>
-                  <h2 className="font-semibold text-gray-900">
-                    A. Understanding the Entity and Its
-                    Environment
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Document the information obtained
-                    during planning.
-                  </p>
-                </div>
-
-              </div>
-            </div>
-
-            <div className="grid gap-6 p-6 md:grid-cols-2">
+            <div className="grid min-w-0 gap-6 p-5 sm:p-6 md:grid-cols-2">
 
               <TextAreaField
                 label="Business Understanding"
@@ -757,31 +740,18 @@ export default function PlanningAssessmentPage() {
               B. RISK CONSIDERATIONS
           ====================================================== */}
 
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <section className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 
-            <div className="border-b border-gray-200 px-6 py-5">
+            <SectionHeader
+              icon={
+                <CircleAlert className="h-5 w-5 shrink-0 text-amber-600" />
+              }
+              iconClassName="bg-amber-50"
+              title="B. Risk and Planning Considerations"
+              description="Record matters that may affect audit risk and planning."
+            />
 
-              <div className="flex items-center gap-3">
-
-                <div className="rounded-lg bg-amber-50 p-2">
-                  <CircleAlert className="h-5 w-5 text-amber-600" />
-                </div>
-
-                <div>
-                  <h2 className="font-semibold text-gray-900">
-                    B. Risk and Planning Considerations
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Record matters that may affect audit
-                    risk and planning.
-                  </p>
-                </div>
-
-              </div>
-            </div>
-
-            <div className="grid gap-6 p-6 md:grid-cols-2">
+            <div className="grid min-w-0 gap-6 p-5 sm:p-6 md:grid-cols-2">
 
               <TextAreaField
                 label="Significant Risks Identified"
@@ -862,31 +832,18 @@ export default function PlanningAssessmentPage() {
               C. PLANNING CONCLUSION
           ====================================================== */}
 
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <section className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 
-            <div className="border-b border-gray-200 px-6 py-5">
+            <SectionHeader
+              icon={
+                <ShieldCheck className="h-5 w-5 shrink-0 text-green-600" />
+              }
+              iconClassName="bg-green-50"
+              title="C. Planning Conclusion"
+              description="Summarize the overall planning assessment and implications for the audit strategy."
+            />
 
-              <div className="flex items-center gap-3">
-
-                <div className="rounded-lg bg-green-50 p-2">
-                  <ShieldCheck className="h-5 w-5 text-green-600" />
-                </div>
-
-                <div>
-                  <h2 className="font-semibold text-gray-900">
-                    C. Planning Conclusion
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Summarize the overall planning assessment
-                    and implications for the audit strategy.
-                  </p>
-                </div>
-
-              </div>
-            </div>
-
-            <div className="p-6">
+            <div className="p-5 sm:p-6">
 
               <TextAreaField
                 label="Overall Planning Conclusion"
@@ -909,38 +866,40 @@ export default function PlanningAssessmentPage() {
               ACTIONS
           ====================================================== */}
 
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full min-w-0 flex-col-reverse gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
 
             <button
               type="button"
               onClick={handleBack}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 shrink-0" />
 
-              Back to Audit Planning
+              <span>
+                Back to Audit Planning
+              </span>
             </button>
 
             <div className="flex flex-col gap-3 sm:flex-row">
 
-              {/* Save only */}
               <button
                 type="submit"
                 disabled={saving || continuing}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                 ) : (
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4 shrink-0" />
                 )}
 
-                {saving
-                  ? "Saving..."
-                  : "Save Planning Assessment"}
+                <span>
+                  {saving
+                    ? "Saving..."
+                    : "Save Planning Assessment"}
+                </span>
               </button>
 
-              {/* Save & Continue */}
               <button
                 type="button"
                 onClick={handleSaveAndContinue}
@@ -948,14 +907,16 @@ export default function PlanningAssessmentPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {continuing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                 ) : (
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 shrink-0" />
                 )}
 
-                {continuing
-                  ? "Saving..."
-                  : "Save & Continue to 1.2"}
+                <span>
+                  {continuing
+                    ? "Saving..."
+                    : "Save & Continue to 1.2"}
+                </span>
               </button>
 
             </div>
@@ -963,9 +924,84 @@ export default function PlanningAssessmentPage() {
 
         </form>
       </div>
-    </AppLayout>
+    
+      </>
   );
 }
+
+/* =========================================================
+   INFO ITEM
+========================================================= */
+
+function InfoItem({
+  label,
+  value,
+  capitalize = false,
+}: {
+  label: string;
+  value?: string | number | null;
+  capitalize?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1.5 break-words text-sm font-semibold text-gray-900 sm:text-base ${
+          capitalize ? "capitalize" : ""
+        }`}
+      >
+        {value || "Not specified"}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
+   SECTION HEADER
+========================================================= */
+
+function SectionHeader({
+  icon,
+  iconClassName,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  iconClassName: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="border-b border-gray-200 px-5 py-5 sm:px-6">
+      <div className="flex min-w-0 items-start gap-3">
+
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+        >
+          {icon}
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold leading-6 text-gray-900 sm:text-lg">
+            {title}
+          </h2>
+
+          <p className="mt-1 text-sm leading-6 text-gray-500">
+            {description}
+          </p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   TEXT AREA
+========================================================= */
 
 function TextAreaField({
   label,
@@ -986,8 +1022,8 @@ function TextAreaField({
     <label
       className={
         fullWidth
-          ? "block w-full"
-          : "block"
+          ? "block w-full min-w-0"
+          : "block min-w-0"
       }
     >
       <span className="mb-2 block text-sm font-medium text-gray-800">
@@ -1001,8 +1037,13 @@ function TextAreaField({
         }
         placeholder={placeholder}
         rows={rows}
-        className="w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm leading-6 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-200"
+        className="block w-full min-w-0 resize-y rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm leading-6 text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-gray-200"
       />
     </label>
   );
 }
+
+
+
+
+

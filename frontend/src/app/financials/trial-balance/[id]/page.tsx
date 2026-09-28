@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   CircleDollarSign,
   FileSpreadsheet,
@@ -201,7 +201,7 @@ export default function TrialBalanceDetailPage() {
 
     if (debitValue > 0 && creditValue > 0) {
       setError(
-        "A Trial Balance line cannot have both debit and credit."
+        "A Trial Balance line cannot have both debit or credit."
       );
       return false;
     }
@@ -363,8 +363,8 @@ export default function TrialBalanceDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+
+        <div className="flex w-full items-center justify-center bg-slate-50">
           <div className="flex items-center gap-3 text-sm text-slate-500">
             <Loader2
               size={24}
@@ -373,15 +373,15 @@ export default function TrialBalanceDetailPage() {
             Loading Trial Balance...
           </div>
         </div>
-      </AppLayout>
+
     );
   }
 
   if (!trialBalance) {
     return (
-      <AppLayout>
-        <div className="min-h-screen bg-slate-50 p-6">
-          <div className="mx-auto max-w-3xl rounded-xl border border-red-200 bg-red-50 p-6">
+
+        <div className="w-full bg-slate-50 p-6">
+          <div className="w-full rounded-xl border border-red-200 bg-red-50 p-6">
             <div className="flex items-start gap-3">
               <AlertCircle
                 size={22}
@@ -394,7 +394,8 @@ export default function TrialBalanceDetailPage() {
                 </h1>
 
                 <p className="mt-1 text-sm text-red-700">
-                  {error || "The requested Trial Balance does not exist."}
+                  {error ||
+                    "The requested Trial Balance does not exist."}
                 </p>
 
                 <button
@@ -411,14 +412,14 @@ export default function TrialBalanceDetailPage() {
             </div>
           </div>
         </div>
-      </AppLayout>
+
     );
   }
 
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+
+      <div className="w-full bg-slate-50">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
           {/* Back */}
           <button
             type="button"
@@ -939,7 +940,7 @@ export default function TrialBalanceDetailPage() {
                                 line.debit,
                                 trialBalance.currency
                               )
-                            : "—"}
+                            : "â€”"}
                         </td>
 
                         <td className="px-5 py-4 text-right font-mono text-sm text-slate-700">
@@ -948,7 +949,7 @@ export default function TrialBalanceDetailPage() {
                                 line.credit,
                                 trialBalance.currency
                               )
-                            : "—"}
+                            : "â€”"}
                         </td>
 
                         {!isLocked && (
@@ -1060,8 +1061,114 @@ export default function TrialBalanceDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Financial Reporting Workflow */}
+          <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet
+                  size={20}
+                  className="text-blue-600"
+                />
+
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Financial Reporting Workflow
+                </h2>
+              </div>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Continue from this Trial Balance through
+                adjustments, supporting schedules and financial
+                statement preparation.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {/* Adjusted Trial Balance */}
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/financials/adjusted-trial-balance?trial_balance=${trialBalance.id}`
+                  )
+                }
+                className="group flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Adjusted Trial Balance
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Review original balances and posted audit
+                    adjustments.
+                  </p>
+                </div>
+
+                <ArrowRight
+                  size={18}
+                  className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600"
+                />
+              </button>
+
+              {/* Lead Schedules */}
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/financials/lead-schedules?trial_balance=${trialBalance.id}`
+                  )
+                }
+                className="group flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Lead Schedules
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Review account-level audit schedules and
+                    supporting detail.
+                  </p>
+                </div>
+
+                <ArrowRight
+                  size={18}
+                  className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600"
+                />
+              </button>
+
+              {/* Financial Statements */}
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/financials/financial-statements?trial_balance=${trialBalance.id}`
+                  )
+                }
+                className="group flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Financial Statements
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Generate statements from the adjusted Trial
+                    Balance.
+                  </p>
+                </div>
+
+                <ArrowRight
+                  size={18}
+                  className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600"
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </AppLayout>
+
   );
 }
+

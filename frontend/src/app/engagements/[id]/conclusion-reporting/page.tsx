@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -10,10 +10,7 @@ import {
   FileText,
   MessageSquare,
   Scale,
-  ShieldCheck,
 } from "lucide-react";
-import AppLayout from "@/components/layout/AppLayout";
-
 const sections = [
   {
     title: "Evaluate Misstatements",
@@ -57,13 +54,6 @@ const sections = [
     href: "documentation-archive",
     icon: FileArchive,
   },
-  {
-    title: "Quality Monitoring",
-    description:
-      "Complete engagement quality and final monitoring procedures.",
-    href: "quality-monitoring",
-    icon: ShieldCheck,
-  },
 ];
 
 export default function ConclusionReportingPage() {
@@ -72,9 +62,9 @@ export default function ConclusionReportingPage() {
   const engagementId = String(params.id ?? "");
 
   return (
-    <AppLayout>
+
       <main className="min-w-0 flex-1 bg-gray-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* HEADER */}
           <div className="mb-8">
@@ -89,7 +79,7 @@ export default function ConclusionReportingPage() {
                 </h1>
 
                 <p className="text-sm text-gray-500">
-                  Phase 4 — Conclusion and Reporting
+                  Phase 4 â€” Conclusion and Reporting
                 </p>
               </div>
             </div>
@@ -109,10 +99,10 @@ export default function ConclusionReportingPage() {
           {/* INTRODUCTION */}
           <section className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              Phase 4 — Conclusion & Reporting
+              Phase 4 â€” Conclusion & Reporting
             </h2>
 
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+            <p className="mt-2 text-sm leading-6 text-gray-600">
               Complete the final audit procedures, evaluate
               misstatements, perform the overall engagement review,
               determine the audit opinion, communicate required
@@ -181,6 +171,6 @@ export default function ConclusionReportingPage() {
 
         </div>
       </main>
-    </AppLayout>
+
   );
 }

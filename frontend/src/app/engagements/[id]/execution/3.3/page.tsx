@@ -1,10 +1,8 @@
-
+﻿
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
-
 import {
   ArrowLeft,
   Save,
@@ -19,7 +17,7 @@ import {
   Database,
 } from "lucide-react";
 
-const API_BASE_URL = "http://127.0.0.1:8000/api";
+const API_BASE_URL = "http://localhost:8000/api";
 
 interface FraudJournalEntryAssessment {
   id?: number;
@@ -111,7 +109,6 @@ export default function FraudJournalEntryProceduresPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [saved, setSaved] = useState(false);
 
   const [successMessage, setSuccessMessage] =
@@ -120,82 +117,30 @@ export default function FraudJournalEntryProceduresPage() {
   const [error, setError] = useState("");
 
   // ==========================================================
-  // GET AUTHENTICATION TOKEN
+  // COOKIE HELPER
   // ==========================================================
 
-  const getAuthToken = () => {
-    if (typeof window === "undefined") {
+  const getCookie = (
+    name: string
+  ): string | null => {
+    if (typeof document === "undefined") {
       return null;
     }
 
-    /*
-     * Try the common token names used by the AUD application.
-     *
-     * This makes the page compatible with the existing
-     * authentication implementation if the token was stored
-     * under one of these names.
-     */
+    const cookies =
+      document.cookie.split(";");
 
-    const tokenKeys = [
-      "access_token",
-      "accessToken",
-      "token",
-      "authToken",
-      "jwt",
-    ];
+    for (const cookie of cookies) {
+      const trimmed = cookie.trim();
 
-    for (const key of tokenKeys) {
-      const value =
-        localStorage.getItem(key);
-
-      if (value) {
-        return value;
-      }
-    }
-
-    /*
-     * Some applications store the complete user/auth object.
-     */
-
-    const possibleObjects = [
-      "auth",
-      "user",
-      "currentUser",
-      "userData",
-    ];
-
-    for (const key of possibleObjects) {
-      const raw =
-        localStorage.getItem(key);
-
-      if (!raw) {
-        continue;
-      }
-
-      try {
-        const parsed = JSON.parse(raw);
-
-        if (parsed?.access) {
-          return parsed.access;
-        }
-
-        if (parsed?.access_token) {
-          return parsed.access_token;
-        }
-
-        if (parsed?.accessToken) {
-          return parsed.accessToken;
-        }
-
-        if (parsed?.token) {
-          return parsed.token;
-        }
-
-        if (parsed?.jwt) {
-          return parsed.jwt;
-        }
-      } catch {
-        // Ignore invalid JSON and continue.
+      if (
+        trimmed.startsWith(`${name}=`)
+      ) {
+        return decodeURIComponent(
+          trimmed.substring(
+            name.length + 1
+          )
+        );
       }
     }
 
@@ -203,14 +148,12 @@ export default function FraudJournalEntryProceduresPage() {
   };
 
   // ==========================================================
-  // AUTHENTICATED HEADERS
+  // API HEADERS
   // ==========================================================
 
   const getHeaders = (
     includeContentType = false
   ): HeadersInit => {
-    const token = getAuthToken();
-
     const headers: HeadersInit = {
       Accept: "application/json",
     };
@@ -218,14 +161,37 @@ export default function FraudJournalEntryProceduresPage() {
     if (includeContentType) {
       headers["Content-Type"] =
         "application/json";
-    }
 
-    if (token) {
-      headers["Authorization"] =
-        `Bearer ${token}`;
+      const csrfToken =
+        getCookie("csrftoken");
+
+      if (csrfToken) {
+        headers["X-CSRFToken"] =
+          csrfToken;
+      }
     }
 
     return headers;
+  };
+
+  // ==========================================================
+  // AUTHENTICATION FAILURE
+  // ==========================================================
+
+  const handleAuthenticationFailure = () => {
+    const currentPath =
+      window.location.pathname +
+      window.location.search;
+
+    console.warn(
+      "PHASE 3.3: Authentication failure."
+    );
+
+    router.replace(
+      `/login?next=${encodeURIComponent(
+        currentPath
+      )}`
+    );
   };
 
   // ==========================================================
@@ -237,8 +203,12 @@ export default function FraudJournalEntryProceduresPage() {
       !engagementId ||
       Number.isNaN(engagementId)
     ) {
-      setError("Invalid engagement ID.");
+      setError(
+        "Invalid engagement ID."
+      );
+
       setLoading(false);
+
       return;
     }
 
@@ -248,34 +218,25 @@ export default function FraudJournalEntryProceduresPage() {
         setError("");
         setSuccessMessage("");
 
-        const token = getAuthToken();
-
-        if (!token) {
-          setError(
-            "Authentication token was not found. Please log in again."
-          );
-
-          setLoading(false);
-          return;
-        }
-
         const url =
           `${API_BASE_URL}/fraud-journal-entry-assessments/` +
           `?engagement=${engagementId}`;
 
         console.log(
-          "Loading Phase 3.3:",
+          "PHASE 3.3: Loading workpaper:",
           url
         );
 
-        const response = await fetch(
-          url,
-          {
+        const response =
+          await fetch(url, {
             method: "GET",
+
+            credentials: "include",
+
             headers: getHeaders(),
+
             cache: "no-store",
-          }
-        );
+          });
 
         const responseText =
           await response.text();
@@ -291,7 +252,7 @@ export default function FraudJournalEntryProceduresPage() {
         }
 
         console.log(
-          "Phase 3.3 LOAD RESPONSE:",
+          "PHASE 3.3 LOAD RESPONSE:",
           {
             status: response.status,
             statusText:
@@ -300,11 +261,21 @@ export default function FraudJournalEntryProceduresPage() {
           }
         );
 
-        if (response.status === 401 ||
-            response.status === 403) {
-          throw new Error(
-            "Authentication failed. Please log out and log in again."
+        if (
+          response.status === 401
+        ) {
+          handleAuthenticationFailure();
+          return;
+        }
+
+        if (
+          response.status === 403
+        ) {
+          setError(
+            "You do not have permission to load this workpaper."
           );
+
+          return;
         }
 
         if (!response.ok) {
@@ -336,12 +307,14 @@ export default function FraudJournalEntryProceduresPage() {
         }
 
         if (records.length > 0) {
-          const existing = records[0];
+          const existing =
+            records[0];
 
           setAssessment({
             ...emptyAssessment,
             ...existing,
-            engagement: engagementId,
+            engagement:
+              engagementId,
           });
 
           setAssessmentId(
@@ -349,18 +322,28 @@ export default function FraudJournalEntryProceduresPage() {
           );
 
           setSaved(true);
+
+          console.log(
+            "PHASE 3.3: Existing workpaper loaded.",
+            existing.id
+          );
         } else {
           setAssessment({
             ...emptyAssessment,
-            engagement: engagementId,
+            engagement:
+              engagementId,
           });
 
           setAssessmentId(null);
           setSaved(false);
+
+          console.log(
+            "PHASE 3.3: No existing workpaper found."
+          );
         }
       } catch (err) {
         console.error(
-          "Error loading Phase 3.3:",
+          "PHASE 3.3 LOAD ERROR:",
           err
         );
 
@@ -405,50 +388,96 @@ export default function FraudJournalEntryProceduresPage() {
   // ==========================================================
 
   const validateForm = () => {
+    console.log(
+      "PHASE 3.3: Starting validation..."
+    );
+
     setError("");
 
+    // Selection method
     if (!assessment.selection_method) {
-      setError(
-        "Please select a journal entry selection method."
+      const message =
+        "Please select a journal entry selection method.";
+
+      console.warn(
+        "PHASE 3.3 VALIDATION:",
+        message
       );
+
+      setError(message);
 
       return false;
     }
 
+    // Selected entries cannot exceed population
     if (
       assessment.total_population !== null &&
+      assessment.total_population !==
+        undefined &&
       assessment.selected_entries !== null &&
-      assessment.selected_entries >
-        assessment.total_population
+      assessment.selected_entries !==
+        undefined &&
+      Number(
+        assessment.selected_entries
+      ) >
+        Number(
+          assessment.total_population
+        )
     ) {
-      setError(
-        "Selected entries cannot exceed the total population."
+      const message =
+        "Selected entries cannot exceed the total population.";
+
+      console.warn(
+        "PHASE 3.3 VALIDATION:",
+        message
       );
+
+      setError(message);
 
       return false;
     }
 
+    // Exceptions
     if (
-      assessment.exceptions_count > 0 &&
+      Number(
+        assessment.exceptions_count
+      ) > 0 &&
       !assessment.exceptions.trim()
     ) {
-      setError(
-        "Please describe the exceptions identified."
+      const message =
+        "Please describe the exceptions identified.";
+
+      console.warn(
+        "PHASE 3.3 VALIDATION:",
+        message
       );
+
+      setError(message);
 
       return false;
     }
 
+    // Further procedures
     if (
       assessment.further_procedures_required &&
       !assessment.fraud_implication.trim()
     ) {
-      setError(
-        "Please document the fraud implication or further procedure required."
+      const message =
+        "Please document the fraud implication or further procedure required.";
+
+      console.warn(
+        "PHASE 3.3 VALIDATION:",
+        message
       );
+
+      setError(message);
 
       return false;
     }
+
+    console.log(
+      "PHASE 3.3: Validation successful."
+    );
 
     return true;
   };
@@ -459,7 +488,8 @@ export default function FraudJournalEntryProceduresPage() {
 
   const buildPayload = () => {
     return {
-      engagement: engagementId,
+      engagement:
+        engagementId,
 
       population_description:
         assessment.population_description,
@@ -472,7 +502,8 @@ export default function FraudJournalEntryProceduresPage() {
           null ||
         assessment.total_population ===
           undefined ||
-        assessment.total_population === 0
+        assessment.total_population ===
+          0
           ? null
           : Number(
               assessment.total_population
@@ -486,7 +517,8 @@ export default function FraudJournalEntryProceduresPage() {
           null ||
         assessment.selected_entries ===
           undefined ||
-        assessment.selected_entries === 0
+        assessment.selected_entries ===
+          0
           ? null
           : Number(
               assessment.selected_entries
@@ -548,11 +580,19 @@ export default function FraudJournalEntryProceduresPage() {
   };
 
   // ==========================================================
-  // SAVE
+  // SAVE ASSESSMENT
   // ==========================================================
 
   const saveAssessment = async () => {
+    console.log(
+      "PHASE 3.3: saveAssessment() started"
+    );
+
     if (!validateForm()) {
+      console.warn(
+        "PHASE 3.3: Validation failed."
+      );
+
       return false;
     }
 
@@ -560,16 +600,6 @@ export default function FraudJournalEntryProceduresPage() {
       setSaving(true);
       setError("");
       setSuccessMessage("");
-
-      const token = getAuthToken();
-
-      if (!token) {
-        setError(
-          "Authentication token was not found. Please log in again."
-        );
-
-        return false;
-      }
 
       const payload =
         buildPayload();
@@ -581,22 +611,29 @@ export default function FraudJournalEntryProceduresPage() {
         ? `${API_BASE_URL}/fraud-journal-entry-assessments/${assessmentId}/`
         : `${API_BASE_URL}/fraud-journal-entry-assessments/`;
 
+      const method = isUpdating
+        ? "PATCH"
+        : "POST";
+
+      const csrfToken =
+        getCookie("csrftoken");
+
       console.log(
-        "Saving Phase 3.3:",
+        "PHASE 3.3: Saving workpaper:",
         {
-          method: isUpdating
-            ? "PATCH"
-            : "POST",
+          method,
           url,
           payload,
+          hasCsrfToken:
+            Boolean(csrfToken),
         }
       );
 
       const response =
         await fetch(url, {
-          method: isUpdating
-            ? "PATCH"
-            : "POST",
+          method,
+
+          credentials: "include",
 
           headers:
             getHeaders(true),
@@ -624,39 +661,73 @@ export default function FraudJournalEntryProceduresPage() {
       }
 
       console.log(
-        "Phase 3.3 SAVE RESPONSE:",
+        "PHASE 3.3 SAVE RESPONSE:",
         {
           status:
             response.status,
+
           statusText:
             response.statusText,
+
           data:
             responseData,
         }
       );
 
+      // ------------------------------------------------------
+      // UNAUTHENTICATED
+      // ------------------------------------------------------
+
       if (
-        response.status === 401 ||
+        response.status === 401
+      ) {
+        setError(
+          "Your login session has expired. Please log in again."
+        );
+
+        return false;
+      }
+
+      // ------------------------------------------------------
+      // FORBIDDEN / CSRF / PERMISSION
+      // ------------------------------------------------------
+
+      if (
         response.status === 403
       ) {
+        console.error(
+          "PHASE 3.3: HTTP 403:",
+          responseData
+        );
+
+        setError(
+          "The server rejected the save request. Please refresh the page and try again."
+        );
+
+        return false;
+      }
+
+      // ------------------------------------------------------
+      // OTHER API ERRORS
+      // ------------------------------------------------------
+
+      if (!response.ok) {
+        const serverMessage =
+          typeof responseData ===
+          "string"
+            ? responseData
+            : JSON.stringify(
+                responseData
+              );
+
         throw new Error(
-          "Authentication failed. Please log out and log in again."
+          `HTTP ${response.status}: ${serverMessage}`
         );
       }
 
-      if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status} ${response.statusText}: ` +
-            `${
-              typeof responseData ===
-              "string"
-                ? responseData
-                : JSON.stringify(
-                    responseData
-                  )
-            }`
-        );
-      }
+      // ------------------------------------------------------
+      // INVALID RESPONSE
+      // ------------------------------------------------------
 
       if (
         !responseData ||
@@ -668,11 +739,19 @@ export default function FraudJournalEntryProceduresPage() {
         );
       }
 
+      // ------------------------------------------------------
+      // STORE ID
+      // ------------------------------------------------------
+
       if (responseData.id) {
         setAssessmentId(
           responseData.id
         );
       }
+
+      // ------------------------------------------------------
+      // UPDATE STATE
+      // ------------------------------------------------------
 
       setAssessment({
         ...emptyAssessment,
@@ -689,10 +768,14 @@ export default function FraudJournalEntryProceduresPage() {
           : "Fraud and journal entry assessment saved successfully."
       );
 
+      console.log(
+        "PHASE 3.3: SAVE SUCCESSFUL."
+      );
+
       return true;
     } catch (err) {
       console.error(
-        "Error saving Phase 3.3:",
+        "PHASE 3.3 SAVE ERROR:",
         err
       );
 
@@ -712,22 +795,49 @@ export default function FraudJournalEntryProceduresPage() {
   };
 
   // ==========================================================
-  // CONTINUE
+  // CONTINUE TO PHASE 3.4
   // ==========================================================
 
-  const handleContinue =
-    async () => {
-      const success =
-        await saveAssessment();
+  const handleContinue = async () => {
+    console.log(
+      "PHASE 3.3: CONTINUE CLICKED"
+    );
 
-      if (!success) {
-        return;
-      }
-
-      router.push(
-        `/engagements/${engagementId}/execution/3.4`
+    if (saving) {
+      console.log(
+        "PHASE 3.3: Save already in progress."
       );
-    };
+
+      return;
+    }
+
+    setError("");
+    setSuccessMessage("");
+
+    const success =
+      await saveAssessment();
+
+    console.log(
+      "PHASE 3.3: saveAssessment result:",
+      success
+    );
+
+    if (!success) {
+      console.warn(
+        "PHASE 3.3: Navigation stopped because save failed."
+      );
+
+      return;
+    }
+
+    console.log(
+      "PHASE 3.3: Moving to Phase 3.4..."
+    );
+
+    router.push(
+      `/engagements/${engagementId}/execution/3.4`
+    );
+  };
 
   // ==========================================================
   // LOADING
@@ -735,7 +845,7 @@ export default function FraudJournalEntryProceduresPage() {
 
   if (loading) {
     return (
-      <AppLayout>
+      
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
@@ -745,7 +855,7 @@ export default function FraudJournalEntryProceduresPage() {
             </p>
           </div>
         </div>
-      </AppLayout>
+      
     );
   }
 
@@ -754,8 +864,8 @@ export default function FraudJournalEntryProceduresPage() {
   // ==========================================================
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-7xl px-6 py-8">
+    
+      <div className="w-full min-w-0 px-6 py-8">
 
         {/* HEADER */}
 
@@ -770,6 +880,7 @@ export default function FraudJournalEntryProceduresPage() {
             <ArrowLeft
               size={17}
             />
+
             Back
           </button>
 
@@ -786,6 +897,7 @@ export default function FraudJournalEntryProceduresPage() {
                     <CheckCircle2
                       size={14}
                     />
+
                     Saved
                   </span>
                 )}
@@ -823,22 +935,6 @@ export default function FraudJournalEntryProceduresPage() {
               <p className="mt-1 break-words text-sm">
                 {error}
               </p>
-
-              {error.includes(
-                "log in again"
-              ) && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      "/login"
-                    )
-                  }
-                  className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
-                >
-                  Go to Login
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -924,7 +1020,7 @@ export default function FraudJournalEntryProceduresPage() {
                     e.target.value
                   )
                 }
-                placeholder="e.g. 1 July 2025 – 30 June 2026"
+                placeholder="e.g. 1 July 2025 â€“ 30 June 2026"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
             </div>
@@ -1039,7 +1135,7 @@ export default function FraudJournalEntryProceduresPage() {
                 }
                 rows={3}
                 placeholder="Explain why this selection method was considered appropriate..."
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
               />
             </div>
 
@@ -1600,15 +1696,19 @@ export default function FraudJournalEntryProceduresPage() {
               onClick={() =>
                 router.back()
               }
-              className="flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <ArrowLeft
                 size={17}
               />
+
               Back
             </button>
 
             <div className="flex items-center gap-3">
+
+              {/* SAVE */}
 
               <button
                 type="button"
@@ -1627,6 +1727,8 @@ export default function FraudJournalEntryProceduresPage() {
                   : "Save Workpaper"}
               </button>
 
+              {/* CONTINUE */}
+
               <button
                 type="button"
                 onClick={
@@ -1635,20 +1737,24 @@ export default function FraudJournalEntryProceduresPage() {
                 disabled={saving}
                 className="flex items-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Continue
+                {saving
+                  ? "Saving..."
+                  : "Continue"}
 
-                <ChevronRight
-                  size={17}
-                />
+                {!saving && (
+                  <ChevronRight
+                    size={17}
+                  />
+                )}
               </button>
 
             </div>
-
           </div>
         </div>
 
       </div>
-    </AppLayout>
+    
   );
 }
+
 

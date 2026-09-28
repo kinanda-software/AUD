@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.authtoken.models import Token
 
 from .models import User
 from .permissions import (
@@ -123,7 +124,22 @@ def login_view(request):
         )
 
     # ---------------------------------------------------------
+    # CREATE / GET DRF API TOKEN
+    #
+    # This is required because the audit API uses:
+    #
+    # Authorization: Token <token>
+    #
+    # TokenAuthentication
+    # ---------------------------------------------------------
+    token, _ = Token.objects.get_or_create(
+        user=user
+    )
+
+    # ---------------------------------------------------------
     # CREATE DJANGO SESSION
+    #
+    # This keeps /api/auth/me/ working with browser sessions.
     # ---------------------------------------------------------
     login(request, user)
 
@@ -133,6 +149,11 @@ def login_view(request):
     return cors_response(
         {
             "message": "Login successful.",
+
+            # IMPORTANT:
+            # Frontend stores this as audit-token.
+            "token": token.key,
+
             "user": {
                 "id": user.id,
                 "username": user.username,

@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -172,8 +171,7 @@ export default function PayrollPage() {
   ).length;
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="w-full min-w-0 space-y-6">
         {/* PAGE HEADER */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -702,8 +700,7 @@ export default function PayrollPage() {
             </div>
           </div>
         </section>
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 

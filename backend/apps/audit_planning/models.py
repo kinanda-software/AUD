@@ -2777,3 +2777,72 @@ class RemediationAction(models.Model):
             f"{self.quality_monitoring.engagement.engagement_code} - "
             f"{self.reference}"
         )
+
+    # ============================================================
+# PHASE 4.6 - ISA 230 DOCUMENTATION ARCHIVE
+# ============================================================
+
+class DocumentationArchive(models.Model):
+    """
+    Final documentation review and audit file archive workpaper
+    for an engagement.
+    """
+
+    engagement = models.OneToOneField(
+        "engagements.Engagement",
+        on_delete=models.CASCADE,
+        related_name="documentation_archive",
+    )
+
+    data = models.JSONField(
+        default=dict,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Documentation Archive"
+        verbose_name_plural = "Documentation Archives"
+
+    def __str__(self):
+        return f"Documentation Archive - Engagement {self.engagement_id}"
+
+
+class ArchiveStatus(models.Model):
+    """
+    Final archive/lock status for an engagement.
+    """
+
+    engagement = models.OneToOneField(
+        "engagements.Engagement",
+        on_delete=models.CASCADE,
+        related_name="archive_status",
+    )
+
+    documentation_completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    retention_period_years = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    locked = models.BooleanField(
+        default=False,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Archive Status"
+        verbose_name_plural = "Archive Statuses"
+
+    def __str__(self):
+        return f"Archive Status - Engagement {self.engagement_id}"

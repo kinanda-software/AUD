@@ -22,6 +22,8 @@ from .views import (
     QualityMonitoringViewSet,
     QualityFindingViewSet,
     RemediationActionViewSet,
+    DocumentationArchiveViewSet,
+    ArchiveStatusViewSet,
 )
 
 router = DefaultRouter()
@@ -215,6 +217,23 @@ router.register(
     "remediation-actions",
     RemediationActionViewSet,
     basename="remediation-action",
+)
+
+
+# ============================================================
+# PHASE 4.6 — DOCUMENTATION ARCHIVE
+# ============================================================
+
+router.register(
+    "documentation-archives",
+    DocumentationArchiveViewSet,
+    basename="documentation-archive",
+)
+
+router.register(
+    "archive-statuses",
+    ArchiveStatusViewSet,
+    basename="archive-status",
 )
 
 

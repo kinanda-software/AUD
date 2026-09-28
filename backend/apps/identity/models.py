@@ -8,6 +8,7 @@ class User(AbstractUser):
         ("auditor", "Auditor"),
         ("manager", "Manager"),
         ("staff", "Staff"),
+        ("guest", "Guest"),
     ]
 
     role = models.CharField(

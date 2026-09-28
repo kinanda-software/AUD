@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   BookOpen,
@@ -222,7 +221,7 @@ function getSectionLabel(section: string) {
 
 function formatDate(value?: string) {
   if (!value) {
-    return "—";
+    return "â€”";
   }
 
   try {
@@ -609,9 +608,9 @@ export default function ChartOfAccountsPage() {
     );
 
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+
+      <div className="w-full">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* Header */}
           <div className="mb-6">
@@ -640,7 +639,7 @@ export default function ChartOfAccountsPage() {
                   Chart of Accounts
                 </h1>
 
-                <p className="mt-2 max-w-3xl text-sm text-slate-600 sm:text-base">
+                <p className="mt-2 text-sm text-slate-600 sm:text-base">
                   Create and manage the accounts used by
                   your engagement Trial Balance and
                   financial statements.
@@ -1423,6 +1422,6 @@ export default function ChartOfAccountsPage() {
 
         </div>
       </div>
-    </AppLayout>
+
   );
 }

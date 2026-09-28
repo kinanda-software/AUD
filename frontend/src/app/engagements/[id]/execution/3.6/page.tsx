@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
-
 import {
   ArrowLeft,
   AlertTriangle,
@@ -81,9 +79,9 @@ export default function RiskReassessmentPage() {
   };
 
   return (
-    <AppLayout>
+
       <main className="min-w-0 flex-1 bg-gray-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* HEADER */}
           <div className="mb-6 flex items-start gap-4">
@@ -112,7 +110,7 @@ export default function RiskReassessmentPage() {
                 Reassess Combined Risk Assessments
               </h1>
 
-              <p className="mt-1 max-w-3xl text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-500">
                 Revisit assessed risks based on evidence obtained
                 during audit execution.
               </p>
@@ -132,7 +130,7 @@ export default function RiskReassessmentPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-600">
-                  Phase 3 — Risk reassessment workpaper
+                  Phase 3 â€” Risk reassessment workpaper
                 </p>
               </div>
 
@@ -465,7 +463,7 @@ export default function RiskReassessmentPage() {
               {saved ? (
                 <>
                   <CheckCircle2 size={18} />
-                  Completed — Opening Phase 4...
+                  Completed â€” Opening Phase 4...
                 </>
               ) : (
                 <>
@@ -478,6 +476,6 @@ export default function RiskReassessmentPage() {
 
         </div>
       </main>
-    </AppLayout>
+
   );
 }

@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -103,7 +102,7 @@ function SectionHeader({
             {title}
           </h2>
 
-          <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-600">
+          <p className="mt-1 text-sm leading-6 text-slate-600">
             {subtitle}
           </p>
         </div>
@@ -368,7 +367,7 @@ export default function ClientCommunicationsPage() {
   const [saved, setSaved] = useState(false);
 
   /* =======================================================
-     ISA 265 — DEFICIENCIES
+     ISA 265 â€” DEFICIENCIES
   ======================================================= */
 
   const [deficiencies, setDeficiencies] = useState<Deficiency[]>([
@@ -386,7 +385,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   /* =======================================================
-     ISA 260 — GOVERNANCE
+     ISA 260 â€” GOVERNANCE
   ======================================================= */
 
   const [governanceMeetingDate, setGovernanceMeetingDate] =
@@ -416,7 +415,7 @@ export default function ClientCommunicationsPage() {
     ]);
 
   /* =======================================================
-     ISA 580 — REPRESENTATIONS
+     ISA 580 â€” REPRESENTATIONS
   ======================================================= */
 
   const [representations, setRepresentations] =
@@ -1012,9 +1011,9 @@ export default function ClientCommunicationsPage() {
   ======================================================= */
 
   return (
-    <AppLayout>
+
       <main className="min-w-0 flex-1 bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* =================================================
               PAGE HEADER
@@ -1052,7 +1051,7 @@ export default function ClientCommunicationsPage() {
                   Client Communications
                 </h1>
 
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   Document communication of internal control
                   deficiencies, matters with those charged with
                   governance, and written representations obtained
@@ -1181,7 +1180,7 @@ export default function ClientCommunicationsPage() {
 
               <SectionHeader
                 number="1"
-                title="ISA 265 — Internal Control Deficiencies"
+                title="ISA 265 â€” Internal Control Deficiencies"
                 subtitle="Document identified deficiencies in internal control, their potential effects, classification, management response, recommendations, and communication status."
                 icon={
                   <ShieldAlert className="h-5 w-5" />
@@ -1390,7 +1389,7 @@ export default function ClientCommunicationsPage() {
 
               <SectionHeader
                 number="2"
-                title="ISA 260 — Communication With Those Charged With Governance"
+                title="ISA 260 â€” Communication With Those Charged With Governance"
                 subtitle="Document significant audit matters communicated to those charged with governance, including the communication method, recipient, date, response, and status."
                 icon={
                   <Users className="h-5 w-5" />
@@ -1627,7 +1626,7 @@ export default function ClientCommunicationsPage() {
 
               <SectionHeader
                 number="3"
-                title="ISA 580 — Written Representations"
+                title="ISA 580 â€” Written Representations"
                 subtitle="Track the written representations required from management and document receipt, exceptions, and the auditor's conclusion."
                 icon={
                   <FileText className="h-5 w-5" />
@@ -2230,6 +2229,6 @@ export default function ClientCommunicationsPage() {
           </div>
         </div>
       </main>
-    </AppLayout>
+
   );
 }

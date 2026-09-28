@@ -5,8 +5,15 @@ from .views import QualityMonitoringWorkpaperView
 
 urlpatterns = [
     path(
-        "engagements/<int:engagement_id>/quality-monitoring/",
+        "quality-monitorings/<int:engagement_id>/",
         QualityMonitoringWorkpaperView.as_view(),
         name="quality-monitoring-workpaper",
+    ),
+
+    # Alternative readable URL
+    path(
+        "engagements/<int:engagement_id>/quality-monitoring/",
+        QualityMonitoringWorkpaperView.as_view(),
+        name="engagement-quality-monitoring-workpaper",
     ),
 ]

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ReactNode, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -17,8 +17,6 @@ import {
   BookOpenCheck,
   Calculator,
 } from "lucide-react";
-
-import AppLayout from "@/components/layout/AppLayout";
 
 type TabType = "overview" | "risk" | "controls" | "procedures";
 
@@ -246,8 +244,7 @@ export default function FinancialStatementClosePage() {
   };
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="w-full min-w-0 space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -786,8 +783,7 @@ export default function FinancialStatementClosePage() {
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 
@@ -875,3 +871,4 @@ function FocusItem({
     </div>
   );
 }
+

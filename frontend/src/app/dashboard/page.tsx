@@ -1,8 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   Activity,
   AlertTriangle,
@@ -207,13 +207,16 @@ const recentActivity = [
 function getRiskStyle(risk: RiskLevel) {
   switch (risk) {
     case "High":
-      return "bg-red-50 text-red-700 border-red-100";
+      return "border-red-100 bg-red-50 text-red-700";
+
     case "Medium":
-      return "bg-amber-50 text-amber-700 border-amber-100";
+      return "border-amber-100 bg-amber-50 text-amber-700";
+
     case "Low":
-      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      return "border-emerald-100 bg-emerald-50 text-emerald-700";
+
     default:
-      return "bg-slate-50 text-slate-700 border-slate-100";
+      return "border-slate-100 bg-slate-50 text-slate-700";
   }
 }
 
@@ -221,14 +224,19 @@ function getStatusStyle(status: string) {
   switch (status) {
     case "Planning":
       return "bg-slate-100 text-slate-700";
+
     case "In Progress":
       return "bg-blue-50 text-blue-700";
+
     case "Fieldwork":
       return "bg-violet-50 text-violet-700";
+
     case "Reporting":
       return "bg-amber-50 text-amber-700";
+
     case "Completed":
       return "bg-emerald-50 text-emerald-700";
+
     default:
       return "bg-slate-100 text-slate-700";
   }
@@ -238,22 +246,31 @@ function ProgressBar({ value }: { value: number }) {
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
       <div
-        className="h-full rounded-full bg-blue-600 transition-all"
+        className="h-full rounded-full bg-blue-600 transition-all duration-500"
         style={{ width: `${value}%` }}
       />
     </div>
   );
 }
 
+function ClipboardListIcon({
+  size,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <BriefcaseBusiness
+      size={size}
+      className={className}
+    />
+  );
+}
+
 export default function DashboardPage() {
-  /*
-   * Automatic greeting based on the user's current local time.
-   *
-   * 05:00 - 11:59  → Good morning
-   * 12:00 - 16:59  → Good afternoon
-   * 17:00 - 04:59  → Good evening
-   */
-  const [greeting, setGreeting] = useState("Good morning");
+  const [greeting, setGreeting] =
+    useState("Good morning");
 
   useEffect(() => {
     const updateGreeting = () => {
@@ -268,33 +285,41 @@ export default function DashboardPage() {
       }
     };
 
-    // Set the correct greeting immediately when the page loads.
     updateGreeting();
 
-    // Check every minute so the greeting changes automatically
-    // even if the dashboard remains open for many hours.
-    const interval = setInterval(updateGreeting, 60 * 1000);
+    const interval = setInterval(
+      updateGreeting,
+      60 * 1000
+    );
 
     return () => clearInterval(interval);
   }, []);
 
-  const activeEngagements = engagements.filter(
-    (engagement) => engagement.status !== "Completed"
-  ).length;
+  const activeEngagements =
+    engagements.filter(
+      (engagement) =>
+        engagement.status !== "Completed"
+    ).length;
 
-  const highRiskEngagements = engagements.filter(
-    (engagement) => engagement.risk === "High"
-  ).length;
+  const highRiskEngagements =
+    engagements.filter(
+      (engagement) =>
+        engagement.risk === "High"
+    ).length;
 
   return (
-    <AppLayout>
-      <div className="space-y-8">
-        {/* Header */}
-        <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+    <div className="w-full">
+      <div className="w-full space-y-8">
+        {/* =========================================================
+            DASHBOARD HEADER
+        ========================================================= */}
+        <section className="flex w-full flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
               <Activity size={16} />
-              <span>Audit Management Dashboard</span>
+              <span>
+                Audit Management Dashboard
+              </span>
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight text-slate-950">
@@ -302,12 +327,13 @@ export default function DashboardPage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Executive overview of your audit portfolio, risk position,
-              deadlines, workflow progress and reporting status.
+              Executive overview of your audit portfolio,
+              risk position, deadlines, workflow progress
+              and reporting status.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <Link
               href="/reports"
               className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:flex"
@@ -326,32 +352,41 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* KPI Cards */}
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {/* =========================================================
+            KPI CARDS
+        ========================================================= */}
+        <section className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                 <BriefcaseBusiness size={20} />
               </div>
-              <TrendingUp size={17} className="text-emerald-500" />
+
+              <TrendingUp
+                size={17}
+                className="text-emerald-500"
+              />
             </div>
 
             <p className="mt-5 text-sm font-medium text-slate-500">
               Total Engagements
             </p>
 
-            <p className="mt-1 text-3xl font-bold text-slate-950">24</p>
+            <p className="mt-1 text-3xl font-bold text-slate-950">
+              24
+            </p>
 
             <p className="mt-1 text-xs text-emerald-600">
               +3 from last period
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
                 <Clock3 size={20} />
               </div>
+
               <span className="text-xs font-semibold text-slate-400">
                 {activeEngagements} active
               </span>
@@ -361,56 +396,71 @@ export default function DashboardPage() {
               Active Engagements
             </p>
 
-            <p className="mt-1 text-3xl font-bold text-slate-950">18</p>
+            <p className="mt-1 text-3xl font-bold text-slate-950">
+              18
+            </p>
 
             <p className="mt-1 text-xs text-slate-400">
               Currently in progress
             </p>
           </div>
 
-          <div className="rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
                 <ShieldAlert size={20} />
               </div>
-              <AlertTriangle size={17} className="text-red-500" />
+
+              <AlertTriangle
+                size={17}
+                className="text-red-500"
+              />
             </div>
 
             <p className="mt-5 text-sm font-medium text-slate-500">
               High Risk
             </p>
 
-            <p className="mt-1 text-3xl font-bold text-slate-950">05</p>
+            <p className="mt-1 text-3xl font-bold text-slate-950">
+              05
+            </p>
 
             <p className="mt-1 text-xs text-red-600">
               Requires close monitoring
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                 <CalendarDays size={20} />
               </div>
-              <Bell size={17} className="text-amber-500" />
+
+              <Bell
+                size={17}
+                className="text-amber-500"
+              />
             </div>
 
             <p className="mt-5 text-sm font-medium text-slate-500">
               Due Soon
             </p>
 
-            <p className="mt-1 text-3xl font-bold text-slate-950">04</p>
+            <p className="mt-1 text-3xl font-bold text-slate-950">
+              04
+            </p>
 
             <p className="mt-1 text-xs text-slate-400">
               Within the next 14 days
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                 <CheckCircle2 size={20} />
               </div>
+
               <span className="text-xs font-semibold text-emerald-600">
                 Ready
               </span>
@@ -420,7 +470,9 @@ export default function DashboardPage() {
               Reports Ready
             </p>
 
-            <p className="mt-1 text-3xl font-bold text-slate-950">03</p>
+            <p className="mt-1 text-3xl font-bold text-slate-950">
+              03
+            </p>
 
             <p className="mt-1 text-xs text-slate-400">
               Awaiting final action
@@ -428,15 +480,17 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Portfolio + Deadlines */}
-        <section className="grid gap-6 xl:grid-cols-3">
-          {/* Engagement Portfolio */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
+        {/* =========================================================
+            PORTFOLIO + DEADLINES
+        ========================================================= */}
+        <section className="grid w-full gap-6 xl:grid-cols-3">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-semibold text-slate-950">
                   Engagement Portfolio
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
                   Current distribution across the audit lifecycle
                 </p>
@@ -444,7 +498,7 @@ export default function DashboardPage() {
 
               <Link
                 href="/engagements"
-                className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                className="ml-4 flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
               >
                 View all
                 <ArrowRight size={16} />
@@ -457,42 +511,48 @@ export default function DashboardPage() {
                   label: "Planning",
                   count: 6,
                   percentage: 25,
-                  description: "Engagements being planned",
+                  description:
+                    "Engagements being planned",
                 },
                 {
                   label: "Risk Assessment",
                   count: 5,
                   percentage: 21,
-                  description: "Risk assessment in progress",
+                  description:
+                    "Risk assessment in progress",
                 },
                 {
                   label: "Risk Response",
                   count: 9,
                   percentage: 38,
-                  description: "Fieldwork and testing",
+                  description:
+                    "Fieldwork and testing",
                 },
                 {
                   label: "Reporting",
                   count: 4,
                   percentage: 16,
-                  description: "Conclusion and reporting",
+                  description:
+                    "Conclusion and reporting",
                 },
               ].map((item) => (
                 <div key={item.label}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <div>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-800">
                         {item.label}
                       </p>
+
                       <p className="text-xs text-slate-400">
                         {item.description}
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <span className="text-lg font-bold text-slate-900">
                         {item.count}
                       </span>
+
                       <span className="ml-1 text-xs text-slate-400">
                         engagements
                       </span>
@@ -502,7 +562,9 @@ export default function DashboardPage() {
                   <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                     <div
                       className="h-full rounded-full bg-blue-600"
-                      style={{ width: `${item.percentage}%` }}
+                      style={{
+                        width: `${item.percentage}%`,
+                      }}
                     />
                   </div>
                 </div>
@@ -510,24 +572,30 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Deadlines */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-semibold text-slate-950">
                   Upcoming Deadlines
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
                   Key dates requiring attention
                 </p>
               </div>
 
-              <CalendarDays size={19} className="text-slate-400" />
+              <CalendarDays
+                size={19}
+                className="shrink-0 text-slate-400"
+              />
             </div>
 
             <div className="divide-y divide-slate-100">
               {deadlines.map((deadline) => (
-                <div key={deadline.client} className="px-6 py-4">
+                <div
+                  key={deadline.client}
+                  className="px-6 py-4"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-800">
@@ -562,22 +630,26 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Audit Workflow */}
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {/* =========================================================
+            AUDIT WORKFLOW
+        ========================================================= */}
+        <section className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-6 py-5">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
                 <h2 className="font-semibold text-slate-950">
                   Audit Workflow
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
-                  Engagement progress across the four-stage audit methodology
+                  Engagement progress across the four-stage
+                  audit methodology
                 </p>
               </div>
 
               <Link
                 href="/engagements"
-                className="hidden items-center gap-1 text-sm font-semibold text-blue-600 sm:flex"
+                className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-blue-600 sm:flex"
               >
                 Engagements
                 <ArrowRight size={16} />
@@ -587,13 +659,16 @@ export default function DashboardPage() {
 
           <div className="grid divide-y divide-slate-100 md:grid-cols-4 md:divide-x md:divide-y-0">
             {workflow.map((step) => (
-              <div key={step.number} className="p-6">
+              <div
+                key={step.number}
+                className="min-w-0 p-6"
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold tracking-wider text-blue-600">
                     PHASE {step.number}
                   </span>
 
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600">
                     {step.count}
                   </span>
                 </div>
@@ -608,28 +683,35 @@ export default function DashboardPage() {
 
                 <div className="mt-5">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs text-slate-400">Progress</span>
+                    <span className="text-xs text-slate-400">
+                      Progress
+                    </span>
+
                     <span className="text-xs font-bold text-slate-700">
                       {step.progress}%
                     </span>
                   </div>
 
-                  <ProgressBar value={step.progress} />
+                  <ProgressBar
+                    value={step.progress}
+                  />
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Recent Engagements + Attention */}
-        <section className="grid gap-6 xl:grid-cols-3">
-          {/* Recent Engagements */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
+        {/* =========================================================
+            RECENT ENGAGEMENTS + ATTENTION
+        ========================================================= */}
+        <section className="grid w-full gap-6 xl:grid-cols-3">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-semibold text-slate-950">
                   Recent Engagements
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
                   Latest activity across your audit portfolio
                 </p>
@@ -637,7 +719,7 @@ export default function DashboardPage() {
 
               <Link
                 href="/engagements"
-                className="flex items-center gap-1 text-sm font-semibold text-blue-600"
+                className="ml-4 flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-600"
               >
                 View all
                 <ArrowRight size={16} />
@@ -651,15 +733,19 @@ export default function DashboardPage() {
                     <th className="px-6 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       Engagement
                     </th>
+
                     <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       Status
                     </th>
+
                     <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       Risk
                     </th>
+
                     <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       Progress
                     </th>
+
                     <th className="px-6 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       Action
                     </th>
@@ -667,80 +753,88 @@ export default function DashboardPage() {
                 </thead>
 
                 <tbody>
-                  {engagements.slice(0, 4).map((engagement) => (
-                    <tr
-                      key={engagement.id}
-                      className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                    >
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {engagement.client}
-                        </p>
-                        <p className="mt-0.5 text-xs text-blue-600">
-                          {engagement.code}
-                        </p>
-                      </td>
+                  {engagements
+                    .slice(0, 4)
+                    .map((engagement) => (
+                      <tr
+                        key={engagement.id}
+                        className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {engagement.client}
+                          </p>
 
-                      <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-                            engagement.status
-                          )}`}
-                        >
-                          {engagement.status}
-                        </span>
-                      </td>
+                          <p className="mt-0.5 text-xs text-blue-600">
+                            {engagement.code}
+                          </p>
+                        </td>
 
-                      <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRiskStyle(
-                            engagement.risk
-                          )}`}
-                        >
-                          {engagement.risk}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-20">
-                            <ProgressBar value={engagement.progress} />
-                          </div>
-                          <span className="text-xs font-semibold text-slate-600">
-                            {engagement.progress}%
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
+                              engagement.status
+                            )}`}
+                          >
+                            {engagement.status}
                           </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/engagements/${engagement.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
-                        >
-                          Open
-                          <ChevronRight size={14} />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRiskStyle(
+                              engagement.risk
+                            )}`}
+                          >
+                            {engagement.risk}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-20">
+                              <ProgressBar
+                                value={
+                                  engagement.progress
+                                }
+                              />
+                            </div>
+
+                            <span className="text-xs font-semibold text-slate-600">
+                              {engagement.progress}%
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <Link
+                            href={`/engagements/${engagement.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                          >
+                            Open
+                            <ChevronRight size={14} />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Attention Required */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div>
+              <div className="min-w-0">
                 <h2 className="font-semibold text-slate-950">
                   Attention Required
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
                   Items requiring action or review
                 </p>
               </div>
 
-              <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-red-50 px-2 text-xs font-bold text-red-600">
+              <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-red-50 px-2 text-xs font-bold text-red-600">
                 04
               </span>
             </div>
@@ -750,7 +844,10 @@ export default function DashboardPage() {
                 const Icon = item.icon;
 
                 return (
-                  <div key={item.title} className="flex gap-3 px-6 py-4">
+                  <div
+                    key={item.title}
+                    className="flex gap-3 px-6 py-4"
+                  >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
                       <Icon size={17} />
                     </div>
@@ -775,9 +872,11 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Recent Activity */}
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {/* =========================================================
+            RECENT ACTIVITY + RISK OVERVIEW
+        ========================================================= */}
+        <section className="grid w-full gap-6 lg:grid-cols-2">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-5">
               <h2 className="font-semibold text-slate-950">
                 Recent Activity
@@ -820,8 +919,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Risk Overview */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-5">
               <h2 className="font-semibold text-slate-950">
                 Risk Overview
@@ -833,28 +931,31 @@ export default function DashboardPage() {
             </div>
 
             <div className="p-6">
-              <div className="flex items-center gap-8">
-                <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-[14px] border-red-100">
+              <div className="flex flex-col gap-8 sm:flex-row sm:items-center">
+                <div className="flex h-32 w-32 shrink-0 items-center justify-center self-center rounded-full border-[14px] border-red-100 sm:self-auto">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-slate-950">
                       {highRiskEngagements}
                     </p>
+
                     <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
                       High Risk
                     </p>
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-4">
+                <div className="min-w-0 flex-1 space-y-4">
                   <div>
                     <div className="mb-1.5 flex justify-between">
                       <span className="text-xs font-medium text-slate-600">
                         High Risk
                       </span>
+
                       <span className="text-xs font-bold text-slate-800">
                         5
                       </span>
                     </div>
+
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                       <div className="h-full w-[21%] rounded-full bg-red-500" />
                     </div>
@@ -865,10 +966,12 @@ export default function DashboardPage() {
                       <span className="text-xs font-medium text-slate-600">
                         Medium Risk
                       </span>
+
                       <span className="text-xs font-bold text-slate-800">
                         11
                       </span>
                     </div>
+
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                       <div className="h-full w-[46%] rounded-full bg-amber-400" />
                     </div>
@@ -879,10 +982,12 @@ export default function DashboardPage() {
                       <span className="text-xs font-medium text-slate-600">
                         Low Risk
                       </span>
+
                       <span className="text-xs font-bold text-slate-800">
                         8
                       </span>
                     </div>
+
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                       <div className="h-full w-[33%] rounded-full bg-emerald-500" />
                     </div>
@@ -897,24 +1002,29 @@ export default function DashboardPage() {
                 />
 
                 <p className="text-xs leading-5 text-slate-600">
-                  High-risk engagements should receive increased management
-                  attention and review.
+                  High-risk engagements should receive
+                  increased management attention and review.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Quick Access */}
-        <section>
+        {/* =========================================================
+            QUICK ACCESS
+        ========================================================= */}
+        <section className="w-full">
           <div className="mb-4">
-            <h2 className="font-semibold text-slate-950">Quick Access</h2>
+            <h2 className="font-semibold text-slate-950">
+              Quick Access
+            </h2>
+
             <p className="mt-1 text-sm text-slate-500">
               Navigate directly to frequently used areas
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
               {
                 title: "Audits",
@@ -953,7 +1063,7 @@ export default function DashboardPage() {
                 <Link
                   key={item.title}
                   href={item.href}
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+                  className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition group-hover:bg-blue-50 group-hover:text-blue-600">
@@ -979,9 +1089,13 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Footer information */}
-        <div className="flex flex-col gap-2 border-t border-slate-200 pt-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>AUD Platform • Audit Management System</p>
+        {/* =========================================================
+            FOOTER
+        ========================================================= */}
+        <div className="flex w-full flex-col gap-2 border-t border-slate-200 pt-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            AUD Platform • Audit Management System
+          </p>
 
           <div className="flex items-center gap-2">
             <span>FY 2026</span>
@@ -990,20 +1104,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </div>
   );
 }
 
-/*
- * Local alias used for the Quick Access icon.
- * Keeping it separate avoids changing the visual structure above.
- */
-function ClipboardListIcon({
-  size,
-  className,
-}: {
-  size?: number;
-  className?: string;
-}) {
-  return <BriefcaseBusiness size={size} className={className} />;
-}

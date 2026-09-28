@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -794,9 +793,9 @@ export default function ProcessFlowWalkthroughsPage() {
 
   if (loading) {
     return (
-      <AppLayout>
+      
         <div className="min-h-screen bg-slate-50">
-          <div className="mx-auto max-w-7xl px-6 py-12">
+          <div className="w-full min-w-0 px-6 py-12">
             <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-12 shadow-sm">
               <div className="flex items-center gap-3 text-slate-600">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -808,7 +807,6 @@ export default function ProcessFlowWalkthroughsPage() {
             </div>
           </div>
         </div>
-      </AppLayout>
     );
   }
 
@@ -817,9 +815,9 @@ export default function ProcessFlowWalkthroughsPage() {
   // =========================================================
 
   return (
-    <AppLayout>
+    
       <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full min-w-0 px-4 py-6 sm:px-6 lg:px-8">
 
           {/* =================================================
               HEADER
@@ -931,7 +929,7 @@ export default function ProcessFlowWalkthroughsPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-600">
-                  Phase 2 — Risk Assessment
+                  Phase 2 â€” Risk Assessment
                 </p>
               </div>
 
@@ -1109,7 +1107,7 @@ export default function ProcessFlowWalkthroughsPage() {
                     );
                     markAsEdited();
                   }}
-                  placeholder="Example: Initiation → Authorization → Processing → Recording → Reporting"
+                  placeholder="Example: Initiation â†’ Authorization â†’ Processing â†’ Recording â†’ Reporting"
                   className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -1513,6 +1511,8 @@ export default function ProcessFlowWalkthroughsPage() {
 
         </div>
       </div>
-    </AppLayout>
   );
 }
+
+
+

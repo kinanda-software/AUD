@@ -1,29 +1,23 @@
+
 import os
 
 from django.conf import settings
 from django.middleware.csrf import get_token
 
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from openai import OpenAI
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def csrf_token(request):
     return Response({
         "csrfToken": get_token(request),
     })
-
-import os
-
-from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-
-from openai import OpenAI
 
 
 @api_view(["POST"])
@@ -53,7 +47,12 @@ def ai_chat(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    api_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+    # Get the API key from Django settings.
+    # Fall back to the environment variable if necessary.
+    api_key = (
+        getattr(settings, "OPENAI_API_KEY", None)
+        or os.getenv("OPENAI_API_KEY")
+    )
 
     if not api_key:
         return Response(
@@ -63,8 +62,13 @@ def ai_chat(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+    # Remove accidental spaces/newlines around the key.
+    api_key = api_key.strip()
+
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(
+            api_key=api_key
+        )
 
         response = client.responses.create(
             model="gpt-5.6-luna",
@@ -73,6 +77,7 @@ You are the AUD AI Assistant, an AI assistant built into an
 Audit Management System.
 
 Your role is to assist auditors with:
+
 - Audit planning
 - Risk assessment
 - Audit procedures
@@ -91,6 +96,7 @@ Your role is to assist auditors with:
 Give clear, practical and structured answers.
 
 When useful, organize answers using:
+
 1. Objective
 2. Risk
 3. Recommended procedure
@@ -120,10 +126,26 @@ technical detail.
         )
 
     except Exception as exc:
+        error_text = str(exc)
+
+        # Do not expose the API key itself to the frontend.
+        if "invalid_api_key" in error_text.lower():
+            return Response(
+                {
+                    "error": "OpenAI authentication failed.",
+                    "details": (
+                        "The OpenAI API key was rejected. "
+                        "Check the OPENAI_API_KEY value in the server environment."
+                    ),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
         return Response(
             {
                 "error": "The AI Assistant could not process your request.",
-                "details": str(exc),
+                "details": error_text,
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+

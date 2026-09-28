@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -17,9 +16,32 @@ import {
   BookOpen,
   FileEdit,
   ChevronDown,
+  Layers3,
+  UserCog,
 } from "lucide-react";
 
-const menuItems = [
+import type { AuthUser } from "./AppLayout";
+
+type SidebarProps = {
+  user: AuthUser;
+};
+
+type MenuChild = {
+  name: string;
+  href: string;
+  icon: typeof BookOpen;
+  targetPath?: string;
+};
+
+type MenuItem = {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  children?: MenuChild[];
+  adminOnly?: boolean;
+};
+
+const menuItems: MenuItem[] = [
   {
     name: "Dashboard",
     href: "/dashboard",
@@ -60,6 +82,24 @@ const menuItems = [
         href: "/financials/adjustments",
         icon: FileEdit,
       },
+      {
+        name: "Adjusted Trial Balance",
+        href: "/financials/trial-balance",
+        icon: FileText,
+        targetPath: "/financials/adjusted-trial-balance",
+      },
+      {
+        name: "Lead Schedules",
+        href: "/financials/trial-balance",
+        icon: Layers3,
+        targetPath: "/financials/lead-schedules",
+      },
+      {
+        name: "Financial Statements",
+        href: "/financials/trial-balance",
+        icon: FileText,
+        targetPath: "/financials/financial-statements",
+      },
     ],
   },
   {
@@ -73,21 +113,52 @@ const menuItems = [
     icon: Bot,
   },
   {
+    name: "Users & Roles",
+    href: "/users",
+    icon: UserCog,
+    adminOnly: true,
+  },
+  {
     name: "Settings",
     href: "/settings",
     icon: Settings,
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  user,
+}: SidebarProps) {
   const pathname = usePathname();
 
-  // Open Financials automatically when one of its pages is active.
   const financialsIsActive =
     pathname.startsWith("/financials");
 
   const [financialsOpen, setFinancialsOpen] =
     useState(financialsIsActive);
+
+  const requiresTrialBalance = (
+    childName: string
+  ) => {
+    return (
+      childName === "Adjusted Trial Balance" ||
+      childName === "Lead Schedules" ||
+      childName === "Financial Statements"
+    );
+  };
+
+  /*
+   * Users & Roles is currently restricted
+   * to Administrator users.
+   */
+  const visibleMenuItems = menuItems.filter(
+    (item) => {
+      if (item.adminOnly) {
+        return user.role === "admin";
+      }
+
+      return true;
+    }
+  );
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-slate-950 text-white shadow-xl">
@@ -117,14 +188,11 @@ export default function Sidebar() {
         </p>
 
         <div className="space-y-1.5">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
 
             const hasChildren =
-              "children" in item && item.children;
-
-            const isFinancials =
-              item.name === "Financials";
+              Boolean(item.children);
 
             const isActive =
               pathname === item.href ||
@@ -193,42 +261,87 @@ export default function Sidebar() {
                     </button>
 
                     {/* Financials submenu */}
-                    {financialsOpen && (
-                      <div className="ml-7 mt-1 space-y-1 border-l border-slate-800 pl-3">
-                        {item.children.map((child) => {
-                          const ChildIcon = child.icon;
+                    {financialsOpen &&
+                      item.children && (
+                        <div className="ml-7 mt-1 space-y-1 border-l border-slate-800 pl-3">
+                          {item.children.map(
+                            (child) => {
+                              const ChildIcon =
+                                child.icon;
 
-                          const childIsActive =
-                            pathname === child.href ||
-                            pathname.startsWith(
-                              `${child.href}/`
-                            );
+                              const directChildIsActive =
+                                pathname ===
+                                  child.href ||
+                                pathname.startsWith(
+                                  `${child.href}/`
+                                );
 
-                          return (
-                            <Link
-                              key={child.name}
-                              href={child.href}
-                              className={`group flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium transition-all duration-200 ${
-                                childIsActive
-                                  ? "bg-slate-800 text-white"
-                                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                              }`}
-                            >
-                              <ChildIcon
-                                size={15}
-                                className={`shrink-0 transition-colors ${
-                                  childIsActive
-                                    ? "text-blue-400"
-                                    : "text-slate-500 group-hover:text-blue-400"
-                                }`}
-                              />
+                              const moduleIsActive =
+                                child.targetPath
+                                  ? pathname.startsWith(
+                                      child.targetPath
+                                    )
+                                  : false;
 
-                              <span>{child.name}</span>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
+                              const childIsActive =
+                                child.name ===
+                                "Trial Balance"
+                                  ? directChildIsActive &&
+                                    !pathname.startsWith(
+                                      "/financials/adjusted-trial-balance"
+                                    ) &&
+                                    !pathname.startsWith(
+                                      "/financials/lead-schedules"
+                                    ) &&
+                                    !pathname.startsWith(
+                                      "/financials/financial-statements"
+                                    )
+                                  : child.name ===
+                                      "Adjusted Trial Balance"
+                                    ? moduleIsActive
+                                    : child.name ===
+                                        "Lead Schedules"
+                                      ? moduleIsActive
+                                      : child.name ===
+                                          "Financial Statements"
+                                        ? moduleIsActive
+                                        : directChildIsActive;
+
+                              const childHref =
+                                requiresTrialBalance(
+                                  child.name
+                                )
+                                  ? "/financials/trial-balance"
+                                  : child.href;
+
+                              return (
+                                <Link
+                                  key={child.name}
+                                  href={childHref}
+                                  className={`group flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium transition-all duration-200 ${
+                                    childIsActive
+                                      ? "bg-slate-800 text-white"
+                                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                                  }`}
+                                >
+                                  <ChildIcon
+                                    size={15}
+                                    className={`shrink-0 transition-colors ${
+                                      childIsActive
+                                        ? "text-blue-400"
+                                        : "text-slate-500 group-hover:text-blue-400"
+                                    }`}
+                                  />
+
+                                  <span>
+                                    {child.name}
+                                  </span>
+                                </Link>
+                              );
+                            }
+                          )}
+                        </div>
+                      )}
                   </>
                 )}
               </div>
@@ -239,4 +352,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-

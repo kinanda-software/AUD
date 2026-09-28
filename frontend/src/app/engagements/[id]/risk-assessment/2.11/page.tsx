@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   Save,
@@ -304,11 +303,11 @@ export default function AuditStrategyPage() {
      FINAL PHASE 2 STEP
      
      Save
-       ↓
+       â†“
      Complete Strategy
-       ↓
+       â†“
      Complete Phase 2
-       ↓
+       â†“
      Open Phase 3
   ======================================================= */
 
@@ -444,7 +443,7 @@ export default function AuditStrategyPage() {
   };
 
   return (
-    <AppLayout>
+    
       <div className="min-h-screen bg-gray-50">
 
         {/* =================================================
@@ -453,7 +452,7 @@ export default function AuditStrategyPage() {
 
         <div className="border-b border-amber-200 bg-white">
 
-          <div className="mx-auto max-w-7xl px-6 py-5">
+          <div className="w-full min-w-0 px-6 py-5">
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
@@ -495,7 +494,7 @@ export default function AuditStrategyPage() {
                   </h1>
 
                   <p className="mt-1 text-sm text-gray-500">
-                    Final Phase 2 workpaper — establish
+                    Final Phase 2 workpaper â€” establish
                     the overall audit strategy and approach.
                   </p>
 
@@ -534,7 +533,7 @@ export default function AuditStrategyPage() {
             MAIN CONTENT
         ================================================= */}
 
-        <main className="mx-auto max-w-7xl px-6 py-8">
+        <main className="w-full min-w-0 px-6 py-8">
 
           {/* =================================================
               INFORMATION BANNER
@@ -599,7 +598,7 @@ export default function AuditStrategyPage() {
                     {errors.map(
                       (error, index) => (
                         <li key={index}>
-                          • {error}
+                          â€¢ {error}
                         </li>
                       )
                     )}
@@ -1579,7 +1578,7 @@ export default function AuditStrategyPage() {
         </main>
 
       </div>
-    </AppLayout>
+    
   );
 }
 

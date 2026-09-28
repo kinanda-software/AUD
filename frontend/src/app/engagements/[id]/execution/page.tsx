@@ -1,8 +1,6 @@
-"use client";
+﻿"use client";
 
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../components/layout/AppLayout";
-
 import {
   ArrowLeft,
   ClipboardCheck,
@@ -79,7 +77,7 @@ export default function ExecutionPage() {
   };
 
   return (
-    <AppLayout>
+
       <div className="min-h-screen bg-gray-50">
 
         {/* PAGE HEADER */}
@@ -269,6 +267,6 @@ export default function ExecutionPage() {
         </div>
 
       </div>
-    </AppLayout>
+
   );
 }

@@ -1,9 +1,8 @@
-
+﻿
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -403,20 +402,17 @@ export default function PlanningMattersPage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
           <div className="flex items-center gap-3 text-gray-600">
             <Loader2 className="h-6 w-6 animate-spin" />
             <span>Loading Planning Matters...</span>
           </div>
         </div>
-      </AppLayout>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <button
@@ -933,7 +929,6 @@ export default function PlanningMattersPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }
 
@@ -956,4 +951,5 @@ function SummaryCard({
     </div>
   );
 }
+
 

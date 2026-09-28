@@ -1,8 +1,8 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowRight,
   BarChart3,
@@ -168,33 +168,33 @@ const workflowSteps = [
 const methodologyItems = [
   {
     title: "Audit Planning",
-    description: "Engagement acceptance, materiality, strategy and team planning.",
+    description:
+      "Engagement acceptance, materiality, strategy and team planning.",
     icon: CalendarDays,
   },
   {
     title: "Risk Assessment",
-    description: "Risk identification, controls, assertions and fraud considerations.",
+    description:
+      "Risk identification, controls, assertions and fraud considerations.",
     icon: ShieldCheck,
   },
   {
     title: "Audit Procedures",
-    description: "Walkthroughs, tests of controls and substantive audit procedures.",
+    description:
+      "Walkthroughs, tests of controls and substantive audit procedures.",
     icon: ListChecks,
   },
   {
     title: "Audit Documentation",
-    description: "Workpapers, evidence, review notes and audit file completion.",
+    description:
+      "Workpapers, evidence, review notes and audit file completion.",
     icon: FolderOpen,
   },
   {
     title: "Conclusion & Reporting",
-    description: "Misstatements, final review, opinion and auditor reporting.",
+    description:
+      "Misstatements, final review, opinion and auditor reporting.",
     icon: FileText,
-  },
-  {
-    title: "Quality Monitoring",
-    description: "Engagement quality, inspection, root cause and remediation feedback.",
-    icon: BarChart3,
   },
 ];
 
@@ -284,19 +284,23 @@ function MetricCard({
   icon: typeof ClipboardList;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-500">
+            {label}
+          </p>
 
           <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
             {value}
           </p>
 
-          <p className="mt-1 text-xs text-slate-500">{description}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {description}
+          </p>
         </div>
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
           <Icon size={21} />
         </div>
       </div>
@@ -374,27 +378,39 @@ export default function AuditsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const auditStats = useMemo(() => {
-    const active = audits.filter((audit) => audit.status !== "Completed");
+    const active = audits.filter(
+      (audit) => audit.status !== "Completed"
+    );
 
     return {
       total: audits.length,
       active: active.length,
-      planning: audits.filter((audit) => audit.status === "Planning").length,
-      execution: audits.filter((audit) => audit.status === "Execution").length,
-      reporting: audits.filter(
-        (audit) => audit.status === "Conclusion & Reporting"
+      planning: audits.filter(
+        (audit) => audit.status === "Planning"
       ).length,
-      completed: audits.filter((audit) => audit.status === "Completed").length,
+      execution: audits.filter(
+        (audit) => audit.status === "Execution"
+      ).length,
+      reporting: audits.filter(
+        (audit) =>
+          audit.status === "Conclusion & Reporting"
+      ).length,
+      completed: audits.filter(
+        (audit) => audit.status === "Completed"
+      ).length,
       highRisk: audits.filter(
         (audit) =>
-          audit.risk === "High" || audit.risk === "Significant"
+          audit.risk === "High" ||
+          audit.risk === "Significant"
       ).length,
       averageProgress:
         audits.length === 0
           ? 0
           : Math.round(
-              audits.reduce((sum, audit) => sum + audit.progress, 0) /
-                audits.length
+              audits.reduce(
+                (sum, audit) => sum + audit.progress,
+                0
+              ) / audits.length
             ),
     };
   }, []);
@@ -412,12 +428,18 @@ export default function AuditsPage() {
         audit.manager.toLowerCase().includes(query);
 
       const matchesStatus =
-        statusFilter === "All" || audit.status === statusFilter;
+        statusFilter === "All" ||
+        audit.status === statusFilter;
 
       const matchesRisk =
-        riskFilter === "All" || audit.risk === riskFilter;
+        riskFilter === "All" ||
+        audit.risk === riskFilter;
 
-      return matchesSearch && matchesStatus && matchesRisk;
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesRisk
+      );
     });
   }, [searchQuery, statusFilter, riskFilter]);
 
@@ -428,571 +450,606 @@ export default function AuditsPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-[1600px] space-y-8">
-        {/* Page Header */}
-        <section className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-7 py-8 text-white shadow-xl">
-          <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-blue-300">
-                <ClipboardList size={17} />
-                Audit Management
-              </div>
-
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                Audits
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Manage audit methodology, monitor engagement progress and
-                access the complete audit lifecycle from planning through
-                conclusion and reporting.
-              </p>
+    <div className="w-full min-w-0 space-y-8">
+      {/* =========================================================
+          PAGE HEADER
+      ========================================================= */}
+      <section className="w-full rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-7 py-8 text-white shadow-xl">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 max-w-3xl">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-blue-300">
+              <ClipboardList size={17} />
+              Audit Management
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/engagements"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-              >
-                <BriefcaseIcon />
-                View Engagements
-              </Link>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Audits
+            </h1>
 
-              <Link
-                href="/engagements"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
-              >
-                <Plus size={18} />
-                Start New Audit
-              </Link>
-            </div>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+              Manage audit methodology, monitor engagement
+              progress and access the complete audit lifecycle
+              from planning through conclusion and reporting.
+            </p>
           </div>
-        </section>
 
-        {/* KPI Cards */}
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Total Audits"
-            value={auditStats.total}
-            description="All audit engagements"
-            icon={ClipboardList}
-          />
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <Link
+              href="/engagements"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/70 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+            >
+              <BriefcaseIcon />
+              View Engagements
+            </Link>
 
-          <MetricCard
-            label="Active Audits"
-            value={auditStats.active}
-            description="Currently in progress"
-            icon={Clock3}
-          />
+            <Link
+              href="/engagements"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
+            >
+              <Plus size={18} />
+              Start New Audit
+            </Link>
+          </div>
+        </div>
+      </section>
 
-          <MetricCard
-            label="High-Risk Audits"
-            value={auditStats.highRisk}
-            description="High or significant risk"
-            icon={ShieldCheck}
-          />
+      {/* =========================================================
+          KPI CARDS
+      ========================================================= */}
+      <section className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Total Audits"
+          value={auditStats.total}
+          description="All audit engagements"
+          icon={ClipboardList}
+        />
 
-          <MetricCard
-            label="Average Progress"
-            value={`${auditStats.averageProgress}%`}
-            description={`${auditStats.completed} completed engagement${
-              auditStats.completed === 1 ? "" : "s"
-            }`}
-            icon={BarChart3}
-          />
-        </section>
+        <MetricCard
+          label="Active Audits"
+          value={auditStats.active}
+          description="Currently in progress"
+          icon={Clock3}
+        />
 
-        {/* Workflow */}
-        <section>
-          <SectionHeader
-            eyebrow="Audit Lifecycle"
-            title="Audit Workflow"
-            description="The standard audit lifecycle used to move an engagement from initial planning through final reporting."
-          />
+        <MetricCard
+          label="High-Risk Audits"
+          value={auditStats.highRisk}
+          description="High or significant risk"
+          icon={ShieldCheck}
+        />
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {workflowSteps.map((step, index) => {
-              const Icon = step.icon;
+        <MetricCard
+          label="Average Progress"
+          value={`${auditStats.averageProgress}%`}
+          description={`${auditStats.completed} completed engagement${
+            auditStats.completed === 1 ? "" : "s"
+          }`}
+          icon={BarChart3}
+        />
+      </section>
 
-              return (
-                <Link
-                  key={step.number}
-                  href={step.href}
-                  className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-                >
-                  {index < workflowSteps.length - 1 && (
-                    <div className="absolute right-[-17px] top-1/2 z-10 hidden -translate-y-1/2 text-slate-300 xl:block">
-                      <ChevronRight size={20} />
-                    </div>
-                  )}
+      {/* =========================================================
+          WORKFLOW
+      ========================================================= */}
+      <section className="w-full">
+        <SectionHeader
+          eyebrow="Audit Lifecycle"
+          title="Audit Workflow"
+          description="The standard audit lifecycle used to move an engagement from initial planning through final reporting."
+        />
 
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
-                      <Icon size={21} />
-                    </div>
+        <div className="grid w-full gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {workflowSteps.map((step, index) => {
+            const Icon = step.icon;
 
-                    <span className="text-xs font-bold tracking-widest text-slate-300">
-                      {step.number}
-                    </span>
+            return (
+              <Link
+                key={step.number}
+                href={step.href}
+                className="group relative min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+              >
+                {index < workflowSteps.length - 1 && (
+                  <div className="absolute right-[-17px] top-1/2 z-10 hidden -translate-y-1/2 text-slate-300 xl:block">
+                    <ChevronRight size={20} />
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
+                    <Icon size={21} />
                   </div>
 
-                  <h3 className="mt-5 text-base font-bold text-slate-900">
-                    {step.title}
-                  </h3>
+                  <span className="text-xs font-bold tracking-widest text-slate-300">
+                    {step.number}
+                  </span>
+                </div>
 
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {step.description}
-                  </p>
+                <h3 className="mt-5 text-base font-bold text-slate-900">
+                  {step.title}
+                </h3>
 
-                  <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-blue-600">
-                    Open workflow
-                    <ArrowRight
-                      size={14}
-                      className="transition-transform group-hover:translate-x-1"
-                    />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  {step.description}
+                </p>
 
-        {/* Audit Portfolio */}
-        <section>
-          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="mt-5 flex items-center gap-1 text-xs font-semibold text-blue-600">
+                  Open workflow
+
+                  <ArrowRight
+                    size={14}
+                    className="transition-transform group-hover:translate-x-1"
+                  />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* =========================================================
+          AUDIT PORTFOLIO
+      ========================================================= */}
+      <section className="w-full">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
             <SectionHeader
               eyebrow="Audit Portfolio"
               title="Current Audits"
               description="Monitor active audit engagements, risk levels, responsibilities and completion progress."
             />
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[260px]">
-                <Search
-                  size={17}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+            <div className="relative w-full sm:min-w-[260px] sm:w-auto">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
 
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search audits..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) =>
+                  setSearchQuery(event.target.value)
+                }
+                placeholder="Search audits..."
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setShowFilters((value) => !value)
+              }
+              className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                showFilters ||
+                statusFilter !== "All" ||
+                riskFilter !== "All"
+                  ? "border-blue-200 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Filter size={17} />
+              Filters
+            </button>
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="w-full sm:max-w-xs">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Audit Status
+                </label>
+
+                <select
+                  value={statusFilter}
+                  onChange={(event) =>
+                    setStatusFilter(
+                      event.target.value as (typeof statusOptions)[number]
+                    )
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {statusOptions.map((status) => (
+                    <option
+                      key={status}
+                      value={status}
+                    >
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-full sm:max-w-xs">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Risk Level
+                </label>
+
+                <select
+                  value={riskFilter}
+                  onChange={(event) =>
+                    setRiskFilter(
+                      event.target.value as (typeof riskOptions)[number]
+                    )
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {riskOptions.map((risk) => (
+                    <option
+                      key={risk}
+                      value={risk}
+                    >
+                      {risk}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
                 type="button"
-                onClick={() => setShowFilters((value) => !value)}
-                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                  showFilters ||
-                  statusFilter !== "All" ||
-                  riskFilter !== "All"
-                    ? "border-blue-200 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
+                onClick={clearFilters}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
               >
-                <Filter size={17} />
-                Filters
+                <X size={16} />
+                Clear
               </button>
             </div>
           </div>
+        )}
 
-          {showFilters && (
-            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                <div className="w-full sm:max-w-xs">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Audit Status
-                  </label>
+        {filteredAudits.length === 0 ? (
+          <EmptyState onClear={clearFilters} />
+        ) : (
+          <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1100px] border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Audit
+                    </th>
 
-                  <select
-                    value={statusFilter}
-                    onChange={(event) =>
-                      setStatusFilter(
-                        event.target.value as (typeof statusOptions)[number]
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Type
+                    </th>
 
-                <div className="w-full sm:max-w-xs">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Risk Level
-                  </label>
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Status
+                    </th>
 
-                  <select
-                    value={riskFilter}
-                    onChange={(event) =>
-                      setRiskFilter(
-                        event.target.value as (typeof riskOptions)[number]
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    {riskOptions.map((risk) => (
-                      <option key={risk} value={risk}>
-                        {risk}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Risk
+                    </th>
 
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                >
-                  <X size={16} />
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Progress
+                    </th>
 
-          {filteredAudits.length === 0 ? (
-            <EmptyState onClear={clearFilters} />
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px] border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Audit
-                      </th>
+                    <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Due Date
+                    </th>
 
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Type
-                      </th>
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
 
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Status
-                      </th>
-
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Risk
-                      </th>
-
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Progress
-                      </th>
-
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Due Date
-                      </th>
-
-                      <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredAudits.map((audit) => (
-                      <tr
-                        key={audit.id}
-                        className="transition hover:bg-slate-50/70"
-                      >
-                        <td className="px-5 py-5">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                              <FileCheck2 size={19} />
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="font-semibold text-slate-900">
-                                {audit.name}
-                              </p>
-
-                              <p className="mt-1 text-sm text-slate-600">
-                                {audit.client}
-                              </p>
-
-                              <p className="mt-1 text-xs text-slate-400">
-                                {audit.id} • {audit.period}
-                              </p>
-                            </div>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredAudits.map((audit) => (
+                    <tr
+                      key={audit.id}
+                      className="transition hover:bg-slate-50/70"
+                    >
+                      <td className="px-5 py-5">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                            <FileCheck2 size={19} />
                           </div>
-                        </td>
 
-                        <td className="px-5 py-5">
-                          <span className="text-sm font-medium text-slate-700">
-                            {audit.type}
-                          </span>
-                        </td>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900">
+                              {audit.name}
+                            </p>
 
-                        <td className="px-5 py-5">
-                          <span
-                            className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
-                              audit.status
-                            )}`}
-                          >
-                            {audit.status}
-                          </span>
-                        </td>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {audit.client}
+                            </p>
 
-                        <td className="px-5 py-5">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRiskClasses(
-                              audit.risk
-                            )}`}
-                          >
-                            {audit.risk}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-5">
-                          <div className="w-36">
-                            <div className="mb-2 flex items-center justify-between">
-                              <span className="text-xs font-medium text-slate-500">
-                                Completion
-                              </span>
-
-                              <span className="text-xs font-bold text-slate-700">
-                                {audit.progress}%
-                              </span>
-                            </div>
-
-                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                              <div
-                                className={`h-full rounded-full transition-all ${getProgressClasses(
-                                  audit.progress
-                                )}`}
-                                style={{ width: `${audit.progress}%` }}
-                              />
-                            </div>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {audit.id} • {audit.period}
+                            </p>
                           </div>
-                        </td>
+                        </div>
+                      </td>
 
-                        <td className="px-5 py-5">
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <CalendarDays
-                              size={15}
-                              className="text-slate-400"
+                      <td className="px-5 py-5">
+                        <span className="text-sm font-medium text-slate-700">
+                          {audit.type}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-5">
+                        <span
+                          className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
+                            audit.status
+                          )}`}
+                        >
+                          {audit.status}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-5">
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRiskClasses(
+                            audit.risk
+                          )}`}
+                        >
+                          {audit.risk}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-5">
+                        <div className="w-36">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-xs font-medium text-slate-500">
+                              Completion
+                            </span>
+
+                            <span className="text-xs font-bold text-slate-700">
+                              {audit.progress}%
+                            </span>
+                          </div>
+
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className={`h-full rounded-full transition-all ${getProgressClasses(
+                                audit.progress
+                              )}`}
+                              style={{
+                                width: `${audit.progress}%`,
+                              }}
                             />
-                            {audit.dueDate}
                           </div>
-                        </td>
+                        </div>
+                      </td>
 
-                        <td className="px-5 py-5 text-right">
-                          <Link
-                            href={`/engagements/${audit.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                          >
-                            Open
-                            <ArrowRight size={14} />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      <td className="px-5 py-5">
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <CalendarDays
+                            size={15}
+                            className="text-slate-400"
+                          />
+                          {audit.dueDate}
+                        </div>
+                      </td>
 
-              <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                <span>
-                  Showing{" "}
-                  <strong className="text-slate-700">
-                    {filteredAudits.length}
-                  </strong>{" "}
-                  of{" "}
-                  <strong className="text-slate-700">{audits.length}</strong>{" "}
-                  audits
-                </span>
-
-                <Link
-                  href="/engagements"
-                  className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  View all engagements
-                  <ArrowRight size={14} />
-                </Link>
-              </div>
+                      <td className="px-5 py-5 text-right">
+                        <Link
+                          href={`/engagements/${audit.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          Open
+                          <ArrowRight size={14} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </section>
 
-        {/* Audit Methodology */}
-        <section>
-          <SectionHeader
-            eyebrow="Methodology"
-            title="Audit Work Areas"
-            description="Core areas that support a complete and properly documented audit engagement."
-          />
+            <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Showing{" "}
+                <strong className="text-slate-700">
+                  {filteredAudits.length}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-slate-700">
+                  {audits.length}
+                </strong>{" "}
+                audits
+              </span>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {methodologyItems.map((item) => {
-              const Icon = item.icon;
+              <Link
+                href="/engagements"
+                className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"
+              >
+                View all engagements
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
 
-              return (
-                <Link
-                  key={item.title}
-                  href="/engagements"
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition group-hover:bg-blue-50 group-hover:text-blue-600">
-                      <Icon size={20} />
-                    </div>
+      {/* =========================================================
+          AUDIT METHODOLOGY
+      ========================================================= */}
+      <section className="w-full">
+        <SectionHeader
+          eyebrow="Methodology"
+          title="Audit Work Areas"
+          description="Core areas that support a complete and properly documented audit engagement."
+        />
 
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-900">
-                        {item.title}
-                      </h3>
+        <div className="grid w-full gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {methodologyItems.map((item) => {
+            const Icon = item.icon;
 
-                      <p className="mt-1 text-sm leading-6 text-slate-500">
-                        {item.description}
-                      </p>
-                    </div>
+            return (
+              <Link
+                key={item.title}
+                href="/engagements"
+                className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition group-hover:bg-blue-50 group-hover:text-blue-600">
+                    <Icon size={20} />
                   </div>
 
-                  <div className="mt-4 flex items-center justify-end text-slate-300 transition group-hover:text-blue-600">
-                    <ArrowRight size={17} />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-slate-900">
+                      {item.title}
+                    </h3>
+
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      {item.description}
+                    </p>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+                </div>
 
-        {/* Portfolio Summary */}
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <Target size={20} />
-              </div>
+                <div className="mt-4 flex items-center justify-end text-slate-300 transition group-hover:text-blue-600">
+                  <ArrowRight size={17} />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
-              <div>
-                <h3 className="font-bold text-slate-900">
-                  Portfolio Progress
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Overall engagement completion
-                </p>
-              </div>
+      {/* =========================================================
+          PORTFOLIO SUMMARY
+      ========================================================= */}
+      <section className="grid w-full gap-6 lg:grid-cols-3">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Target size={20} />
             </div>
 
-            <div className="mt-6">
-              <div className="flex items-end justify-between">
-                <span className="text-3xl font-bold text-slate-900">
-                  {auditStats.averageProgress}%
-                </span>
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-900">
+                Portfolio Progress
+              </h3>
 
-                <span className="text-xs font-medium text-slate-500">
-                  Average
-                </span>
-              </div>
-
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-blue-500"
-                  style={{ width: `${auditStats.averageProgress}%` }}
-                />
-              </div>
+              <p className="text-xs text-slate-500">
+                Overall engagement completion
+              </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <ShieldCheck size={20} />
-              </div>
+          <div className="mt-6">
+            <div className="flex items-end justify-between">
+              <span className="text-3xl font-bold text-slate-900">
+                {auditStats.averageProgress}%
+              </span>
 
-              <div>
-                <h3 className="font-bold text-slate-900">
-                  Risk Focus
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Audits requiring attention
-                </p>
-              </div>
+              <span className="text-xs font-medium text-slate-500">
+                Average
+              </span>
             </div>
 
-            <p className="mt-6 text-3xl font-bold text-slate-900">
-              {auditStats.highRisk}
-            </p>
-
-            <p className="mt-1 text-sm text-slate-500">
-              high or significant risk audit
-              {auditStats.highRisk === 1 ? "" : "s"} in the portfolio
-            </p>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-blue-500"
+                style={{
+                  width: `${auditStats.averageProgress}%`,
+                }}
+              />
+            </div>
           </div>
+        </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={20} />
-              </div>
-
-              <div>
-                <h3 className="font-bold text-slate-900">
-                  Completed
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Fully completed engagements
-                </p>
-              </div>
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <ShieldCheck size={20} />
             </div>
 
-            <p className="mt-6 text-3xl font-bold text-slate-900">
-              {auditStats.completed}
-            </p>
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-900">
+                Risk Focus
+              </h3>
 
-            <p className="mt-1 text-sm text-slate-500">
-              engagement
-              {auditStats.completed === 1 ? "" : "s"} completed in the
-              current portfolio
-            </p>
+              <p className="text-xs text-slate-500">
+                Audits requiring attention
+              </p>
+            </div>
           </div>
-        </section>
 
-        {/* Bottom Information */}
-        <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
-                <BookOpen size={21} />
-              </div>
+          <p className="mt-6 text-3xl font-bold text-slate-900">
+            {auditStats.highRisk}
+          </p>
 
-              <div>
-                <h3 className="font-bold text-slate-900">
-                  Audit Methodology
-                </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            high or significant risk audit
+            {auditStats.highRisk === 1 ? "" : "s"} in the portfolio
+          </p>
+        </div>
 
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-                  Use the engagement workspace to perform the detailed audit
-                  procedures. Each engagement contains its own planning,
-                  risk assessment, execution, conclusion and reporting
-                  workpapers.
-                </p>
-              </div>
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <CheckCircle2 size={20} />
             </div>
 
-            <Link
-              href="/engagements"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Open Engagement Workspace
-              <ArrowRight size={17} />
-            </Link>
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-900">
+                Completed
+              </h3>
+
+              <p className="text-xs text-slate-500">
+                Fully completed engagements
+              </p>
+            </div>
           </div>
-        </section>
-      </div>
-    </AppLayout>
+
+          <p className="mt-6 text-3xl font-bold text-slate-900">
+            {auditStats.completed}
+          </p>
+
+          <p className="mt-1 text-sm text-slate-500">
+            engagement
+            {auditStats.completed === 1 ? "" : "s"} completed in the
+            current portfolio
+          </p>
+        </div>
+      </section>
+
+      {/* =========================================================
+          BOTTOM INFORMATION
+      ========================================================= */}
+      <section className="w-full rounded-2xl border border-blue-100 bg-blue-50/60 p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+              <BookOpen size={21} />
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-900">
+                Audit Methodology
+              </h3>
+
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                Use the engagement workspace to perform the detailed audit
+                procedures. Each engagement contains its own planning,
+                risk assessment, execution, conclusion and reporting
+                workpapers.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/engagements"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Open Engagement Workspace
+            <ArrowRight size={17} />
+          </Link>
+        </div>
+      </section>
+    </div>
   );
 }
 
 function BriefcaseIcon() {
   return <Users size={17} />;
 }
+

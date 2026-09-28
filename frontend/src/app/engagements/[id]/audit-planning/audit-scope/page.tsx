@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
@@ -13,7 +13,6 @@ import {
   Save,
 } from "lucide-react";
 
-import AppLayout from "@/components/layout/AppLayout";
 import {
   createAuditScope,
   getAuditScopeByEngagement,
@@ -208,21 +207,18 @@ export default function AuditScopePage() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
           <div className="flex items-center gap-3 text-slate-600">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span>Loading Audit Scope...</span>
           </div>
         </div>
-      </AppLayout>
     );
   }
 
   if (!engagement) {
     return (
-      <AppLayout>
-        <div className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mx-auto max-w-4xl px-6 py-10">
           <div className="rounded-xl border border-red-200 bg-red-50 p-6">
             <h1 className="text-lg font-semibold text-red-800">
               Engagement not found
@@ -241,13 +237,11 @@ export default function AuditScopePage() {
             </Link>
           </div>
         </div>
-      </AppLayout>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
 
         {/* Header */}
         <div className="mb-6">
@@ -354,7 +348,7 @@ export default function AuditScopePage() {
                   </p>
 
                   <p className="mt-1 text-sm font-semibold text-slate-900">
-                    1.3 — Audit Scope
+                    1.3 â€” Audit Scope
                   </p>
                 </div>
 
@@ -728,7 +722,6 @@ export default function AuditScopePage() {
 
         </form>
       </div>
-    </AppLayout>
   );
 }
 
@@ -763,3 +756,4 @@ function Field({
     </div>
   );
 }
+

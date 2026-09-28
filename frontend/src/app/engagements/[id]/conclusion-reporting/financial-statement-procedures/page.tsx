@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
-
 type ReviewStatus = "Not Started" | "In Progress" | "Completed";
 
 type ChecklistStatus =
@@ -377,9 +375,9 @@ export default function FinancialStatementProceduresPage() {
   }
 
   return (
-    <AppLayout>
+
       <main className="min-w-0 flex-1 bg-gray-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
           {/* Page Header */}
           <header className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="px-6 py-5">
@@ -391,7 +389,7 @@ export default function FinancialStatementProceduresPage() {
                     className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     aria-label="Go back"
                   >
-                    ←
+                    â†
                   </button>
 
                   <div className="min-w-0">
@@ -417,7 +415,7 @@ export default function FinancialStatementProceduresPage() {
                       Perform Financial Statement Procedures
                     </h1>
 
-                    <p className="mt-1 max-w-4xl text-sm leading-6 text-gray-600">
+                    <p className="mt-1 text-sm leading-6 text-gray-600">
                       Perform the final financial statement procedures,
                       including disclosure review, subsequent events
                       procedures, comparative information procedures, and
@@ -438,7 +436,7 @@ export default function FinancialStatementProceduresPage() {
               onClick={goToPhase4Overview}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
-              ← Phase 4 Overview
+              â† Phase 4 Overview
             </button>
 
             <div className="flex flex-wrap gap-2">
@@ -650,7 +648,7 @@ export default function FinancialStatementProceduresPage() {
           <section className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
             <SectionHeader
               number="2"
-              title="Subsequent Events — ISA 560"
+              title="Subsequent Events â€” ISA 560"
               description="Document procedures performed to identify events occurring between the financial statement date and the date of the auditor's report."
             />
 
@@ -826,7 +824,7 @@ export default function FinancialStatementProceduresPage() {
           <section className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
             <SectionHeader
               number="3"
-              title="Comparative Information — ISA 710"
+              title="Comparative Information â€” ISA 710"
               description="Evaluate whether comparative information is appropriately presented and agrees with the prior-period financial statements."
             />
 
@@ -921,7 +919,7 @@ export default function FinancialStatementProceduresPage() {
           <section className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
             <SectionHeader
               number="4"
-              title="Overall Financial Statement Analytical Review — ISA 520"
+              title="Overall Financial Statement Analytical Review â€” ISA 520"
               description="Perform a final analytical review to determine whether the financial statements are consistent with the auditor's understanding of the entity and whether unexpected relationships or fluctuations remain."
             />
 
@@ -1181,13 +1179,13 @@ export default function FinancialStatementProceduresPage() {
                 disabled={!engagementId}
                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                Continue to 4.3 →
+                Continue to 4.3 â†’
               </button>
             </div>
           </section>
         </div>
       </main>
-    </AppLayout>
+
   );
 }
 
@@ -1373,7 +1371,7 @@ function CompletionItem({
               : "bg-gray-200 text-gray-500"
           }`}
         >
-          {displayCompleted ? "✓" : "•"}
+          {displayCompleted ? "âœ“" : "â€¢"}
         </div>
 
         <span className="text-sm font-medium text-gray-800">

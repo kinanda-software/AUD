@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
-
 type MisstatementStatus = "Corrected" | "Uncorrected";
 
 type Misstatement = {
@@ -249,9 +247,9 @@ export default function EvaluateMisstatementsPage() {
   }
 
   return (
-    <AppLayout>
+
       <main className="min-w-0 flex-1 bg-gray-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
           {/* Header */}
           <header className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="px-6 py-5">
@@ -263,7 +261,7 @@ export default function EvaluateMisstatementsPage() {
                     className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     aria-label="Go back"
                   >
-                    <span className="text-xl">←</span>
+                    <span className="text-xl">â†</span>
                   </button>
 
                   <div className="min-w-0">
@@ -287,7 +285,7 @@ export default function EvaluateMisstatementsPage() {
                       Evaluate Misstatements
                     </h1>
 
-                    <p className="mt-1 max-w-4xl text-sm text-gray-600">
+                    <p className="mt-1 text-sm text-gray-600">
                       Accumulate current-period misstatements above the clearly
                       trivial threshold, incorporate prior-period uncorrected
                       misstatements, evaluate quantitative and qualitative
@@ -308,7 +306,7 @@ export default function EvaluateMisstatementsPage() {
               onClick={returnToPhase4}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
-              ← Phase 4 Overview
+              â† Phase 4 Overview
             </button>
 
             <div className="flex flex-wrap gap-2">
@@ -901,13 +899,13 @@ export default function EvaluateMisstatementsPage() {
                 disabled={!engagementId}
                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                Continue to 4.2 →
+                Continue to 4.2 â†’
               </button>
             </div>
           </section>
         </div>
       </main>
-    </AppLayout>
+
   );
 }
 
@@ -1163,3 +1161,4 @@ function StatusBadge({
     </span>
   );
 }
+

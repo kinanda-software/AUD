@@ -1,3 +1,4 @@
+
 """
 Django settings for config project.
 
@@ -25,7 +26,7 @@ PROJECT_ROOT = BASE_DIR.parent
 # ENVIRONMENT VARIABLES
 # ============================================================
 
-# Explicitly load the .env file from the AUD project root.
+# Load .env from the AUD project root
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -40,11 +41,17 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # SECURITY
 # ============================================================
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-development-key-change-this"
+)
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+]
 
 
 # ============================================================
@@ -52,6 +59,7 @@ ALLOWED_HOSTS = []
 # ============================================================
 
 INSTALLED_APPS = [
+
     # --------------------------------------------------------
     # CORS
     # --------------------------------------------------------
@@ -71,6 +79,7 @@ INSTALLED_APPS = [
     # Django REST Framework
     # --------------------------------------------------------
     "rest_framework",
+    "rest_framework.authtoken",
 
     # --------------------------------------------------------
     # AUD APPLICATIONS
@@ -109,6 +118,7 @@ AUTH_USER_MODEL = "identity.User"
 # ============================================================
 
 MIDDLEWARE = [
+
     "corsheaders.middleware.CorsMiddleware",
 
     "django.middleware.security.SecurityMiddleware",
@@ -148,6 +158,7 @@ TEMPLATES = [
 
         "OPTIONS": {
             "context_processors": [
+
                 "django.template.context_processors.request",
 
                 "django.contrib.auth.context_processors.auth",
@@ -173,11 +184,31 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-        "PORT": os.getenv("DB_PORT", "5433"),
+
+        "NAME": os.getenv(
+            "DB_NAME",
+            "audit_platform"
+        ),
+
+        "USER": os.getenv(
+            "DB_USER",
+            "postgres"
+        ),
+
+        "PASSWORD": os.getenv(
+            "DB_PASSWORD",
+            ""
+        ),
+
+        "HOST": os.getenv(
+            "DB_HOST",
+            "127.0.0.1"
+        ),
+
+        "PORT": os.getenv(
+            "DB_PORT",
+            "5432"
+        ),
     }
 }
 
@@ -187,24 +218,28 @@ DATABASES = {
 # ============================================================
 
 AUTH_PASSWORD_VALIDATORS = [
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "UserAttributeSimilarityValidator"
         ),
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "MinimumLengthValidator"
         ),
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "CommonPasswordValidator"
         ),
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
@@ -220,7 +255,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Africa/Dar_es_Salaam"
 
 USE_I18N = True
 
@@ -252,6 +287,11 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+
+# ============================================================
+# CSRF
+# ============================================================
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -263,10 +303,19 @@ CSRF_TRUSTED_ORIGINS = [
 # ============================================================
 
 REST_FRAMEWORK = {
+
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+
     "DEFAULT_AUTHENTICATION_CLASSES": [
+
+        # Allows:
+        # Authorization: Token <token>
+        "rest_framework.authentication.TokenAuthentication",
+
+        # Allows Django browser/session authentication
         "rest_framework.authentication.SessionAuthentication",
     ],
 }
+

@@ -1,8 +1,6 @@
-
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -37,11 +35,29 @@ type Account = {
   is_active: boolean;
 };
 
+type TrialBalance = {
+  id: number;
+  engagement: number;
+  period_start: string;
+  period_end: string;
+  currency: string;
+  status: "draft" | "imported" | "reviewed" | "locked";
+  description?: string;
+  total_debit?: string | number;
+  total_credit?: string | number;
+  difference?: string | number;
+  is_balanced?: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type AdjustmentStatus = "proposed" | "posted" | "rejected";
 
 type Adjustment = {
   id: number;
   engagement: number;
+  trial_balance: number | null;
+  trial_balance_status?: string | null;
   adjustment_number: string;
   description: string;
   debit_account: number;
@@ -58,6 +74,7 @@ type Adjustment = {
 
 type AdjustmentForm = {
   engagement: string;
+  trial_balance: string;
   adjustment_number: string;
   description: string;
   debit_account: string;
@@ -133,28 +150,91 @@ function formatDate(value: string) {
   });
 }
 
+function formatTrialBalanceLabel(trialBalance: TrialBalance) {
+  const start = formatDate(trialBalance.period_start);
+  const end = formatDate(trialBalance.period_end);
+
+  return `TB #${trialBalance.id} â€¢ ${start} - ${end} â€¢ ${trialBalance.status}`;
+}
+
+function getApiErrorMessage(
+  data: any,
+  fallback: string
+): string {
+  if (!data) {
+    return fallback;
+  }
+
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (typeof data.detail === "string") {
+    return data.detail;
+  }
+
+  if (typeof data.error === "string") {
+    return data.error;
+  }
+
+  const fields = [
+    "trial_balance",
+    "amount",
+    "adjustment_number",
+    "description",
+    "debit_account",
+    "credit_account",
+    "engagement",
+    "status",
+  ];
+
+  for (const field of fields) {
+    const value = data[field];
+
+    if (Array.isArray(value) && value.length > 0) {
+      return String(value[0]);
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  return fallback;
+}
+
 export default function AdjustmentsPage() {
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [trialBalances, setTrialBalances] = useState<TrialBalance[]>(
+    []
+  );
 
   const [loading, setLoading] = useState(true);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [loadingTrialBalances, setLoadingTrialBalances] =
+    useState(false);
+
   const [saving, setSaving] = useState(false);
   const [actionId, setActionId] = useState<number | null>(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [selectedEngagement, setSelectedEngagement] = useState("");
+  const [selectedEngagement, setSelectedEngagement] =
+    useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(
+    null
+  );
 
   const [form, setForm] = useState<AdjustmentForm>({
     engagement: "",
+    trial_balance: "",
     adjustment_number: "",
     description: "",
     debit_account: "",
@@ -177,8 +257,10 @@ export default function AdjustmentsPage() {
   useEffect(() => {
     if (form.engagement) {
       loadAccounts(form.engagement);
+      loadTrialBalances(form.engagement);
     } else {
       setAccounts([]);
+      setTrialBalances([]);
     }
   }, [form.engagement]);
 
@@ -202,17 +284,23 @@ export default function AdjustmentsPage() {
   async function loadEngagements() {
     const response = await fetch(`${API_URL}/api/engagements/`, {
       credentials: "include",
+      cache: "no-store",
     });
 
-    if (!response.ok) {
-      throw new Error("Failed to load engagements.");
-    }
+    const data = await response.json().catch(() => null);
 
-    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        getApiErrorMessage(
+          data,
+          "Failed to load engagements."
+        )
+      );
+    }
 
     const results = Array.isArray(data)
       ? data
-      : data.results || [];
+      : data?.results || [];
 
     setEngagements(results);
   }
@@ -241,20 +329,30 @@ export default function AdjustmentsPage() {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to load adjustments.");
-      }
+      const data = await response.json().catch(() => null);
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            data,
+            "Failed to load adjustments."
+          )
+        );
+      }
 
       const results = Array.isArray(data)
         ? data
-        : data.results || [];
+        : data?.results || [];
 
       setAdjustments(results);
     } catch (err) {
       console.error(err);
-      setError("Unable to load adjustments.");
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load adjustments."
+      );
     }
   }
 
@@ -271,15 +369,20 @@ export default function AdjustmentsPage() {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to load accounts.");
-      }
+      const data = await response.json().catch(() => null);
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            data,
+            "Failed to load accounts."
+          )
+        );
+      }
 
       const results = Array.isArray(data)
         ? data
-        : data.results || [];
+        : data?.results || [];
 
       setAccounts(
         results.filter(
@@ -288,18 +391,70 @@ export default function AdjustmentsPage() {
       );
     } catch (err) {
       console.error(err);
+
       setAccounts([]);
+
       setFormError(
-        "Unable to load accounts for this engagement."
+        err instanceof Error
+          ? err.message
+          : "Unable to load accounts for this engagement."
       );
     } finally {
       setLoadingAccounts(false);
     }
   }
 
+  async function loadTrialBalances(engagementId: string) {
+    setLoadingTrialBalances(true);
+    setTrialBalances([]);
+
+    try {
+      const params = new URLSearchParams();
+      params.set("engagement", engagementId);
+
+      const response = await fetch(
+        `${API_URL}/api/financials/trial-balances/?${params.toString()}`,
+        {
+          credentials: "include",
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(
+            data,
+            "Failed to load trial balances."
+          )
+        );
+      }
+
+      const results = Array.isArray(data)
+        ? data
+        : data?.results || [];
+
+      setTrialBalances(results);
+    } catch (err) {
+      console.error(err);
+
+      setTrialBalances([]);
+
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load trial balances for this engagement."
+      );
+    } finally {
+      setLoadingTrialBalances(false);
+    }
+  }
+
   function resetForm() {
     setForm({
       engagement: selectedEngagement,
+      trial_balance: "",
       adjustment_number: "",
       description: "",
       debit_account: "",
@@ -317,6 +472,7 @@ export default function AdjustmentsPage() {
 
     setForm({
       engagement: selectedEngagement,
+      trial_balance: "",
       adjustment_number: "",
       description: "",
       debit_account: "",
@@ -335,11 +491,19 @@ export default function AdjustmentsPage() {
       return;
     }
 
+    if (!adjustment.trial_balance) {
+      setError(
+        "This adjustment has no trial balance and cannot be edited until it is linked to one."
+      );
+      return;
+    }
+
     setSuccess("");
     setError("");
 
     setForm({
       engagement: String(adjustment.engagement),
+      trial_balance: String(adjustment.trial_balance),
       adjustment_number: adjustment.adjustment_number,
       description: adjustment.description,
       debit_account: String(adjustment.debit_account),
@@ -368,6 +532,11 @@ export default function AdjustmentsPage() {
 
     if (!form.engagement) {
       setFormError("Please select an engagement.");
+      return;
+    }
+
+    if (!form.trial_balance) {
+      setFormError("Please select a trial balance.");
       return;
     }
 
@@ -403,6 +572,42 @@ export default function AdjustmentsPage() {
       return;
     }
 
+    if (loadingTrialBalances) {
+      setFormError(
+        "Please wait while trial balances are loading."
+      );
+      return;
+    }
+
+    if (loadingAccounts) {
+      setFormError(
+        "Please wait while accounts are loading."
+      );
+      return;
+    }
+
+    const selectedTrialBalance = trialBalances.find(
+      (trialBalance) =>
+        trialBalance.id === Number(form.trial_balance)
+    );
+
+    if (!selectedTrialBalance) {
+      setFormError(
+        "The selected trial balance is no longer available. Please select it again."
+      );
+      return;
+    }
+
+    if (
+      selectedTrialBalance.engagement !==
+      Number(form.engagement)
+    ) {
+      setFormError(
+        "The selected trial balance does not belong to the selected engagement."
+      );
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -410,13 +615,20 @@ export default function AdjustmentsPage() {
 
       const payload = {
         engagement: Number(form.engagement),
-        adjustment_number: form.adjustment_number.trim(),
+        trial_balance: Number(form.trial_balance),
+        adjustment_number:
+          form.adjustment_number.trim(),
         description: form.description.trim(),
         debit_account: Number(form.debit_account),
         credit_account: Number(form.credit_account),
         amount: form.amount,
         status: "proposed",
       };
+
+      console.log(
+        "Saving adjustment payload:",
+        payload
+      );
 
       const url = editingId
         ? `${API_URL}/api/financials/adjustments/${editingId}/`
@@ -441,21 +653,17 @@ export default function AdjustmentsPage() {
         .catch(() => null);
 
       if (!response.ok) {
-        console.error("Adjustment save error:", data);
-
-        const message =
-          data?.detail ||
-          data?.amount?.[0] ||
-          data?.adjustment_number?.[0] ||
-          data?.debit_account?.[0] ||
-          data?.credit_account?.[0] ||
-          data?.engagement?.[0] ||
-          "Unable to save adjustment.";
+        console.error(
+          "Adjustment save error:",
+          response.status,
+          data
+        );
 
         setFormError(
-          typeof message === "string"
-            ? message
-            : "Unable to save adjustment."
+          getApiErrorMessage(
+            data,
+            `Unable to save adjustment. Server returned ${response.status}.`
+          )
         );
 
         return;
@@ -475,7 +683,9 @@ export default function AdjustmentsPage() {
       console.error(err);
 
       setFormError(
-        "A network error occurred. Make sure the Django server is running."
+        err instanceof Error
+          ? err.message
+          : "A network error occurred. Make sure the Django server is running."
       );
     } finally {
       setSaving(false);
@@ -484,6 +694,13 @@ export default function AdjustmentsPage() {
 
   async function handlePost(adjustment: Adjustment) {
     if (adjustment.status !== "proposed") {
+      return;
+    }
+
+    if (!adjustment.trial_balance) {
+      setError(
+        "This adjustment cannot be posted because it has no trial balance."
+      );
       return;
     }
 
@@ -525,8 +742,10 @@ export default function AdjustmentsPage() {
 
       if (!response.ok) {
         setError(
-          data?.detail ||
-            "Unable to post this adjustment."
+          getApiErrorMessage(
+            data,
+            `Unable to post this adjustment. Server returned ${response.status}.`
+          )
         );
         return;
       }
@@ -538,7 +757,12 @@ export default function AdjustmentsPage() {
       await loadAdjustments();
     } catch (err) {
       console.error(err);
-      setError("Network error while posting adjustment.");
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Network error while posting adjustment."
+      );
     } finally {
       setActionId(null);
     }
@@ -585,8 +809,10 @@ export default function AdjustmentsPage() {
 
       if (!response.ok) {
         setError(
-          data?.detail ||
-            "Unable to reject this adjustment."
+          getApiErrorMessage(
+            data,
+            `Unable to reject this adjustment. Server returned ${response.status}.`
+          )
         );
         return;
       }
@@ -598,7 +824,12 @@ export default function AdjustmentsPage() {
       await loadAdjustments();
     } catch (err) {
       console.error(err);
-      setError("Network error while rejecting adjustment.");
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Network error while rejecting adjustment."
+      );
     } finally {
       setActionId(null);
     }
@@ -619,6 +850,24 @@ export default function AdjustmentsPage() {
       engagement.name ||
       `Engagement #${id}`
     );
+  }
+
+  function getTrialBalanceLabel(
+    trialBalanceId: number | null | undefined
+  ) {
+    if (!trialBalanceId) {
+      return "No Trial Balance";
+    }
+
+    const trialBalance = trialBalances.find(
+      (item) => item.id === trialBalanceId
+    );
+
+    if (!trialBalance) {
+      return `Trial Balance #${trialBalanceId}`;
+    }
+
+    return formatTrialBalanceLabel(trialBalance);
   }
 
   const filteredAdjustments = useMemo(() => {
@@ -644,6 +893,9 @@ export default function AdjustmentsPage() {
           .includes(search) ||
         getEngagementName(adjustment.engagement)
           .toLowerCase()
+          .includes(search) ||
+        `trial balance #${adjustment.trial_balance || ""}`
+          .toLowerCase()
           .includes(search)
       );
     });
@@ -664,9 +916,9 @@ export default function AdjustmentsPage() {
   );
 
   return (
-    <AppLayout>
-      <main className="min-h-screen w-full overflow-x-hidden bg-slate-50">
-        <div className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
+
+      <main className="w-full overflow-x-hidden bg-slate-50">
+        <div className="w-full px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
           {/* Page Header */}
           <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
@@ -792,7 +1044,8 @@ export default function AdjustmentsPage() {
                     </h2>
 
                     <p className="text-xs text-slate-500 sm:text-sm">
-                      New adjustments start as proposed.
+                      New adjustments start as proposed and must be
+                      linked to a trial balance.
                     </p>
                   </div>
                 </div>
@@ -828,6 +1081,7 @@ export default function AdjustmentsPage() {
                         setForm((previous) => ({
                           ...previous,
                           engagement: event.target.value,
+                          trial_balance: "",
                           debit_account: "",
                           credit_account: "",
                         }))
@@ -853,6 +1107,63 @@ export default function AdjustmentsPage() {
                     </select>
                   </div>
 
+                  {/* Trial Balance */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Trial Balance
+                    </label>
+
+                    <select
+                      value={form.trial_balance}
+                      onChange={(event) =>
+                        setForm((previous) => ({
+                          ...previous,
+                          trial_balance:
+                            event.target.value,
+                        }))
+                      }
+                      disabled={
+                        !form.engagement ||
+                        loadingTrialBalances
+                      }
+                      className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none disabled:bg-slate-100 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      required
+                    >
+                      <option value="">
+                        {loadingTrialBalances
+                          ? "Loading trial balances..."
+                          : !form.engagement
+                          ? "Select engagement first"
+                          : trialBalances.length === 0
+                          ? "No trial balances found"
+                          : "Select trial balance"}
+                      </option>
+
+                      {trialBalances.map(
+                        (trialBalance) => (
+                          <option
+                            key={trialBalance.id}
+                            value={trialBalance.id}
+                          >
+                            {formatTrialBalanceLabel(
+                              trialBalance
+                            )}
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                    {form.engagement &&
+                      !loadingTrialBalances &&
+                      trialBalances.length === 0 && (
+                        <p className="mt-1.5 text-xs text-amber-600">
+                          No trial balance exists for this
+                          engagement. Create or import a trial
+                          balance first.
+                        </p>
+                      )}
+                  </div>
+
                   {/* Adjustment Number */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -870,6 +1181,29 @@ export default function AdjustmentsPage() {
                         }))
                       }
                       placeholder="e.g. AJ-002"
+                      className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                      required
+                    />
+                  </div>
+
+                  {/* Amount */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Amount
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={form.amount}
+                      onChange={(event) =>
+                        setForm((previous) => ({
+                          ...previous,
+                          amount: event.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
                       className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                       required
                     />
@@ -900,6 +1234,10 @@ export default function AdjustmentsPage() {
                       <option value="">
                         {loadingAccounts
                           ? "Loading accounts..."
+                          : !form.engagement
+                          ? "Select engagement first"
+                          : accounts.length === 0
+                          ? "No active accounts found"
                           : "Select debit account"}
                       </option>
 
@@ -940,6 +1278,10 @@ export default function AdjustmentsPage() {
                       <option value="">
                         {loadingAccounts
                           ? "Loading accounts..."
+                          : !form.engagement
+                          ? "Select engagement first"
+                          : accounts.length === 0
+                          ? "No active accounts found"
                           : "Select credit account"}
                       </option>
 
@@ -953,29 +1295,6 @@ export default function AdjustmentsPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
-
-                  {/* Amount */}
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                      Amount
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={form.amount}
-                      onChange={(event) =>
-                        setForm((previous) => ({
-                          ...previous,
-                          amount: event.target.value,
-                        }))
-                      }
-                      placeholder="0.00"
-                      className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                      required
-                    />
                   </div>
 
                   {/* Status */}
@@ -1023,7 +1342,11 @@ export default function AdjustmentsPage() {
 
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={
+                      saving ||
+                      loadingAccounts ||
+                      loadingTrialBalances
+                    }
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving ? (
@@ -1174,7 +1497,7 @@ export default function AdjustmentsPage() {
               <>
                 {/* Desktop Table */}
                 <div className="hidden overflow-x-auto xl:block">
-                  <table className="w-full min-w-[1100px] text-left text-sm">
+                  <table className="w-full min-w-[1250px] text-left text-sm">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                       <tr>
                         <th className="px-5 py-3 font-semibold">
@@ -1183,6 +1506,10 @@ export default function AdjustmentsPage() {
 
                         <th className="px-5 py-3 font-semibold">
                           Engagement
+                        </th>
+
+                        <th className="px-5 py-3 font-semibold">
+                          Trial Balance
                         </th>
 
                         <th className="px-5 py-3 font-semibold">
@@ -1244,6 +1571,23 @@ export default function AdjustmentsPage() {
                                     adjustment.engagement
                                   )}
                                 </span>
+                              </td>
+
+                              <td className="max-w-[210px] px-5 py-4">
+                                <div className="font-medium text-slate-700">
+                                  {adjustment.trial_balance
+                                    ? `TB #${adjustment.trial_balance}`
+                                    : "No Trial Balance"}
+                                </div>
+
+                                {adjustment.trial_balance_status && (
+                                  <div className="mt-1 text-xs text-slate-500">
+                                    Status:{" "}
+                                    {
+                                      adjustment.trial_balance_status
+                                    }
+                                  </div>
+                                )}
                               </td>
 
                               <td className="max-w-[250px] px-5 py-4">
@@ -1349,6 +1693,27 @@ export default function AdjustmentsPage() {
                           </div>
 
                           <div className="mt-4 rounded-lg bg-white p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              Trial Balance
+                            </p>
+
+                            <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+                              {adjustment.trial_balance
+                                ? `Trial Balance #${adjustment.trial_balance}`
+                                : "No Trial Balance"}
+                            </p>
+
+                            {adjustment.trial_balance_status && (
+                              <p className="mt-1 text-xs text-slate-500">
+                                Status:{" "}
+                                {
+                                  adjustment.trial_balance_status
+                                }
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="mt-4 rounded-lg bg-white p-3">
                             <p className="break-words text-sm leading-5 text-slate-700">
                               {adjustment.description}
                             </p>
@@ -1426,7 +1791,7 @@ export default function AdjustmentsPage() {
           </section>
         </div>
       </main>
-    </AppLayout>
+
   );
 }
 
@@ -1545,4 +1910,3 @@ function SaveIcon() {
     </svg>
   );
 }
-

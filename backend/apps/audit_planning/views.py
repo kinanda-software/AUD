@@ -1,4 +1,3 @@
-
 from rest_framework import viewsets
 
 from .models import (
@@ -22,7 +21,9 @@ from .models import (
     MisstatementEvaluation,
     QualityMonitoring,
     QualityFinding,
-    RemediationAction
+    RemediationAction,
+    DocumentationArchive,
+    ArchiveStatus,
 )
 
 from .serializers import (
@@ -47,6 +48,8 @@ from .serializers import (
     QualityMonitoringSerializer,
     QualityFindingSerializer,
     RemediationActionSerializer,
+    DocumentationArchiveSerializer,
+    ArchiveStatusSerializer,
 )
 
 
@@ -390,25 +393,14 @@ class ReassessedCombinedRiskViewSet(
 
         return queryset
 
-    # ============================================================
+
+# ============================================================
 # PHASE 4.1 — EVALUATE MISSTATEMENTS
 # ============================================================
 
-class MisstatementAssessmentViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for individual misstatement assessments.
-
-    Supports:
-    - GET
-    - POST
-    - PUT
-    - PATCH
-    - DELETE
-
-    Can be filtered by engagement:
-    /api/misstatement-assessments/?engagement=1
-    """
-
+class MisstatementAssessmentViewSet(
+    viewsets.ModelViewSet
+):
     queryset = MisstatementAssessment.objects.select_related(
         "engagement"
     ).all()
@@ -430,23 +422,9 @@ class MisstatementAssessmentViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class MisstatementEvaluationViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for the overall misstatement evaluation.
-
-    One evaluation exists per engagement.
-
-    Supports:
-    - GET
-    - POST
-    - PUT
-    - PATCH
-    - DELETE
-
-    Can be filtered by engagement:
-    /api/misstatement-evaluations/?engagement=1
-    """
-
+class MisstatementEvaluationViewSet(
+    viewsets.ModelViewSet
+):
     queryset = MisstatementEvaluation.objects.select_related(
         "engagement"
     ).all()
@@ -467,27 +445,14 @@ class MisstatementEvaluationViewSet(viewsets.ModelViewSet):
 
         return queryset
 
-    # ============================================================
+
+# ============================================================
 # PHASE 4.7 — FIRM-LEVEL QUALITY MONITORING
 # ============================================================
 
-class QualityMonitoringViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for firm-level quality monitoring.
-
-    One quality monitoring record exists per engagement.
-
-    Supports:
-    - GET
-    - POST
-    - PUT
-    - PATCH
-    - DELETE
-
-    Can be filtered by engagement:
-    /api/quality-monitorings/?engagement=1
-    """
-
+class QualityMonitoringViewSet(
+    viewsets.ModelViewSet
+):
     queryset = QualityMonitoring.objects.select_related(
         "engagement"
     ).all()
@@ -509,17 +474,9 @@ class QualityMonitoringViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class QualityFindingViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for individual quality findings.
-
-    Can be filtered by quality monitoring:
-    /api/quality-findings/?quality_monitoring=1
-
-    Can also be filtered by engagement:
-    /api/quality-findings/?engagement=1
-    """
-
+class QualityFindingViewSet(
+    viewsets.ModelViewSet
+):
     queryset = QualityFinding.objects.select_related(
         "quality_monitoring",
         "quality_monitoring__engagement",
@@ -555,17 +512,9 @@ class QualityFindingViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class RemediationActionViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for remediation and corrective actions.
-
-    Can be filtered by quality monitoring:
-    /api/remediation-actions/?quality_monitoring=1
-
-    Can also be filtered by engagement:
-    /api/remediation-actions/?engagement=1
-    """
-
+class RemediationActionViewSet(
+    viewsets.ModelViewSet
+):
     queryset = RemediationAction.objects.select_related(
         "quality_monitoring",
         "quality_monitoring__engagement",
@@ -600,3 +549,58 @@ class RemediationActionViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+
+# ============================================================
+# PHASE 4.6 — DOCUMENTATION ARCHIVE
+# ============================================================
+
+class DocumentationArchiveViewSet(
+    viewsets.ModelViewSet
+):
+    queryset = DocumentationArchive.objects.select_related(
+        "engagement"
+    ).all()
+
+    serializer_class = DocumentationArchiveSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        engagement_id = self.request.query_params.get(
+            "engagement"
+        )
+
+        if engagement_id:
+            queryset = queryset.filter(
+                engagement_id=engagement_id
+            )
+
+        return queryset
+
+
+# ============================================================
+# PHASE 4.6 — ARCHIVE STATUS
+# ============================================================
+
+class ArchiveStatusViewSet(
+    viewsets.ModelViewSet
+):
+    queryset = ArchiveStatus.objects.select_related(
+        "engagement"
+    ).all()
+
+    serializer_class = ArchiveStatusSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        engagement_id = self.request.query_params.get(
+            "engagement"
+        )
+
+        if engagement_id:
+            queryset = queryset.filter(
+                engagement_id=engagement_id
+            )
+
+        return queryset

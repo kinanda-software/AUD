@@ -15,7 +15,13 @@ import {
   X,
 } from "lucide-react";
 
+import type { AuthUser } from "./AppLayout";
+
 const API_URL = "http://localhost:8000";
+
+type HeaderProps = {
+  user: AuthUser;
+};
 
 type Notification = {
   id: number;
@@ -26,18 +32,55 @@ type Notification = {
   unread: boolean;
 };
 
-export default function Header() {
+function getUserDisplayName(user: AuthUser): string {
+  const fullName = `${user.first_name} ${user.last_name}`.trim();
+
+  return fullName || user.username;
+}
+
+function getUserInitials(user: AuthUser): string {
+  const firstName = user.first_name?.trim() || "";
+  const lastName = user.last_name?.trim() || "";
+
+  if (firstName && lastName) {
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  }
+
+  if (firstName) {
+    return firstName.slice(0, 2).toUpperCase();
+  }
+
+  return user.username.slice(0, 2).toUpperCase();
+}
+
+function getRoleDisplayName(role: string): string {
+  const roles: Record<string, string> = {
+    admin: "Administrator",
+    auditor: "Auditor",
+    manager: "Manager",
+    staff: "Staff",
+    guest: "Guest",
+  };
+
+  return roles[role.toLowerCase()] || role;
+}
+
+export default function Header({ user }: HeaderProps) {
   const router = useRouter();
 
   const [showMenu, setShowMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showNotifications, setShowNotifications] =
+    useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const [notifications, setNotifications] = useState<Notification[]>([
+  const [notifications, setNotifications] = useState<
+    Notification[]
+  >([
     {
       id: 1,
       title: "Review Required",
-      message: "A workpaper is waiting for your review.",
+      message:
+        "A workpaper is waiting for your review.",
       time: "10 minutes ago",
       type: "review",
       unread: true,
@@ -45,7 +88,8 @@ export default function Header() {
     {
       id: 2,
       title: "Audit Workpaper Completed",
-      message: "An audit workpaper has been marked as completed.",
+      message:
+        "An audit workpaper has been marked as completed.",
       time: "1 hour ago",
       type: "audit",
       unread: true,
@@ -53,7 +97,8 @@ export default function Header() {
     {
       id: 3,
       title: "Upcoming Deadline",
-      message: "An engagement deadline is approaching.",
+      message:
+        "An engagement deadline is approaching.",
       time: "3 hours ago",
       type: "deadline",
       unread: true,
@@ -63,6 +108,10 @@ export default function Header() {
   const unreadCount = notifications.filter(
     (notification) => notification.unread
   ).length;
+
+  const displayName = getUserDisplayName(user);
+  const initials = getUserInitials(user);
+  const roleDisplayName = getRoleDisplayName(user.role);
 
   const handleLogout = async () => {
     if (loggingOut) {
@@ -162,7 +211,8 @@ export default function Header() {
   const removeNotification = (id: number) => {
     setNotifications((current) =>
       current.filter(
-        (notification) => notification.id !== id
+        (notification) =>
+          notification.id !== id
       )
     );
   };
@@ -201,7 +251,6 @@ export default function Header() {
 
           {/* Notifications */}
           <div className="relative">
-
             <button
               type="button"
               onClick={() => {
@@ -217,7 +266,6 @@ export default function Header() {
             >
               <Bell size={20} />
 
-              {/* Notification count */}
               {unreadCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
                   {unreadCount > 9
@@ -231,7 +279,7 @@ export default function Header() {
             {showNotifications && (
               <div className="absolute right-0 top-14 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
 
-                {/* Header */}
+                {/* Notification header */}
                 <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 
                   <div>
@@ -409,20 +457,23 @@ export default function Header() {
               aria-expanded={showMenu}
               aria-haspopup="menu"
             >
+
               {/* Avatar */}
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700">
-                S
+                {initials}
               </div>
 
               {/* User information */}
               <div className="hidden text-left sm:block">
+
                 <p className="text-sm font-semibold text-slate-900">
-                  Samweli
+                  {displayName}
                 </p>
 
                 <p className="text-xs text-slate-500">
-                  Auditor
+                  {roleDisplayName}
                 </p>
+
               </div>
 
               <ChevronDown
@@ -433,6 +484,7 @@ export default function Header() {
                     : ""
                 }`}
               />
+
             </button>
 
             {/* User dropdown */}
@@ -444,23 +496,27 @@ export default function Header() {
 
                 {/* User information */}
                 <div className="border-b border-slate-100 px-4 py-4">
+
                   <div className="flex items-center gap-3">
 
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700">
-                      S
+                      {initials}
                     </div>
 
                     <div className="min-w-0">
+
                       <p className="truncate text-sm font-semibold text-slate-900">
-                        Samweli
+                        {displayName}
                       </p>
 
                       <p className="text-xs text-slate-500">
-                        Auditor
+                        {roleDisplayName}
                       </p>
+
                     </div>
 
                   </div>
+
                 </div>
 
                 {/* Menu buttons */}
@@ -476,6 +532,7 @@ export default function Header() {
                     role="menuitem"
                   >
                     <User size={17} />
+
                     Profile
                   </button>
 
@@ -495,6 +552,7 @@ export default function Header() {
                   </button>
 
                 </div>
+
               </div>
             )}
 

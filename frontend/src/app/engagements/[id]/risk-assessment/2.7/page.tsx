@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "../../../../../components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -184,7 +183,7 @@ export default function TestsOfControlsPage() {
    * Standard calculation:
    *
    * Deviation Rate =
-   * Deviations / Sample Size × 100
+   * Deviations / Sample Size Ã— 100
    */
   const calculateDeviationRate = (
     test: ControlTest
@@ -500,8 +499,8 @@ export default function TestsOfControlsPage() {
   ).length;
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-7xl">
+    
+      <div className="w-full min-w-0">
         {/* Page Header */}
         <div className="mb-6">
           <button
@@ -526,7 +525,7 @@ export default function TestsOfControlsPage() {
 
                 <div>
                   <p className="text-sm font-medium text-blue-600">
-                    Phase 2 • Section 2.7
+                    Phase 2 â€¢ Section 2.7
                   </p>
 
                   <h1 className="text-2xl font-bold text-gray-900">
@@ -1385,6 +1384,6 @@ export default function TestsOfControlsPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    
   );
 }

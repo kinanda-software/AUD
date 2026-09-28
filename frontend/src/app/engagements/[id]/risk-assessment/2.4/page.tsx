@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-
-import AppLayout from "../../../../../components/layout/AppLayout";
 
 import {
   ArrowLeft,
@@ -376,7 +374,7 @@ export default function ControlsPage() {
   };
 
   return (
-    <AppLayout>
+    
       <div className="min-h-screen">
 
         {/* =========================================
@@ -433,7 +431,7 @@ export default function ControlsPage() {
               </div>
 
               <p className="mt-3 text-sm text-slate-400">
-                AUD-001 — Financial Statement Audit
+                AUD-001 â€” Financial Statement Audit
               </p>
 
             </div>
@@ -1499,7 +1497,7 @@ export default function ControlsPage() {
                 Continue
 
                 <span className="text-lg leading-none">
-                  →
+                  â†’
                 </span>
 
               </button>
@@ -1511,6 +1509,6 @@ export default function ControlsPage() {
         </div>
 
       </div>
-    </AppLayout>
+    
   );
 }

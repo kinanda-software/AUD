@@ -1,11 +1,12 @@
-
 from rest_framework.routers import DefaultRouter
 
 from .views import (
     AdjustmentViewSet,
     ChartOfAccountViewSet,
-    TrialBalanceViewSet,
+    LeadScheduleViewSet,
+    SupportingDetailViewSet,
     TrialBalanceLineViewSet,
+    TrialBalanceViewSet,
 )
 
 
@@ -40,5 +41,18 @@ router.register(
 )
 
 
-urlpatterns = router.urls
+router.register(
+    r"lead-schedules",
+    LeadScheduleViewSet,
+    basename="lead-schedule",
+)
 
+
+router.register(
+    r"supporting-details",
+    SupportingDetailViewSet,
+    basename="supporting-detail",
+)
+
+
+urlpatterns = router.urls

@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-
-import AppLayout from "../../../../../components/layout/AppLayout";
 
 import {
   ArrowLeft,
@@ -961,9 +959,9 @@ export default function RiskPointsPage() {
 
   if (loading) {
     return (
-      <AppLayout>
+      
         <div className="min-h-screen bg-slate-50">
-          <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="w-full min-w-0 px-6 py-10">
             <div className="flex min-h-[400px] items-center justify-center">
               <div className="flex items-center gap-3 text-slate-600">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -975,7 +973,7 @@ export default function RiskPointsPage() {
             </div>
           </div>
         </div>
-      </AppLayout>
+      
     );
   }
 
@@ -986,9 +984,9 @@ export default function RiskPointsPage() {
    */
 
   return (
-    <AppLayout>
+    
       <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="w-full min-w-0 px-6 py-8">
 
           {/* ================================================= */}
           {/* HEADER */}
@@ -1713,6 +1711,6 @@ export default function RiskPointsPage() {
 
         </div>
       </div>
-    </AppLayout>
+    
   );
 }

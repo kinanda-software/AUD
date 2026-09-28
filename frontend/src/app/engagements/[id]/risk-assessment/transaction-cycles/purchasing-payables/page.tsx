@@ -1,9 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   ArrowRight,
@@ -40,15 +39,15 @@ export default function PurchasingPayablesPage() {
    * Workflow:
    *
    * Revenue
-   *     ↓
+   *     â†“
    * Purchasing & Payables
-   *     ↓
+   *     â†“
    * Payroll
-   *     ↓
+   *     â†“
    * Inventory
-   *     ↓
+   *     â†“
    * Financial Statement Close
-   *     ↓
+   *     â†“
    * Other Significant Processes
    *
    * We do NOT route to Phase 2.2.
@@ -111,8 +110,7 @@ export default function PurchasingPayablesPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="w-full min-w-0 space-y-6">
         {/* Header */}
         <div>
           <Link
@@ -374,7 +372,6 @@ export default function PurchasingPayablesPage() {
             )}
           </button>
         </div>
-      </div>
-    </AppLayout>
+    </div>
   );
 }
