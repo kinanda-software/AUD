@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -343,7 +343,7 @@ export default function ControlsTestingPage() {
 
   return (
     
-      <div className="min-h-screen bg-gray-50">
+      <div className="w-full bg-gray-50">
         {/* Header */}
         <div className="border-b border-gray-200 bg-white">
           <div className="w-full min-w-0 px-6 py-5">
@@ -351,7 +351,7 @@ export default function ControlsTestingPage() {
               <div>
                 <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
                   <span>AUD-001</span>
-                  <span>â€”</span>
+                  <span>—</span>
                   <span>Financial Statement Audit</span>
                 </div>
 
@@ -1236,7 +1236,7 @@ export default function ControlsTestingPage() {
               >
                 Continue
                 <span className="text-lg leading-none">
-                  â†’
+                  →
                 </span>
               </button>
             </div>
@@ -1246,3 +1246,4 @@ export default function ControlsTestingPage() {
     
   );
 }
+

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   FormEvent,
@@ -997,7 +997,7 @@ function LeadSchedulesContent() {
     if (existingSchedule) {
       const accountLabel =
         selectedAccount
-          ? `${selectedAccount.account_code} â€” ${selectedAccount.account_name}`
+          ? `${selectedAccount.account_code} — ${selectedAccount.account_name}`
           : `Account #${form.account}`;
 
       setError(
@@ -1630,11 +1630,11 @@ function LeadSchedulesContent() {
                               key={tb.id}
                               value={tb.id}
                             >
-                              TB #{tb.id} â€”{" "}
+                              TB #{tb.id} —{" "}
                               {
                                 tb.period_end
                               }{" "}
-                              â€”{" "}
+                              —{" "}
                               {getTrialBalanceStatusLabel(
                                 tb.status
                               )}
@@ -1722,7 +1722,7 @@ function LeadSchedulesContent() {
                               {
                                 account.account_code
                               }{" "}
-                              â€”{" "}
+                              —{" "}
                               {
                                 account.account_name
                               }

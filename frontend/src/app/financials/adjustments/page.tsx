@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -154,7 +154,7 @@ function formatTrialBalanceLabel(trialBalance: TrialBalance) {
   const start = formatDate(trialBalance.period_start);
   const end = formatDate(trialBalance.period_end);
 
-  return `TB #${trialBalance.id} â€¢ ${start} - ${end} â€¢ ${trialBalance.status}`;
+  return `TB #${trialBalance.id} • ${start} - ${end} • ${trialBalance.status}`;
 }
 
 function getApiErrorMessage(

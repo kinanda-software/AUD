@@ -757,7 +757,7 @@ export default function ExecuteControlsPage() {
   if (loading) {
     return (
       
-        <div className="min-h-screen bg-gray-50">
+        <div className="w-full bg-gray-50">
           <div className="flex min-h-[500px] items-center justify-center">
             <div className="flex items-center gap-3 rounded-xl border bg-white px-6 py-5 shadow-sm">
               <Loader2
@@ -781,7 +781,7 @@ export default function ExecuteControlsPage() {
 
   return (
     
-      <div className="min-h-screen bg-gray-50">
+      <div className="w-full bg-gray-50">
 
         {/* ==================================================
             HEADER
@@ -1702,3 +1702,4 @@ export default function ExecuteControlsPage() {
     
   );
 }
+

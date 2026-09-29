@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -450,7 +450,7 @@ export default function CombinedRiskAssessmentPage() {
 
                 <div>
                   <p className="text-sm font-medium text-blue-600">
-                    Phase 2 â€¢ Section 2.6
+                    Phase 2 • Section 2.6
                   </p>
 
                   <h1 className="text-2xl font-bold text-gray-900">

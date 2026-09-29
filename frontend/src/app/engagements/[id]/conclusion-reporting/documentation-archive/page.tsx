@@ -930,7 +930,7 @@ export default function DocumentationArchivePage() {
 
   return (
 
-      <div className="min-h-screen bg-[#f6f4ef] px-4 py-6 md:px-8">
+      <div className="w-full bg-[#f6f4ef] px-4 py-6 md:px-8">
         <div className="w-full">
           {/* Header */}
           <div className="mb-6">
@@ -1758,3 +1758,4 @@ export default function DocumentationArchivePage() {
 
   );
 }
+

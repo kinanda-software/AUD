@@ -1067,3 +1067,176 @@ export async function deleteTransactionCycleAssessment(
     }
   );
 }
+
+/* =========================================================
+   FINANCIALS — GENERAL LEDGER
+========================================================= */
+
+export type GeneralLedgerSource =
+  | "manual"
+  | "import"
+  | "trial_balance"
+  | "adjustment"
+  | "other";
+
+export type GeneralLedgerStatus =
+  | "draft"
+  | "posted"
+  | "void";
+
+export interface GeneralLedgerEntry {
+  id: number;
+
+  engagement: number;
+  account: number;
+
+  account_code: string;
+  account_name: string;
+  account_type: string;
+  financial_statement_section: string;
+
+  transaction_date: string;
+
+  reference: string;
+  description: string;
+
+  debit: number | string;
+  credit: number | string;
+  amount: number | string;
+
+  source: GeneralLedgerSource;
+  status: GeneralLedgerStatus;
+
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get all General Ledger entries.
+ *
+ * Optional filters:
+ * - engagement
+ * - account
+ * - status
+ * - source
+ * - date_from
+ * - date_to
+ */
+export async function getGeneralLedger(
+  params?: {
+    engagement?: number | string;
+    account?: number | string;
+    status?: GeneralLedgerStatus | "";
+    source?: GeneralLedgerSource | "";
+    date_from?: string;
+    date_to?: string;
+  }
+): Promise<GeneralLedgerEntry[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.engagement !== undefined && params.engagement !== "") {
+    searchParams.set(
+      "engagement",
+      String(params.engagement)
+    );
+  }
+
+  if (params?.account !== undefined && params.account !== "") {
+    searchParams.set(
+      "account",
+      String(params.account)
+    );
+  }
+
+  if (params?.status) {
+    searchParams.set(
+      "status",
+      params.status
+    );
+  }
+
+  if (params?.source) {
+    searchParams.set(
+      "source",
+      params.source
+    );
+  }
+
+  if (params?.date_from) {
+    searchParams.set(
+      "date_from",
+      params.date_from
+    );
+  }
+
+  if (params?.date_to) {
+    searchParams.set(
+      "date_to",
+      params.date_to
+    );
+  }
+
+  const query = searchParams.toString();
+
+  return apiRequest<GeneralLedgerEntry[]>(
+    `/financials/general-ledger/${
+      query ? `?${query}` : ""
+    }`
+  );
+}
+
+/**
+ * Get one General Ledger entry.
+ */
+export async function getGeneralLedgerEntry(
+  id: number | string
+): Promise<GeneralLedgerEntry> {
+  return apiRequest<GeneralLedgerEntry>(
+    `/financials/general-ledger/${id}/`
+  );
+}
+
+/**
+ * Create a General Ledger entry.
+ */
+export async function createGeneralLedgerEntry(
+  data: Partial<GeneralLedgerEntry>
+): Promise<GeneralLedgerEntry> {
+  return apiRequest<GeneralLedgerEntry>(
+    "/financials/general-ledger/",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/**
+ * Update a General Ledger entry.
+ */
+export async function updateGeneralLedgerEntry(
+  id: number | string,
+  data: Partial<GeneralLedgerEntry>
+): Promise<GeneralLedgerEntry> {
+  return apiRequest<GeneralLedgerEntry>(
+    `/financials/general-ledger/${id}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/**
+ * Delete a General Ledger entry.
+ */
+export async function deleteGeneralLedgerEntry(
+  id: number | string
+): Promise<void> {
+  return apiRequest<void>(
+    `/financials/general-ledger/${id}/`,
+    {
+      method: "DELETE",
+    }
+  );
+}

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -648,7 +648,7 @@ export default function FinancialStatementProceduresPage() {
           <section className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
             <SectionHeader
               number="2"
-              title="Subsequent Events â€” ISA 560"
+              title="Subsequent Events — ISA 560"
               description="Document procedures performed to identify events occurring between the financial statement date and the date of the auditor's report."
             />
 
@@ -824,7 +824,7 @@ export default function FinancialStatementProceduresPage() {
           <section className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
             <SectionHeader
               number="3"
-              title="Comparative Information â€” ISA 710"
+              title="Comparative Information — ISA 710"
               description="Evaluate whether comparative information is appropriately presented and agrees with the prior-period financial statements."
             />
 
@@ -919,7 +919,7 @@ export default function FinancialStatementProceduresPage() {
           <section className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
             <SectionHeader
               number="4"
-              title="Overall Financial Statement Analytical Review â€” ISA 520"
+              title="Overall Financial Statement Analytical Review — ISA 520"
               description="Perform a final analytical review to determine whether the financial statements are consistent with the auditor's understanding of the entity and whether unexpected relationships or fluctuations remain."
             />
 
@@ -1179,7 +1179,7 @@ export default function FinancialStatementProceduresPage() {
                 disabled={!engagementId}
                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                Continue to 4.3 â†’
+                Continue to 4.3 →
               </button>
             </div>
           </section>
@@ -1371,7 +1371,7 @@ function CompletionItem({
               : "bg-gray-200 text-gray-500"
           }`}
         >
-          {displayCompleted ? "âœ“" : "â€¢"}
+          {displayCompleted ? "âœ“" : "•"}
         </div>
 
         <span className="text-sm font-medium text-gray-800">

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Suspense,
@@ -121,7 +121,7 @@ function FinancialStatementsContent() {
   if (loading) {
     return (
         <div className="w-full bg-slate-50 p-6">
-          <div className="mx-auto flex min-h-[500px] max-w-7xl items-center justify-center">
+          <div className="flex min-h-[500px] w-full items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
 
@@ -950,7 +950,7 @@ function StatementSection({
                 className="flex items-center justify-between px-5 py-3"
               >
                 <p className="text-sm font-medium text-slate-800">
-                  {account.account_code} â€” {account.account_name}
+                  {account.account_code} — {account.account_name}
                 </p>
 
                 <p className="ml-4 shrink-0 text-sm font-semibold text-slate-800">
@@ -1072,3 +1072,4 @@ function ControlMetric({
     </div>
   );
 }
+

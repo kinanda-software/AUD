@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -444,7 +444,7 @@ export default function AuditStrategyPage() {
 
   return (
     
-      <div className="min-h-screen bg-gray-50">
+      <div className="w-full bg-gray-50">
 
         {/* =================================================
             HEADER
@@ -494,7 +494,7 @@ export default function AuditStrategyPage() {
                   </h1>
 
                   <p className="mt-1 text-sm text-gray-500">
-                    Final Phase 2 workpaper â€” establish
+                    Final Phase 2 workpaper — establish
                     the overall audit strategy and approach.
                   </p>
 
@@ -598,7 +598,7 @@ export default function AuditStrategyPage() {
                     {errors.map(
                       (error, index) => (
                         <li key={index}>
-                          â€¢ {error}
+                          • {error}
                         </li>
                       )
                     )}
@@ -1895,3 +1895,4 @@ function SummaryCard({
     </div>
   );
 }
+

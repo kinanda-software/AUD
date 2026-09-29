@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from .models import (
     Adjustment,
     ChartOfAccount,
+    GeneralLedger,
     LeadSchedule,
     SupportingDetail,
     TrialBalance,
@@ -19,6 +20,7 @@ from .serializers import (
     AdjustmentSerializer,
     AdjustedTrialBalanceSerializer,
     ChartOfAccountSerializer,
+    GeneralLedgerSerializer,
     LeadScheduleSerializer,
     SupportingDetailSerializer,
     TrialBalanceSerializer,
@@ -1935,3 +1937,217 @@ class SupportingDetailViewSet(viewsets.ModelViewSet):
             )
 
         instance.delete()
+
+
+        # =========================================================
+# GENERAL LEDGER
+# =========================================================
+
+class GeneralLedgerViewSet(viewsets.ModelViewSet):
+    serializer_class = GeneralLedgerSerializer
+
+    def get_queryset(
+        self,
+    ) -> QuerySet[GeneralLedger]:  # type: ignore
+
+        queryset = (
+            GeneralLedger.objects
+            .select_related(
+                "engagement",
+                "account",
+            )
+            .all()
+        )
+
+        # -------------------------------------------------
+        # ENGAGEMENT
+        # -------------------------------------------------
+
+        engagement_id = (
+            self.request.query_params.get(
+                "engagement"
+            )
+        )
+
+        if engagement_id:
+            queryset = queryset.filter(
+                engagement_id=engagement_id
+            )
+
+        # -------------------------------------------------
+        # ACCOUNT
+        # -------------------------------------------------
+
+        account_id = (
+            self.request.query_params.get(
+                "account"
+            )
+        )
+
+        if account_id:
+            queryset = queryset.filter(
+                account_id=account_id
+            )
+
+        # -------------------------------------------------
+        # STATUS
+        # -------------------------------------------------
+
+        status_filter = (
+            self.request.query_params.get(
+                "status"
+            )
+        )
+
+        if status_filter:
+            queryset = queryset.filter(
+                status=status_filter
+            )
+
+        # -------------------------------------------------
+        # SOURCE
+        # -------------------------------------------------
+
+        source_filter = (
+            self.request.query_params.get(
+                "source"
+            )
+        )
+
+        if source_filter:
+            queryset = queryset.filter(
+                source=source_filter
+            )
+
+        # -------------------------------------------------
+        # DATE FROM
+        # -------------------------------------------------
+
+        date_from = (
+            self.request.query_params.get(
+                "date_from"
+            )
+        )
+
+        if date_from:
+            queryset = queryset.filter(
+                transaction_date__gte=date_from
+            )
+
+        # -------------------------------------------------
+        # DATE TO
+        # -------------------------------------------------
+
+        date_to = (
+            self.request.query_params.get(
+                "date_to"
+            )
+        )
+
+        if date_to:
+            queryset = queryset.filter(
+                transaction_date__lte=date_to
+            )
+
+        return queryset
+
+    # =====================================================
+    # CREATE
+    # =====================================================
+
+    def perform_create(self, serializer):
+        engagement = (
+            serializer.validated_data[
+                "engagement"
+            ]
+        )
+
+        account = (
+            serializer.validated_data[
+                "account"
+            ]
+        )
+
+        if (
+            account.engagement_id
+            != engagement.id
+        ):
+            raise ValidationError(
+                "Account must belong to the same "
+                "engagement."
+            )
+
+        serializer.save()
+
+    # =====================================================
+    # UPDATE
+    # =====================================================
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+
+        engagement = (
+            serializer.validated_data.get(
+                "engagement",
+                instance.engagement,
+            )
+        )
+
+        account = (
+            serializer.validated_data.get(
+                "account",
+                instance.account,
+            )
+        )
+
+        if (
+            account.engagement_id
+            != engagement.id
+        ):
+            raise ValidationError(
+                "Account must belong to the same "
+                "engagement."
+            )
+
+        serializer.save()
+
+    # =====================================================
+    # SUMMARY
+    # =====================================================
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="summary",
+    )
+    def summary(self, request):
+        queryset = self.get_queryset()
+
+        total_debit = sum(
+            (
+                entry.debit
+                for entry in queryset
+            ),
+            Decimal("0.00"),
+        )
+
+        total_credit = sum(
+            (
+                entry.credit
+                for entry in queryset
+            ),
+            Decimal("0.00"),
+        )
+
+        balance = (
+            total_debit - total_credit
+        )
+
+        return Response(
+            {
+                "count": queryset.count(),
+                "total_debit": total_debit,
+                "total_credit": total_credit,
+                "balance": balance,
+            }
+        )

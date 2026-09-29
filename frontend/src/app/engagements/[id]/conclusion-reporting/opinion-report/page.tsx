@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -367,7 +367,7 @@ export default function ClientCommunicationsPage() {
   const [saved, setSaved] = useState(false);
 
   /* =======================================================
-     ISA 265 â€” DEFICIENCIES
+     ISA 265 — DEFICIENCIES
   ======================================================= */
 
   const [deficiencies, setDeficiencies] = useState<Deficiency[]>([
@@ -385,7 +385,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   /* =======================================================
-     ISA 260 â€” GOVERNANCE
+     ISA 260 — GOVERNANCE
   ======================================================= */
 
   const [governanceMeetingDate, setGovernanceMeetingDate] =
@@ -415,7 +415,7 @@ export default function ClientCommunicationsPage() {
     ]);
 
   /* =======================================================
-     ISA 580 â€” REPRESENTATIONS
+     ISA 580 — REPRESENTATIONS
   ======================================================= */
 
   const [representations, setRepresentations] =
@@ -1180,7 +1180,7 @@ export default function ClientCommunicationsPage() {
 
               <SectionHeader
                 number="1"
-                title="ISA 265 â€” Internal Control Deficiencies"
+                title="ISA 265 — Internal Control Deficiencies"
                 subtitle="Document identified deficiencies in internal control, their potential effects, classification, management response, recommendations, and communication status."
                 icon={
                   <ShieldAlert className="h-5 w-5" />
@@ -1389,7 +1389,7 @@ export default function ClientCommunicationsPage() {
 
               <SectionHeader
                 number="2"
-                title="ISA 260 â€” Communication With Those Charged With Governance"
+                title="ISA 260 — Communication With Those Charged With Governance"
                 subtitle="Document significant audit matters communicated to those charged with governance, including the communication method, recipient, date, response, and status."
                 icon={
                   <Users className="h-5 w-5" />
@@ -1626,7 +1626,7 @@ export default function ClientCommunicationsPage() {
 
               <SectionHeader
                 number="3"
-                title="ISA 580 â€” Written Representations"
+                title="ISA 580 — Written Representations"
                 subtitle="Track the written representations required from management and document receipt, exceptions, and the auditor's conclusion."
                 icon={
                   <FileText className="h-5 w-5" />

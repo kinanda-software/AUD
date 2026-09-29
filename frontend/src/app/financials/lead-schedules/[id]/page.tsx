@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import AppLayout from "@/components/layout/AppLayout";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -1080,19 +1079,16 @@ export default function LeadScheduleDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout>
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-sm text-slate-500">
             Loading Lead Schedule...
           </div>
         </div>
-      </AppLayout>
     );
   }
 
   if (!schedule) {
     return (
-      <AppLayout>
         <div className="p-6">
           <div className="rounded-xl border border-red-200 bg-red-50 p-5">
             <div className="flex items-start gap-3">
@@ -1119,14 +1115,12 @@ export default function LeadScheduleDetailPage() {
             Back to Lead Schedules
           </Link>
         </div>
-      </AppLayout>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-7xl px-6 py-6">
+      <div className="w-full bg-slate-50">
+        <div className="w-full px-6 py-6">
 
           {/* Header */}
           <div className="mb-6">
@@ -2645,6 +2639,5 @@ export default function LeadScheduleDetailPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }

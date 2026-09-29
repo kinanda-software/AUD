@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -84,7 +84,7 @@ export default function ClientCommunicationsPage() {
   const [saved, setSaved] = useState(false);
 
   // =====================================================
-  // ISA 265 â€” INTERNAL CONTROL DEFICIENCIES
+  // ISA 265 — INTERNAL CONTROL DEFICIENCIES
   // =====================================================
 
   const [deficiencies, setDeficiencies] = useState<Deficiency[]>([
@@ -103,7 +103,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   // =====================================================
-  // ISA 260 â€” GOVERNANCE COMMUNICATION
+  // ISA 260 — GOVERNANCE COMMUNICATION
   // =====================================================
 
   const [governanceMatters, setGovernanceMatters] = useState<
@@ -123,7 +123,7 @@ export default function ClientCommunicationsPage() {
   ]);
 
   // =====================================================
-  // ISA 580 â€” WRITTEN REPRESENTATIONS
+  // ISA 580 — WRITTEN REPRESENTATIONS
   // =====================================================
 
   const [representationItems, setRepresentationItems] = useState<
@@ -579,7 +579,7 @@ export default function ClientCommunicationsPage() {
 
       alert(
         `Client Communications cannot be completed yet.\n\n${missing
-          .map((item) => `â€¢ ${item}`)
+          .map((item) => `• ${item}`)
           .join("\n")}`
       );
 
@@ -714,7 +714,7 @@ export default function ClientCommunicationsPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-600">
-                  Phase 4 â€” Conclusion & Reporting
+                  Phase 4 — Conclusion & Reporting
                 </p>
 
               </div>
@@ -806,7 +806,7 @@ export default function ClientCommunicationsPage() {
 
             <SectionHeader
               icon={<ShieldAlert size={22} />}
-              title="ISA 265 â€” Communication of Deficiencies in Internal Control"
+              title="ISA 265 — Communication of Deficiencies in Internal Control"
               description="Identify, evaluate, classify and communicate deficiencies in internal control to the appropriate level of management and those charged with governance."
             />
 
@@ -995,7 +995,7 @@ export default function ClientCommunicationsPage() {
 
             <SectionHeader
               icon={<Users size={22} />}
-              title="ISA 260 â€” Communication With Those Charged With Governance"
+              title="ISA 260 — Communication With Those Charged With Governance"
               description="Document significant audit matters communicated to those charged with governance, including scope, significant risks, judgments, misstatements and other relevant matters."
             />
 
@@ -1182,7 +1182,7 @@ export default function ClientCommunicationsPage() {
 
             <SectionHeader
               icon={<FileText size={22} />}
-              title="ISA 580 â€” Written Representations"
+              title="ISA 580 — Written Representations"
               description="Track required written representations, responsible management personnel, dates requested and received."
             />
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -425,8 +425,8 @@ export default function AuditTeamPage() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full bg-slate-50">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* Back */}
           <button
@@ -476,7 +476,7 @@ export default function AuditTeamPage() {
                         {engagement.engagement_code}
                       </span>
 
-                      <span>â€¢</span>
+                      <span>•</span>
 
                       <span>
                         {engagement.title}
@@ -686,7 +686,7 @@ export default function AuditTeamPage() {
 
                             {user.first_name ||
                             user.last_name
-                              ? ` â€” ${[
+                              ? ` — ${[
                                   user.first_name,
                                   user.last_name,
                                 ]
@@ -1192,3 +1192,4 @@ export default function AuditTeamPage() {
       </div>
   );
 }
+

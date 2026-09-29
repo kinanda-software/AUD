@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   User,
 } from "lucide-react";
-import AppLayout from "@/components/layout/AppLayout";
 
 type Client = {
   id: number;
@@ -415,3 +414,5 @@ function ContactItem({
 }
 
 }
+
+

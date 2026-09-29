@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -221,7 +221,7 @@ function getSectionLabel(section: string) {
 
 function formatDate(value?: string) {
   if (!value) {
-    return "â€”";
+    return "—";
   }
 
   try {

@@ -117,10 +117,10 @@ export default function AIAssistantPage() {
   };
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-gray-50">
+    <main className="w-full overflow-x-hidden bg-gray-50">
       {/* Responsive page wrapper */}
       <div className="w-full px-3 py-4 sm:px-5 sm:py-6 md:px-8 md:py-8 lg:px-10">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="w-full">
           {/* Main AI container */}
           <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
             {/* --------------------------------------------------

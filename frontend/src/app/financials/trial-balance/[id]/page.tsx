@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -940,7 +940,7 @@ export default function TrialBalanceDetailPage() {
                                 line.debit,
                                 trialBalance.currency
                               )
-                            : "â€”"}
+                            : "—"}
                         </td>
 
                         <td className="px-5 py-4 text-right font-mono text-sm text-slate-700">
@@ -949,7 +949,7 @@ export default function TrialBalanceDetailPage() {
                                 line.credit,
                                 trialBalance.currency
                               )
-                            : "â€”"}
+                            : "—"}
                         </td>
 
                         {!isLocked && (

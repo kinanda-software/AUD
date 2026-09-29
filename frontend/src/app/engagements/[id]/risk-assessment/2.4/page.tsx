@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -375,7 +375,7 @@ export default function ControlsPage() {
 
   return (
     
-      <div className="min-h-screen">
+      <div className="w-full">
 
         {/* =========================================
             PAGE HEADER
@@ -431,7 +431,7 @@ export default function ControlsPage() {
               </div>
 
               <p className="mt-3 text-sm text-slate-400">
-                AUD-001 â€” Financial Statement Audit
+                AUD-001 — Financial Statement Audit
               </p>
 
             </div>
@@ -1497,7 +1497,7 @@ export default function ControlsPage() {
                 Continue
 
                 <span className="text-lg leading-none">
-                  â†’
+                  →
                 </span>
 
               </button>
@@ -1512,3 +1512,4 @@ export default function ControlsPage() {
     
   );
 }
+

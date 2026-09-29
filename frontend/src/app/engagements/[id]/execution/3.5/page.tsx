@@ -639,7 +639,7 @@ return (  <div className="flex min-h-[70vh] items-center justify-center"> <div c
 return ( 
 
 
-  <div className="min-h-screen bg-gray-50">
+  <div className="w-full bg-gray-50">
 
     {/* =====================================================
         HEADER
@@ -1045,4 +1045,5 @@ return (
 
 );
 }
+
 

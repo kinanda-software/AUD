@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -10,7 +10,6 @@ import {
   Loader2,
   Save,
 } from "lucide-react";
-import AppLayout from "@/components/layout/AppLayout";
 
 type ClientForm = {
   client_code: string;
@@ -295,20 +294,17 @@ export default function EditClientPage() {
 
   if (loading) {
     return (
-      <AppLayout>
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="flex items-center gap-3 text-gray-600">
             <Loader2 className="h-6 w-6 animate-spin" />
             <span>Loading client...</span>
           </div>
         </div>
-      </AppLayout>
     );
   }
 
   if (error && !form.legal_name && !form.client_code) {
     return (
-      <AppLayout>
         <div className="p-6">
           <Link
             href="/clients"
@@ -328,13 +324,11 @@ export default function EditClientPage() {
             </p>
           </div>
         </div>
-      </AppLayout>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="w-full bg-gray-50 p-6">
         {/* Header */}
         <div className="mb-6">
           <Link
@@ -659,7 +653,6 @@ export default function EditClientPage() {
           </div>
         </form>
       </div>
-    </AppLayout>
   );
 }
 
@@ -704,4 +697,5 @@ function FormField({
     </div>
   );
 }
+
 

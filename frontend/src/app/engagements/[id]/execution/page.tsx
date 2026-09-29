@@ -78,7 +78,7 @@ export default function ExecutionPage() {
 
   return (
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="w-full bg-gray-50">
 
         {/* PAGE HEADER */}
 
@@ -270,3 +270,4 @@ export default function ExecutionPage() {
 
   );
 }
+

@@ -726,7 +726,7 @@ Loading substantive procedures... </div> </div>
 // PAGE
 // ============================================================
 
-return (  <div className="min-h-screen bg-gray-50">
+return (  <div className="w-full bg-gray-50">
 
 ```
     {/* HEADER */}
@@ -1177,4 +1177,5 @@ return (  <div className="min-h-screen bg-gray-50">
 
 );
 }
+
 

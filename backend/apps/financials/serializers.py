@@ -5,6 +5,7 @@ from rest_framework import serializers
 from .models import (
     Adjustment,
     ChartOfAccount,
+    GeneralLedger,
     LeadSchedule,
     SupportingDetail,
     TrialBalance,
@@ -1200,3 +1201,173 @@ class AdjustedTrialBalanceSerializer(
             "summary": summary_data,
             "lines": normalized_lines,
         }
+
+    # =========================================================
+# GENERAL LEDGER
+# =========================================================
+
+class GeneralLedgerSerializer(serializers.ModelSerializer):
+    account_code = serializers.CharField(
+        source="account.account_code",
+        read_only=True,
+    )
+
+    account_name = serializers.CharField(
+        source="account.account_name",
+        read_only=True,
+    )
+
+    account_type = serializers.CharField(
+        source="account.account_type",
+        read_only=True,
+    )
+
+    financial_statement_section = serializers.CharField(
+        source="account.financial_statement_section",
+        read_only=True,
+    )
+
+    amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GeneralLedger
+
+        fields = [
+            "id",
+            "engagement",
+            "account",
+            "account_code",
+            "account_name",
+            "account_type",
+            "financial_statement_section",
+            "transaction_date",
+            "reference",
+            "description",
+            "debit",
+            "credit",
+            "amount",
+            "source",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "account_code",
+            "account_name",
+            "account_type",
+            "financial_statement_section",
+            "amount",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        engagement = attrs.get(
+            "engagement",
+            getattr(
+                self.instance,
+                "engagement",
+                None,
+            ),
+        )
+
+        account = attrs.get(
+            "account",
+            getattr(
+                self.instance,
+                "account",
+                None,
+            ),
+        )
+
+        debit = attrs.get(
+            "debit",
+            getattr(
+                self.instance,
+                "debit",
+                Decimal("0.00"),
+            ),
+        )
+
+        credit = attrs.get(
+            "credit",
+            getattr(
+                self.instance,
+                "credit",
+                Decimal("0.00"),
+            ),
+        )
+
+        if not engagement:
+            raise serializers.ValidationError(
+                {
+                    "engagement": (
+                        "Engagement is required."
+                    )
+                }
+            )
+
+        if not account:
+            raise serializers.ValidationError(
+                {
+                    "account": (
+                        "Account is required."
+                    )
+                }
+            )
+
+        if (
+            account.engagement_id
+            != engagement.pk
+        ):
+            raise serializers.ValidationError(
+                {
+                    "account": (
+                        "Account must belong to "
+                        "the selected engagement."
+                    )
+                }
+            )
+
+        if debit < Decimal("0.00"):
+            raise serializers.ValidationError(
+                {
+                    "debit": (
+                        "Debit cannot be negative."
+                    )
+                }
+            )
+
+        if credit < Decimal("0.00"):
+            raise serializers.ValidationError(
+                {
+                    "credit": (
+                        "Credit cannot be negative."
+                    )
+                }
+            )
+
+        if (
+            debit > Decimal("0.00")
+            and credit > Decimal("0.00")
+        ):
+            raise serializers.ValidationError(
+                "A General Ledger entry cannot have "
+                "both debit and credit."
+            )
+
+        if (
+            debit == Decimal("0.00")
+            and credit == Decimal("0.00")
+        ):
+            raise serializers.ValidationError(
+                "A General Ledger entry must have "
+                "either a debit or a credit amount."
+            )
+
+        return attrs
+
+    def get_amount(self, obj):
+        return obj.amount

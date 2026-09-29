@@ -960,7 +960,7 @@ export default function RiskPointsPage() {
   if (loading) {
     return (
       
-        <div className="min-h-screen bg-slate-50">
+        <div className="w-full bg-slate-50">
           <div className="w-full min-w-0 px-6 py-10">
             <div className="flex min-h-[400px] items-center justify-center">
               <div className="flex items-center gap-3 text-slate-600">
@@ -985,7 +985,7 @@ export default function RiskPointsPage() {
 
   return (
     
-      <div className="min-h-screen bg-slate-50">
+      <div className="w-full bg-slate-50">
         <div className="w-full min-w-0 px-6 py-8">
 
           {/* ================================================= */}
@@ -1714,3 +1714,4 @@ export default function RiskPointsPage() {
     
   );
 }
+

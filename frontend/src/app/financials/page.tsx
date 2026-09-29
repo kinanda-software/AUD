@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import {
@@ -28,6 +28,13 @@ const financialModules = [
     icon: Scale,
   },
   {
+    title: "General Ledger",
+    description:
+      "Review transaction-level ledger activity by account, date, reference, source, debit, and credit.",
+    href: "/financials/general-ledger",
+    icon: BarChart3,
+  },
+  {
     title: "Adjustments",
     description:
       "Record, review, post, or reject audit adjustments affecting the adjusted trial balance.",
@@ -37,22 +44,22 @@ const financialModules = [
   {
     title: "Adjusted Trial Balance",
     description:
-      "Select a Trial Balance and review the adjusted balances after posted audit adjustments.",
-    href: "/financials/trial-balance",
+      "Review adjusted balances after posted audit adjustments.",
+    href: "/financials/adjusted-trial-balance",
     icon: FileSpreadsheet,
   },
   {
     title: "Lead Schedules",
     description:
-      "Select a Trial Balance and organize account-level audit schedules and supporting balances.",
-    href: "/financials/trial-balance",
+      "Organize account-level audit schedules and supporting balances.",
+    href: "/financials/lead-schedules",
     icon: Layers3,
   },
   {
     title: "Financial Statements",
     description:
-      "Select a Trial Balance and generate financial statements from the adjusted balances.",
-    href: "/financials/trial-balance",
+      "Generate financial statements from the adjusted trial balance.",
+    href: "/financials/financial-statements",
     icon: FileText,
   },
 ];
@@ -97,9 +104,11 @@ export default function FinancialsDashboardPage() {
             <div className="grid gap-3 md:grid-cols-5">
               <WorkflowStep number="1" title="Chart of Accounts" />
               <WorkflowStep number="2" title="Trial Balance" />
-              <WorkflowStep number="3" title="Adjustments" />
-              <WorkflowStep number="4" title="Adjusted Trial Balance" />
-              <WorkflowStep number="5" title="Financial Statements" />
+              <WorkflowStep number="3" title="General Ledger" />
+              <WorkflowStep number="4" title="Adjustments" />
+              <WorkflowStep number="5" title="Adjusted Trial Balance" />
+              <WorkflowStep number="6" title="Lead Schedules" />
+              <WorkflowStep number="7" title="Financial Statements" />
             </div>
           </div>
 
@@ -143,7 +152,7 @@ export default function FinancialsDashboardPage() {
                     </p>
 
                     <div className="mt-5 text-sm font-medium text-slate-700">
-                      Open module â†’
+                      Open module →
                     </div>
                   </Link>
                 );

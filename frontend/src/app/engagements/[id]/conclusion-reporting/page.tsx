@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -79,7 +79,7 @@ export default function ConclusionReportingPage() {
                 </h1>
 
                 <p className="text-sm text-gray-500">
-                  Phase 4 â€” Conclusion and Reporting
+                  Phase 4 — Conclusion and Reporting
                 </p>
               </div>
             </div>
@@ -99,7 +99,7 @@ export default function ConclusionReportingPage() {
           {/* INTRODUCTION */}
           <section className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              Phase 4 â€” Conclusion & Reporting
+              Phase 4 — Conclusion & Reporting
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-gray-600">

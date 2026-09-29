@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
@@ -218,7 +218,7 @@ export default function AuditScopePage() {
 
   if (!engagement) {
     return (
-      <div className="mx-auto max-w-4xl px-6 py-10">
+      <div className="w-full px-6 py-10">
           <div className="rounded-xl border border-red-200 bg-red-50 p-6">
             <h1 className="text-lg font-semibold text-red-800">
               Engagement not found
@@ -241,7 +241,7 @@ export default function AuditScopePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
         {/* Header */}
         <div className="mb-6">
@@ -348,7 +348,7 @@ export default function AuditScopePage() {
                   </p>
 
                   <p className="mt-1 text-sm font-semibold text-slate-900">
-                    1.3 â€” Audit Scope
+                    1.3 — Audit Scope
                   </p>
                 </div>
 
@@ -756,4 +756,5 @@ function Field({
     </div>
   );
 }
+
 

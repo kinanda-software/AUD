@@ -407,8 +407,8 @@ export default function MaterialityAssessmentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <div className="mx-auto max-w-6xl">
+    <div className="w-full bg-gray-50 p-4 md:p-6">
+        <div className="w-full">
 
           {/* ==================================================
               HEADER
@@ -1093,3 +1093,4 @@ export default function MaterialityAssessmentPage() {
     </div>
   );
 }
+

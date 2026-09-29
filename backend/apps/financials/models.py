@@ -609,3 +609,138 @@ class SupportingDetail(models.Model):
     def __str__(self):
         return f"{self.description} - {self.amount}"
 
+
+# =========================================================
+# GENERAL LEDGER
+# =========================================================
+
+class GeneralLedger(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        IMPORT = "import", "Import"
+        TRIAL_BALANCE = "trial_balance", "Trial Balance"
+        ADJUSTMENT = "adjustment", "Adjustment"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        POSTED = "posted", "Posted"
+        VOID = "void", "Void"
+
+    engagement = models.ForeignKey(
+        "engagements.Engagement",
+        on_delete=models.CASCADE,
+        related_name="general_ledger_entries",
+    )
+
+    account = models.ForeignKey(
+        ChartOfAccount,
+        on_delete=models.PROTECT,
+        related_name="general_ledger_entries",
+    )
+
+    transaction_date = models.DateField()
+
+    reference = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    description = models.CharField(
+        max_length=500,
+    )
+
+    debit = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
+
+    credit = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        default=0,
+    )
+
+    source = models.CharField(
+        max_length=30,
+        choices=Source.choices,
+        default=Source.MANUAL,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = [
+            "transaction_date",
+            "id",
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "engagement",
+                    "transaction_date",
+                ]
+            ),
+            models.Index(
+                fields=[
+                    "account",
+                    "transaction_date",
+                ]
+            ),
+            models.Index(
+                fields=[
+                    "status",
+                ]
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.debit < 0:
+            raise ValidationError(
+                {"debit": "Debit cannot be negative."}
+            )
+
+        if self.credit < 0:
+            raise ValidationError(
+                {"credit": "Credit cannot be negative."}
+            )
+
+        if self.debit > 0 and self.credit > 0:
+            raise ValidationError(
+                "A General Ledger entry cannot have both "
+                "debit and credit."
+            )
+
+        if self.debit == 0 and self.credit == 0:
+            raise ValidationError(
+                "A General Ledger entry must have either "
+                "a debit or a credit amount."
+            )
+
+        if self.account_id:
+            if (
+                self.account.engagement_id
+                != self.engagement_id
+            ):
+                raise ValidationError(
+                    {
+                        "account": (
+                            "Account must belong to the "
+                            "same engagement."
+                        )
+                    }
+                )
+
+    @property
+    def amount(self):
+        return self.debit if self.debit > 0 else self.credit

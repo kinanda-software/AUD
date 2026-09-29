@@ -387,6 +387,7 @@ export default function SettingsPage() {
             icon={<Users size={21} />}
             title="Users & Team"
             description="Manage auditors, managers, partners, reviewers, and user access."
+            href="/users"
             badge="Administration"
           />
 
@@ -394,6 +395,8 @@ export default function SettingsPage() {
             icon={<Workflow size={21} />}
             title="Audit Methodology"
             description="Configure audit phases, procedures, workpapers, and methodology requirements."
+            href="/settings/audit-methodology"
+          
             badge="Core"
           />
 
@@ -401,12 +404,16 @@ export default function SettingsPage() {
             icon={<SlidersHorizontal size={21} />}
             title="Engagement Settings"
             description="Configure engagement statuses, assignments, workflow rules, and deadlines."
+            href="/settings/engagement-settings"
+          
           />
 
           <SettingCard
             icon={<FileCheck2 size={21} />}
             title="Risk & Materiality"
             description="Configure default risk classifications, materiality settings, and assessment parameters."
+            href="/settings/risk-materiality"
+          
             badge="Audit"
           />
 
@@ -414,12 +421,16 @@ export default function SettingsPage() {
             icon={<FileCheck2 size={21} />}
             title="Reporting Settings"
             description="Configure reporting workflows, opinion types, approvals, and report templates."
+            href="/settings/reporting-settings"
+          
           />
 
           <SettingCard
             icon={<Database size={21} />}
             title="Data & Storage"
             description="Manage document storage, retention, backups, and audit documentation settings."
+            href="/settings/data-storage"
+          
           />
         </div>
       </section>
@@ -665,7 +676,7 @@ export default function SettingsPage() {
                 </p>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  {country} · {currency} · {timezone}
+                  {country} Â· {currency} Â· {timezone}
                 </p>
               </div>
             </div>
@@ -701,11 +712,14 @@ export default function SettingsPage() {
 
       {/* Footer */}
       <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-xs text-slate-400 sm:flex-row">
-        <p>AUD Platform · Audit Management System</p>
+        <p>AUD Platform Â· Audit Management System</p>
 
         <p>Settings and configuration</p>
       </div>
     </div>
   );
 }
+
+
+
 

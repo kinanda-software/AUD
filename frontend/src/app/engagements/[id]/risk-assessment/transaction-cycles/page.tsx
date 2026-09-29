@@ -212,10 +212,10 @@ export default function TransactionCyclesPage() {
     "Financial Statement Audit";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="w-full bg-slate-50">
       {/* Header */}
       <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-5">
+        <div className="w-full px-6 py-5">
           <div className="flex items-start justify-between gap-6">
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
@@ -293,7 +293,7 @@ export default function TransactionCyclesPage() {
       </div>
 
       {/* Main */}
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="w-full px-6 py-8">
         {/* Loading */}
         {loading && (
           <div className="flex min-h-[300px] items-center justify-center">

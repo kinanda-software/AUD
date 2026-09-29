@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -352,7 +352,7 @@ export default function TrialBalancePage() {
                         key={engagement.id}
                         value={engagement.id}
                       >
-                        {engagement.engagement_code} â€”{" "}
+                        {engagement.engagement_code} —{" "}
                         {engagement.title}
                       </option>
                     ))}
@@ -505,7 +505,7 @@ export default function TrialBalancePage() {
                   key={engagement.id}
                   value={engagement.id}
                 >
-                  {engagement.engagement_code} â€”{" "}
+                  {engagement.engagement_code} —{" "}
                   {engagement.title}
                 </option>
               ))}
@@ -623,7 +623,7 @@ export default function TrialBalancePage() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2 text-sm text-slate-700">
                             <CalendarDays size={15} />
-                            {tb.period_start} â†’{" "}
+                            {tb.period_start} →{" "}
                             {tb.period_end}
                           </div>
                         </td>

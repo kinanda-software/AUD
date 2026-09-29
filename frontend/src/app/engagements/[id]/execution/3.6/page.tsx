@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -130,7 +130,7 @@ export default function RiskReassessmentPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-600">
-                  Phase 3 â€” Risk reassessment workpaper
+                  Phase 3 — Risk reassessment workpaper
                 </p>
               </div>
 
@@ -463,7 +463,7 @@ export default function RiskReassessmentPage() {
               {saved ? (
                 <>
                   <CheckCircle2 size={18} />
-                  Completed â€” Opening Phase 4...
+                  Completed — Opening Phase 4...
                 </>
               ) : (
                 <>

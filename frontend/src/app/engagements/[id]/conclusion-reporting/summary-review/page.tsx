@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -893,7 +893,7 @@ export default function SummaryReviewPage() {
 
   return (
 
-      <main className="min-h-screen bg-gray-50">
+      <main className="w-full bg-gray-50">
         {/* Header */}
         <div className="border-b border-gray-200 bg-white">
           <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
@@ -1946,7 +1946,7 @@ export default function SummaryReviewPage() {
               }
               className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
-              Continue to 4.4 â†’
+              Continue to 4.4 →
             </button>
           </div>
         </div>
@@ -1954,3 +1954,4 @@ export default function SummaryReviewPage() {
 
   );
 }
+

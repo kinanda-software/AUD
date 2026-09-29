@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -513,7 +513,7 @@ export default function GeneralAuditProceduresPage() {
 
                   {errors.map((error, index) => (
                     <li key={index}>
-                      â€¢ {error}
+                      • {error}
                     </li>
                   ))}
 

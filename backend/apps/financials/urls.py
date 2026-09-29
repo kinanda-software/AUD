@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AdjustmentViewSet,
     ChartOfAccountViewSet,
+    GeneralLedgerViewSet,
     LeadScheduleViewSet,
     SupportingDetailViewSet,
     TrialBalanceLineViewSet,
@@ -52,6 +53,12 @@ router.register(
     r"supporting-details",
     SupportingDetailViewSet,
     basename="supporting-detail",
+)
+
+router.register(
+    r"general-ledger",
+    GeneralLedgerViewSet,
+    basename="general-ledger",
 )
 
 

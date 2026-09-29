@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -899,7 +899,7 @@ export default function EvaluateMisstatementsPage() {
                 disabled={!engagementId}
                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                Continue to 4.2 â†’
+                Continue to 4.2 →
               </button>
             </div>
           </section>
