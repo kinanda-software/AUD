@@ -1,15 +1,27 @@
 from decimal import Decimal
 
 from rest_framework import serializers
+from .accounting_controls import source_journal
 
 from .models import (
     Adjustment,
+    BankStatement,
+    BankStatementLine,
     ChartOfAccount,
+    FinancialAuditEvent,
+    FinancialBudget,
+    FinancialBudgetLine,
+    FinancialDimension,
+    FinancialDimension,
     GeneralLedger,
+    JournalEntry,
+    JournalLine,
     LeadSchedule,
     SupportingDetail,
     TrialBalance,
     TrialBalanceLine,
+    
+    
 )
 
 
@@ -1228,6 +1240,12 @@ class GeneralLedgerSerializer(serializers.ModelSerializer):
     )
 
     amount = serializers.SerializerMethodField()
+    dimensions = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=FinancialDimension.objects.all(),
+        required=False,
+    )
+    dimension_values = serializers.SerializerMethodField()
 
     class Meta:
         model = GeneralLedger
@@ -1236,6 +1254,9 @@ class GeneralLedgerSerializer(serializers.ModelSerializer):
             "id",
             "engagement",
             "account",
+            "journal_line",
+            "dimensions",
+            "dimension_values",
             "account_code",
             "account_name",
             "account_type",
@@ -1254,6 +1275,7 @@ class GeneralLedgerSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             "id",
+            "journal_line",
             "account_code",
             "account_name",
             "account_type",
@@ -1331,6 +1353,28 @@ class GeneralLedgerSerializer(serializers.ModelSerializer):
                 }
             )
 
+        dimensions = attrs.get(
+            "dimensions",
+            list(self.instance.dimensions.all()) if self.instance else [],
+        )
+        if len({dimension.pk for dimension in dimensions}) != len(dimensions):
+            raise serializers.ValidationError({
+                "dimensions": "A dimension value cannot be assigned more than once."
+            })
+        if any(
+            dimension.engagement_id != engagement.pk
+            for dimension in dimensions
+        ):
+            raise serializers.ValidationError({
+                "dimensions": "Every dimension must belong to the selected engagement."
+            })
+        if "dimensions" in attrs and any(
+            not dimension.is_active for dimension in dimensions
+        ):
+            raise serializers.ValidationError({
+                "dimensions": "Inactive dimensions cannot be assigned to a ledger entry."
+            })
+
         if debit < Decimal("0.00"):
             raise serializers.ValidationError(
                 {
@@ -1371,3 +1415,484 @@ class GeneralLedgerSerializer(serializers.ModelSerializer):
 
     def get_amount(self, obj):
         return obj.amount
+
+    def get_dimension_values(self, obj):
+        return [
+            {
+                "id": dimension.id,
+                "dimension_type": dimension.dimension_type,
+                "name": dimension.name,
+            }
+            for dimension in obj.dimensions.all()
+        ]
+
+    # =========================================================
+# JOURNAL LINES
+# =========================================================
+
+class JournalLineSerializer(serializers.ModelSerializer):
+    account_code = serializers.CharField(
+        source="account.account_code",
+        read_only=True,
+    )
+
+    account_name = serializers.CharField(
+        source="account.account_name",
+        read_only=True,
+    )
+
+    amount = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        read_only=True,
+    )
+    dimensions = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=FinancialDimension.objects.all(),
+        required=False,
+    )
+    dimension_values = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JournalLine
+        fields = [
+            "id",
+            "journal_entry",
+            "account",
+            "account_code",
+            "account_name",
+            "dimensions",
+            "dimension_values",
+            "dimensions",
+            "dimension_values",
+            "debit",
+            "credit",
+            "amount",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "journal_entry",
+            "account_code",
+            "account_name",
+            "amount",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        debit = attrs.get(
+            "debit",
+            Decimal("0.00"),
+        )
+
+        credit = attrs.get(
+            "credit",
+            Decimal("0.00"),
+        )
+
+        if debit < Decimal("0.00"):
+            raise serializers.ValidationError(
+                {
+                    "debit": "Debit cannot be negative."
+                }
+            )
+
+        if credit < Decimal("0.00"):
+            raise serializers.ValidationError(
+                {
+                    "credit": "Credit cannot be negative."
+                }
+            )
+
+        if (
+            debit > Decimal("0.00")
+            and credit > Decimal("0.00")
+        ):
+            raise serializers.ValidationError(
+                "A journal line cannot have both debit and credit."
+            )
+
+        if (
+            debit == Decimal("0.00")
+            and credit == Decimal("0.00")
+        ):
+            raise serializers.ValidationError(
+                "A journal line must have either a debit or a credit amount."
+            )
+
+        journal_entry = attrs.get(
+            "journal_entry",
+            getattr(self.instance, "journal_entry", None),
+        )
+        dimensions = attrs.get(
+            "dimensions",
+            list(self.instance.dimensions.all()) if self.instance else [],
+        )
+        if len({dimension.pk for dimension in dimensions}) != len(dimensions):
+            raise serializers.ValidationError({
+                "dimensions": "A dimension value cannot be assigned more than once."
+            })
+        if journal_entry and any(
+            dimension.engagement_id != journal_entry.engagement_id
+            for dimension in dimensions
+        ):
+            raise serializers.ValidationError({
+                "dimensions": "Every dimension must belong to the journal engagement."
+            })
+        if "dimensions" in attrs and any(
+            not dimension.is_active for dimension in dimensions
+        ):
+            raise serializers.ValidationError({
+                "dimensions": "Inactive dimensions cannot be assigned to a journal line."
+            })
+        return attrs
+
+    def get_dimension_values(self, obj):
+        return [
+            {
+                "id": dimension.id,
+                "dimension_type": dimension.dimension_type,
+                "name": dimension.name,
+            }
+            for dimension in obj.dimensions.all()
+        ]
+
+
+# =========================================================
+# JOURNAL ENTRY
+# =========================================================
+
+class JournalEntrySerializer(serializers.ModelSerializer):
+    reversal_id = serializers.IntegerField(source="reversal.pk", read_only=True, default=None)
+    requires_approval = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
+    can_approve = serializers.SerializerMethodField()
+    source_document = serializers.SerializerMethodField()
+    lines = JournalLineSerializer(
+        many=True,
+        required=False,
+    )
+
+    total_debit = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        read_only=True,
+    )
+
+    total_credit = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        read_only=True,
+    )
+
+    difference = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        read_only=True,
+    )
+
+    is_balanced = serializers.BooleanField(
+        read_only=True,
+    )
+
+    line_count = serializers.IntegerField(
+        read_only=True,
+    )
+
+    class Meta:
+        model = JournalEntry
+
+        fields = [
+            "id",
+            "engagement",
+            "entry_number",
+            "transaction_date",
+            "reference",
+            "description",
+            "source",
+            "status",
+            "created_by",
+            "approved_by",
+            "approved_at",
+            "reversal_of",
+            "reversal_id",
+            "requires_approval",
+            "can_manage",
+            "can_approve",
+            "source_document",
+            "lines",
+            "total_debit",
+            "total_credit",
+            "difference",
+            "is_balanced",
+            "line_count",
+            "created_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "status",
+            "created_by",
+            "approved_by",
+            "approved_at",
+            "reversal_of",
+            "reversal_id",
+            "total_debit",
+            "total_credit",
+            "difference",
+            "is_balanced",
+            "line_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        if self.initial_data.get("status", "draft") != "draft":
+            raise serializers.ValidationError({
+                "status": "Use the journal workflow actions to change status.",
+            })
+        if self.instance and self.instance.status != JournalEntry.Status.DRAFT:
+            raise serializers.ValidationError("Only draft journals can be edited.")
+        if self.instance and source_journal(self.instance):
+            raise serializers.ValidationError("Source-document journals cannot be edited. Correct the source document.")
+        engagement = attrs.get(
+            "engagement",
+            getattr(
+                self.instance,
+                "engagement",
+                None,
+            ),
+        )
+
+        entry_number = attrs.get(
+            "entry_number",
+            getattr(
+                self.instance,
+                "entry_number",
+                None,
+            ),
+        )
+
+        transaction_date = attrs.get(
+            "transaction_date",
+            getattr(
+                self.instance,
+                "transaction_date",
+                None,
+            ),
+        )
+
+        description = attrs.get(
+            "description",
+            getattr(
+                self.instance,
+                "description",
+                None,
+            ),
+        )
+
+        # -----------------------------------------------------
+        # Engagement
+        # -----------------------------------------------------
+
+        if not engagement:
+            raise serializers.ValidationError(
+                {
+                    "engagement": (
+                        "Engagement is required."
+                    )
+                }
+            )
+
+        # -----------------------------------------------------
+        # Entry Number
+        # -----------------------------------------------------
+
+        if not entry_number:
+            raise serializers.ValidationError(
+                {
+                    "entry_number": (
+                        "Entry number is required."
+                    )
+                }
+            )
+
+        # -----------------------------------------------------
+        # Transaction Date
+        # -----------------------------------------------------
+
+        if not transaction_date:
+            raise serializers.ValidationError(
+                {
+                    "transaction_date": (
+                        "Transaction date is required."
+                    )
+                }
+            )
+
+        # -----------------------------------------------------
+        # Description
+        # -----------------------------------------------------
+
+        if not description:
+            raise serializers.ValidationError(
+                {
+                    "description": (
+                        "Description is required."
+                    )
+                }
+            )
+
+        # -----------------------------------------------------
+        # Entry Number Uniqueness
+        # -----------------------------------------------------
+
+        queryset = JournalEntry.objects.filter(
+            engagement=engagement,
+            entry_number=entry_number,
+        )
+
+        if self.instance:
+            queryset = queryset.exclude(
+                pk=self.instance.pk
+            )
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                {
+                    "entry_number": (
+                        "This entry number already exists "
+                        "for the selected engagement."
+                    )
+                }
+            )
+
+        for line_number, line_data in enumerate(attrs.get("lines", []), start=1):
+            account = line_data.get("account")
+            if account and not account.is_active:
+                raise serializers.ValidationError({
+                    "lines": f"Line {line_number} account is inactive.",
+                })
+            if account and account.engagement_id != engagement.pk:
+                raise serializers.ValidationError({
+                    "lines": f"Line {line_number} account must belong to the selected engagement."
+                })
+            if any(
+                dimension.engagement_id != engagement.pk
+                for dimension in line_data.get("dimensions", [])
+            ):
+                raise serializers.ValidationError({
+                    "lines": f"Line {line_number} dimensions must belong to the selected engagement."
+                })
+        if self.instance and getattr(self.instance, "opening_policy", None):
+            if engagement.pk != self.instance.engagement_id:
+                raise serializers.ValidationError("An opening journal cannot change engagement.")
+            if transaction_date != self.instance.transaction_date:
+                raise serializers.ValidationError("The established opening date cannot be changed.")
+            if any(
+                line["account"].account_type not in ("asset", "liability", "equity")
+                for line in attrs.get("lines", [])
+            ):
+                raise serializers.ValidationError("Opening journals use balance-sheet accounts only.")
+
+        return attrs
+
+    def get_requires_approval(self, obj):
+        policy = getattr(obj.engagement, "accounting_policy", None)
+        return bool(policy and policy.require_journal_approval)
+
+    def get_source_document(self, obj):
+        return source_journal(obj)
+
+    def get_can_manage(self, obj):
+        request = self.context.get("request")
+        user = request.user if request else None
+        return bool(user and (
+            getattr(user, "is_superuser", False)
+            or getattr(user, "role", None) in ("admin", "manager")
+        ))
+
+    def get_can_approve(self, obj):
+        request = self.context.get("request")
+        return bool(
+            self.get_can_manage(obj) and request
+            and obj.status == JournalEntry.Status.SUBMITTED
+            and obj.created_by_id != request.user.pk
+        )
+
+    def create(self, validated_data):
+        lines_data = validated_data.pop(
+            "lines",
+            [],
+        )
+
+        entry = JournalEntry.objects.create(
+            **validated_data
+        )
+
+        for line_data in lines_data:
+            dimensions = line_data.pop("dimensions", [])
+            JournalLine.objects.create(
+                journal_entry=entry,
+                **line_data,
+            ).dimensions.set(dimensions)
+
+        return entry
+
+    def update(self, instance, validated_data):
+        lines_data = validated_data.pop(
+            "lines",
+            None,
+        )
+
+        # -----------------------------------------------------
+        # Prevent modification of posted / void entries
+        # -----------------------------------------------------
+
+        if instance.status == JournalEntry.Status.POSTED:
+            raise serializers.ValidationError(
+                (
+                    "A posted journal entry cannot "
+                    "be modified."
+                )
+            )
+
+        if instance.status == JournalEntry.Status.VOID:
+            raise serializers.ValidationError(
+                (
+                    "A void journal entry cannot "
+                    "be modified."
+                )
+            )
+
+        # -----------------------------------------------------
+        # Update Journal Entry header
+        # -----------------------------------------------------
+
+        for attr, value in validated_data.items():
+            setattr(
+                instance,
+                attr,
+                value,
+            )
+
+        instance.save()
+
+        # -----------------------------------------------------
+        # Replace lines when supplied
+        # -----------------------------------------------------
+
+        if lines_data is not None:
+            instance.lines.all().delete()
+
+            for line_data in lines_data:
+                dimensions = line_data.pop("dimensions", [])
+                JournalLine.objects.create(
+                    journal_entry=instance,
+                    **line_data,
+                ).dimensions.set(dimensions)
+
+        return instance

@@ -1,7 +1,11 @@
 ﻿"use client";
+import { useAuthUser } from "@/components/layout/AuthContext";
+import type { AuthUser } from "@/lib/authSession";
+
 
 import {
   FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -28,9 +32,8 @@ import {
   getPlanningProceduresByEngagement,
   PlanningProcedure,
   updatePlanningProcedure,
+  type Engagement,
 } from "@/lib/api";
-
-const API_URL = "http://localhost:8000";
 
 const STATUS_OPTIONS = [
   {
@@ -66,21 +69,6 @@ type FormState = {
   conclusion: string;
   performed_by: string;
   performed_at: string;
-};
-
-type AuthUser = {
-  id: number;
-  username: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-};
-
-type SessionResponse = {
-  authenticated?: boolean;
-  user?: AuthUser;
-  error?: string;
 };
 
 const emptyForm: FormState = {
@@ -177,15 +165,17 @@ export default function PlanningProceduresPage() {
   const router = useRouter();
 
   const engagementId = Number(params.id);
+  const isValidEngagementId =
+    Number.isFinite(engagementId) && engagementId > 0;
 
-  const [engagement, setEngagement] = useState<any>(null);
+  const [engagement, setEngagement] =
+    useState<Engagement | null>(null);
 
   const [procedures, setProcedures] = useState<
     PlanningProcedure[]
   >([]);
 
-  const [currentUser, setCurrentUser] =
-    useState<AuthUser | null>(null);
+  const currentUser = useAuthUser();
 
   const [form, setForm] =
     useState<FormState>(emptyForm);
@@ -193,8 +183,10 @@ export default function PlanningProceduresPage() {
   const [editingId, setEditingId] =
     useState<number | null>(null);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loadedEngagementId, setLoadedEngagementId] =
+    useState<number | null>(null);
+  const loading =
+    isValidEngagementId && loadedEngagementId !== engagementId;
 
   const [saving, setSaving] =
     useState(false);
@@ -212,80 +204,21 @@ export default function PlanningProceduresPage() {
   const [success, setSuccess] =
     useState("");
 
-  /*
-   * Load authenticated user.
-   *
-   * The backend session already knows who is logged in.
-   * We use /api/auth/me/ instead of asking the user to
-   * manually type a database user ID.
-   */
-  async function loadCurrentUser() {
-    const response = await fetch(
-      `${API_URL}/api/auth/me/`,
-      {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
-
-    let data: SessionResponse = {};
-
+  const loadData = useCallback(async () => {
     try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
-
-    if (
-      !response.ok ||
-      !data.authenticated ||
-      !data.user ||
-      !Number.isFinite(data.user.id)
-    ) {
-      throw new Error(
-        "Unable to identify the currently authenticated user."
-      );
-    }
-
-    setCurrentUser(data.user);
-
-    return data.user;
-  }
-
-  useEffect(() => {
-    if (!Number.isFinite(engagementId)) {
-      setError("Invalid engagement ID.");
-      setLoading(false);
-      return;
-    }
-
-    loadData();
-  }, [engagementId]);
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      setError("");
-
       const [
         engagementData,
         proceduresData,
-        userData,
       ] = await Promise.all([
         getEngagement(engagementId),
         getPlanningProceduresByEngagement(
           engagementId
         ),
-        loadCurrentUser(),
       ]);
 
+      setError("");
       setEngagement(engagementData);
       setProcedures(proceduresData);
-      setCurrentUser(userData);
     } catch (err) {
       console.error(
         "Planning Procedures load error:",
@@ -298,9 +231,19 @@ export default function PlanningProceduresPage() {
           : "Failed to load Planning Procedures."
       );
     } finally {
-      setLoading(false);
+      setLoadedEngagementId(engagementId);
     }
-  }
+  }, [engagementId]);
+
+  useEffect(() => {
+    if (isValidEngagementId) {
+      void loadData();
+    }
+  }, [isValidEngagementId, loadData]);
+
+  const pageError = isValidEngagementId
+    ? error
+    : "Invalid engagement ID.";
 
   function getUserDisplayName(user: AuthUser) {
     const fullName = [
@@ -778,7 +721,6 @@ export default function PlanningProceduresPage() {
                   Engagement:{" "}
                   <span className="font-semibold text-gray-800">
                     {engagement.engagement_code ||
-                      engagement.code ||
                       engagement.title ||
                       `#${engagementId}`}
                   </span>
@@ -813,9 +755,9 @@ export default function PlanningProceduresPage() {
         </div>
 
         {/* Messages */}
-        {error && (
+        {pageError && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+            {pageError}
           </div>
         )}
 
@@ -1432,7 +1374,8 @@ export default function PlanningProceduresPage() {
                     ? "Complete all procedures or mark them Not Applicable first."
                     : "Continue to Phase 2 Risk Assessment"
               }
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Continue to Phase 2 Risk Assessment"
+              className="inline-flex w-fit self-end items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {continuing ? (
                 <>
@@ -1489,4 +1432,3 @@ function SummaryCard({
     </div>
   );
 }
-

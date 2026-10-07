@@ -1,9 +1,11 @@
-from django.urls import path
+﻿from django.urls import path
 
 from .views import (
     login_view,
     logout_view,
     current_user_view,
+    password_reset_request_view,
+    password_reset_confirm_view,
     csrf_token_view,
     users_view,
     user_detail_view,
@@ -11,7 +13,9 @@ from .views import (
 )
 
 urlpatterns = [
+    # ========================================================
     # Authentication
+    # ========================================================
     path(
         "login/",
         login_view,
@@ -30,7 +34,24 @@ urlpatterns = [
         name="current-user",
     ),
 
+    # ========================================================
+    # Password Reset
+    # ========================================================
+    path(
+        "password-reset/",
+        password_reset_request_view,
+        name="password-reset-request",
+    ),
+
+    path(
+        "password-reset/confirm/",
+        password_reset_confirm_view,
+        name="password-reset-confirm",
+    ),
+
+    # ========================================================
     # User Management
+    # ========================================================
     path(
         "users/",
         users_view,
@@ -43,14 +64,18 @@ urlpatterns = [
         name="user-detail",
     ),
 
+    # ========================================================
     # Audit Team User Selection
+    # ========================================================
     path(
         "audit-team-users/",
         audit_team_users_view,
         name="audit-team-users",
     ),
 
+    # ========================================================
     # CSRF
+    # ========================================================
     path(
         "csrf-token/",
         csrf_token_view,

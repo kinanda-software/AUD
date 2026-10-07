@@ -68,6 +68,8 @@ class SummaryReview(models.Model):
         related_name="summary_review",
     )
 
+    review_areas = models.JSONField(default=list, blank=True)
+
     # ---------------------------------------------------------
     # 4.3.2 Significant Judgments
     # ---------------------------------------------------------
@@ -180,3 +182,23 @@ class SummaryReview(models.Model):
             f"Summary Review"
         )
 
+
+class EngagementWorkpaper(models.Model):
+    """Structured page workpapers; never an opinion-issuance record."""
+
+    engagement = models.ForeignKey(
+        "engagements.Engagement", on_delete=models.CASCADE,
+        related_name="structured_workpapers",
+    )
+    section = models.CharField(max_length=64)
+    data = models.JSONField(default=dict)
+    completion_status = models.CharField(max_length=30, default="In Progress")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["engagement", "section"], name="unique_engagement_workpaper",
+            )
+        ]

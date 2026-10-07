@@ -1,9 +1,11 @@
 ﻿
 "use client";
 
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { getClient, type ClientRecord } from "@/lib/api";
 import {
   ArrowLeft,
   Building2,
@@ -18,35 +20,11 @@ import {
   User,
 } from "lucide-react";
 
-type Client = {
-  id: number;
-  client_code: string;
-  legal_name: string;
-  trading_name: string;
-  client_type: string;
-  registration_number: string;
-  tax_identification_number: string;
-  industry: string;
-  address: string;
-  city: string;
-  country: string;
-  contact_person: string;
-  contact_email: string;
-  contact_phone: string;
-  status: string;
-  risk_level: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-};
-
-const API_URL = "http://localhost:8000/api/clients/";
-
 export default function ClientDetailsPage() {
   const params = useParams();
   const clientId = params?.id;
 
-  const [client, setClient] = useState<Client | null>(null);
+  const [client, setClient] = useState<ClientRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -58,32 +36,7 @@ export default function ClientDetailsPage() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`${API_URL}${clientId}/`, {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        });
-
-        if (response.status === 401 || response.status === 403) {
-          throw new Error(
-            "You are not authenticated or do not have permission to view this client."
-          );
-        }
-
-        if (response.status === 404) {
-          throw new Error("Client was not found.");
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to load client. Server returned ${response.status}.`
-          );
-        }
-
-        const data = await response.json();
+        const data = await getClient(String(clientId));
         setClient(data);
       } catch (err) {
         console.error("Client details error:", err);
@@ -414,5 +367,4 @@ function ContactItem({
 }
 
 }
-
 

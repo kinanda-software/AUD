@@ -1,4 +1,8 @@
 ﻿"use client";
+import { apiResponse } from "@/lib/api";
+import { fetchAllRecords } from "@/lib/dashboard";
+import { isRecord } from "@/lib/typeGuards";
+
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -15,9 +19,6 @@ import {
   ShieldAlert,
   Trash2,
 } from "lucide-react";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 
 type DocumentationArea = {
   id: number;
@@ -84,17 +85,39 @@ type DocumentationArchivePageData = {
   archiveChecklistRetentionConfirmed: boolean;
 };
 
-const getAuthHeaders = (): HeadersInit => {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("audit-token")
-      : null;
+function isArchiveData(value: unknown): value is DocumentationArchivePageData {
+  if (!isRecord(value)) return false;
+  const strings = ["completionStatus", "archiveStatus", "documentationCompletionDate",
+    "retentionPeriod", "archiveReference", "subsequentEventsDetails", "finalReviewNotes", "partnerApprovalNotes"];
+  const flags = ["subsequentEventsReviewed", "finalReviewCompleted", "partnerApprovalCompleted",
+    "archiveChecklistDocumentationComplete", "archiveChecklistOutstandingMattersResolved",
+    "archiveChecklistFinalReviewComplete", "archiveChecklistPartnerApprovalComplete",
+    "archiveChecklistRetentionConfirmed"];
+  return strings.every((key) => typeof value[key] === "string")
+    && flags.every((key) => typeof value[key] === "boolean")
+    && Array.isArray(value.documentationAreas) && value.documentationAreas.every((row) =>
+      isRecord(row) && typeof row.id === "number" && typeof row.title === "string"
+      && typeof row.description === "string" && typeof row.completed === "boolean")
+    && Array.isArray(value.assemblySections) && value.assemblySections.every((row) =>
+      isRecord(row) && typeof row.id === "number" && typeof row.title === "string" && typeof row.completed === "boolean")
+    && Array.isArray(value.outstandingMatters) && value.outstandingMatters.every((row) =>
+      isRecord(row) && typeof row.id === "number" && typeof row.description === "string" && typeof row.resolved === "boolean");
+}
 
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Token ${token}` } : {}),
-  };
-};
+function isArchiveRecord(value: unknown, engagement: string): value is ArchiveRecord {
+  return isRecord(value) && typeof value.id === "number" && Number.isInteger(value.id) && value.id > 0
+    && String(value.engagement) === engagement && isRecord(value.data)
+    && (Object.keys(value.data).length === 0 || isArchiveData(value.data));
+}
+
+function isArchiveStatusRecord(value: unknown, engagement: string): value is ArchiveStatusRecord {
+  return isRecord(value) && typeof value.id === "number" && Number.isInteger(value.id) && value.id > 0
+    && String(value.engagement) === engagement && typeof value.locked === "boolean"
+    && (value.retention_period_years === null || (typeof value.retention_period_years === "number"
+      && Number.isInteger(value.retention_period_years) && value.retention_period_years > 0))
+    && (value.documentation_completed_at === null || (typeof value.documentation_completed_at === "string"
+      && Number.isFinite(Date.parse(value.documentation_completed_at))));
+}
 
 const createDefaultDocumentationAreas = (): DocumentationArea[] => [
   {
@@ -197,7 +220,9 @@ export default function DocumentationArchivePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [saved, setSaved] = useState(false);
+  const [, setSaved] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isArchived, setIsArchived] = useState(false);
 
   const [completionStatus, setCompletionStatus] = useState("Not Started");
@@ -306,7 +331,7 @@ export default function DocumentationArchivePage() {
     const totalRequirements =
       documentationAreas.length +
       assemblySections.length +
-      1 +
+      2 +
       1 +
       1 +
       5;
@@ -359,58 +384,20 @@ export default function DocumentationArchivePage() {
       setErrorMessage("");
 
       try {
-        const archiveResponse = await fetch(
-          `${API_URL}/documentation-archives/?engagement=${engagementId}`,
-          {
-            method: "GET",
-            headers: getAuthHeaders(),
-          }
+        const archiveResults = await fetchAllRecords<unknown>(
+          `/documentation-archives/?engagement=${engagementId}`,
         );
-
-        const archiveData = await archiveResponse
-          .json()
-          .catch(() => null);
-
-        if (!archiveResponse.ok) {
-          throw new Error(
-            archiveData?.detail ||
-              archiveData?.message ||
-              JSON.stringify(archiveData) ||
-              `Failed to load documentation archive (${archiveResponse.status})`
-          );
-        }
-
-        const archiveResults = Array.isArray(archiveData)
-          ? archiveData
-          : archiveData?.results ?? [];
+        if (archiveResults.length > 1 || !archiveResults.every((item): item is ArchiveRecord =>
+          isArchiveRecord(item, engagementId))) throw new Error("Invalid documentation archive response. No data has been overwritten.");
 
         const archiveRecord: ArchiveRecord | null =
           archiveResults.length > 0 ? archiveResults[0] : null;
 
-        const statusResponse = await fetch(
-          `${API_URL}/archive-statuses/?engagement=${engagementId}`,
-          {
-            method: "GET",
-            headers: getAuthHeaders(),
-          }
+        const statusResults = await fetchAllRecords<unknown>(
+          `/archive-statuses/?engagement=${engagementId}`,
         );
-
-        const statusData = await statusResponse
-          .json()
-          .catch(() => null);
-
-        if (!statusResponse.ok) {
-          throw new Error(
-            statusData?.detail ||
-              statusData?.message ||
-              JSON.stringify(statusData) ||
-              `Failed to load archive status (${statusResponse.status})`
-          );
-        }
-
-        const statusResults = Array.isArray(statusData)
-          ? statusData
-          : statusData?.results ?? [];
+        if (statusResults.length > 1 || !statusResults.every((item): item is ArchiveStatusRecord =>
+          isArchiveStatusRecord(item, engagementId))) throw new Error("Invalid archive lock response. No data has been overwritten.");
 
         const statusRecord: ArchiveStatusRecord | null =
           statusResults.length > 0 ? statusResults[0] : null;
@@ -427,7 +414,7 @@ export default function DocumentationArchivePage() {
           setArchiveStatusRecordId(Number(statusRecord.id));
         }
 
-        if (archiveRecord?.data) {
+        if (archiveRecord?.data && Object.keys(archiveRecord.data).length) {
           const data = archiveRecord.data;
 
           setCompletionStatus(
@@ -528,11 +515,7 @@ export default function DocumentationArchivePage() {
         }
 
         if (statusRecord) {
-          setArchiveStatus(
-            statusRecord.locked
-              ? "Archived"
-              : archiveStatus || "Not Archived"
-          );
+          setArchiveStatus(statusRecord.locked ? "Archived" : "Not Archived");
 
           if (statusRecord.locked) {
             setIsArchived(true);
@@ -553,8 +536,10 @@ export default function DocumentationArchivePage() {
         }
 
         setSaved(Boolean(archiveRecord));
+        setLoadFailed(false);
       } catch (error) {
         if (!cancelled) {
+          setLoadFailed(true);
           setErrorMessage(
             error instanceof Error
               ? error.message
@@ -573,13 +558,13 @@ export default function DocumentationArchivePage() {
     return () => {
       cancelled = true;
     };
-  }, [engagementId]);
+  }, [engagementId, loadAttempt]);
 
   const updateDocumentationArea = (
     id: number,
     completed: boolean
   ) => {
-    if (isArchived) {
+    if (loadFailed || loading || isArchived) {
       return;
     }
 
@@ -707,7 +692,7 @@ export default function DocumentationArchivePage() {
       >
     >
   ): Promise<boolean> => {
-    if (isArchived) {
+    if (loadFailed || loading || isArchived) {
       setErrorMessage(
         "This engagement has already been archived and is read-only."
       );
@@ -731,28 +716,18 @@ export default function DocumentationArchivePage() {
         data: buildArchiveData(overrides),
       };
 
-      const response = await fetch(
+      const response = await apiResponse(
         archiveRecordId
-          ? `${API_URL}/documentation-archives/${archiveRecordId}/`
-          : `${API_URL}/documentation-archives/`,
+          ? `/documentation-archives/${archiveRecordId}/`
+          : `/documentation-archives/`,
         {
           method: archiveRecordId ? "PATCH" : "POST",
-          headers: getAuthHeaders(),
           body: JSON.stringify(payload),
         }
       );
 
-      const data: ArchiveRecord | { detail?: string; message?: string } =
-        await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          (data as { detail?: string })?.detail ||
-            (data as { message?: string })?.message ||
-            JSON.stringify(data) ||
-            `Save failed (${response.status})`
-        );
-      }
+      const data: unknown = await response.json();
+      if (!isArchiveRecord(data, engagementId)) throw new Error("The server did not confirm the saved archive record.");
 
       if ("id" in data && data.id) {
         setArchiveRecordId(Number(data.id));
@@ -830,8 +805,8 @@ export default function DocumentationArchivePage() {
 
     try {
       const savedSuccessfully = await handleSave({
-        completionStatus: "Completed",
-        archiveStatus: "Archived",
+        completionStatus: "In Progress",
+        archiveStatus: "Not Archived",
       });
 
       if (!savedSuccessfully) {
@@ -839,6 +814,9 @@ export default function DocumentationArchivePage() {
       }
 
       const retentionYears = Number(retentionMatch[0]);
+      if (!Number.isInteger(retentionYears) || retentionYears < 1) {
+        throw new Error("Retention period must be at least one year.");
+      }
 
       const archivePayload = {
         engagement: Number(engagementId),
@@ -853,28 +831,19 @@ export default function DocumentationArchivePage() {
         locked: true,
       };
 
-      const response = await fetch(
+      const response = await apiResponse(
         archiveStatusRecordId
-          ? `${API_URL}/archive-statuses/${archiveStatusRecordId}/`
-          : `${API_URL}/archive-statuses/`,
+          ? `/archive-statuses/${archiveStatusRecordId}/`
+          : `/archive-statuses/`,
         {
           method: archiveStatusRecordId ? "PATCH" : "POST",
-          headers: getAuthHeaders(),
           body: JSON.stringify(archivePayload),
         }
       );
 
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          data?.detail ||
-            data?.message ||
-            JSON.stringify(data) ||
-            `Archive failed (${response.status})`
-        );
+      const data: unknown = await response.json();
+      if (!isArchiveStatusRecord(data, engagementId) || !data.locked) {
+        throw new Error("The server did not confirm the archive lock.");
       }
 
       if (data?.id) {
@@ -887,7 +856,7 @@ export default function DocumentationArchivePage() {
       setIsArchived(true);
 
       setSuccessMessage(
-        "Engagement completed and archived successfully. Leaving the completed workflow..."
+        "Documentation saved and locked successfully. Leaving the archive workspace..."
       );
 
       /*
@@ -926,6 +895,14 @@ export default function DocumentationArchivePage() {
         </div>
 
     );
+  }
+
+  if (loadFailed) {
+    return <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-800">
+      <p>{errorMessage}</p>
+      <button type="button" onClick={() => setLoadAttempt((current) => current + 1)} className="mt-4 font-semibold underline">Retry loading archive</button>
+      <button type="button" onClick={handleBack} className="ml-4 underline">Back to engagement</button>
+    </div>;
   }
 
   return (
@@ -1758,4 +1735,3 @@ export default function DocumentationArchivePage() {
 
   );
 }
-

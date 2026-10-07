@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -22,21 +23,13 @@ import {
   createAuditTeamMember,
   deleteAuditTeamMember,
   getAuditTeamByEngagement,
+  getAuditTeamUsers,
   getEngagement,
   updateAuditTeamMember,
   type AuditTeamMember,
+  type AuditTeamUser,
   type Engagement,
 } from "@/lib/api";
-
-interface AvailableUser {
-  id: number;
-  username: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  role?: string;
-  is_active?: boolean;
-}
 
 const ROLES = [
   { value: "engagement_partner", label: "Engagement Partner" },
@@ -50,8 +43,6 @@ const ROLES = [
   { value: "other", label: "Other" },
 ];
 
-const API_URL = "http://localhost:8000/api";
-
 export default function AuditTeamPage() {
   const params = useParams();
   const router = useRouter();
@@ -63,7 +54,8 @@ export default function AuditTeamPage() {
 
   const [members, setMembers] = useState<AuditTeamMember[]>([]);
 
-  const [users, setUsers] = useState<AvailableUser[]>([]);
+  const [users, setUsers] = useState<AuditTeamUser[]>([]);
+  const [usersError, setUsersError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,79 +77,27 @@ export default function AuditTeamPage() {
   const [isKeyMember, setIsKeyMember] =
     useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      setError("");
-
       const [engagementData, teamData] =
         await Promise.all([
           getEngagement(engagementId),
           getAuditTeamByEngagement(engagementId),
         ]);
 
+      setError("");
+      setUsersError("");
       setEngagement(engagementData);
       setMembers(teamData);
 
       try {
-        const csrfResponse = await fetch(
-          `${API_URL}/auth/csrf-token/`,
-          {
-            credentials: "include",
-          }
-        );
-
-        if (!csrfResponse.ok) {
-          throw new Error(
-            "Unable to initialize session."
-          );
-        }
-
-        /*
-         * IMPORTANT:
-         * This endpoint is different from /auth/users/.
-         *
-         * /auth/users/ is administrator-only.
-         * /auth/audit-team-users/ allows active
-         * admin, manager and auditor users to view
-         * users available for audit-team assignment.
-         */
-        const usersResponse = await fetch(
-          `${API_URL}/auth/audit-team-users/`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-
-        if (usersResponse.ok) {
-          const usersData =
-            await usersResponse.json();
-
-          if (Array.isArray(usersData)) {
-            setUsers(usersData);
-          } else if (
-            Array.isArray(usersData.users)
-          ) {
-            setUsers(usersData.users);
-          }
-        } else {
-          console.error(
-            "Audit team users request failed:",
-            usersResponse.status,
-            usersResponse.statusText
-          );
-        }
+        setUsers(await getAuditTeamUsers());
       } catch (userError) {
-        console.error(
-          "Unable to load audit team users:",
-          userError
+        setUsersError(
+          `Unable to load users available for team assignment: ${
+            userError instanceof Error ? userError.message : "Unknown error."
+          }`
         );
-
-        /*
-         * The team list can still be displayed if
-         * the user list endpoint is unavailable.
-         */
       }
     } catch (err) {
       console.error(err);
@@ -167,11 +107,11 @@ export default function AuditTeamPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [engagementId]);
 
   useEffect(() => {
-    loadData();
-  }, [engagementId]);
+    void loadData();
+  }, [loadData]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -286,12 +226,13 @@ export default function AuditTeamPage() {
         );
 
       setMembers(updatedMembers);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
 
       const message =
-        err?.message ||
-        "Unable to save the audit team member.";
+        err instanceof Error
+          ? err.message
+          : "Unable to save the audit team member.";
 
       setError(message);
     } finally {
@@ -331,12 +272,13 @@ export default function AuditTeamPage() {
       setSuccess(
         "Audit team member removed successfully."
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
 
       setError(
-        err?.message ||
-          "Unable to remove the audit team member."
+        err instanceof Error
+          ? err.message
+          : "Unable to remove the audit team member."
       );
     }
   };
@@ -382,15 +324,16 @@ export default function AuditTeamPage() {
         router.push(
           `/engagements/${engagementId}/audit-planning/planning-matters`
         );
-      } catch (err: any) {
+      } catch (err) {
         console.error(
           "Save & Continue audit team error:",
           err
         );
 
         setError(
-          err?.message ||
-            "Unable to continue to Workpaper 1.5."
+          err instanceof Error
+            ? err.message
+            : "Unable to continue to Workpaper 1.5."
         );
       } finally {
         setContinuing(false);
@@ -554,6 +497,15 @@ export default function AuditTeamPage() {
           </div>
 
           {/* Alerts */}
+          {usersError && (
+            <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <p>{usersError}</p>
+              <p className="mt-1">Existing team members remain available. Retry loading users to assign a new member.</p>
+              <button type="button" onClick={loadData} disabled={loading} className="mt-2 font-semibold underline disabled:opacity-50">
+                Retry
+              </button>
+            </div>
+          )}
           {error && (
             <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               <X
@@ -702,9 +654,11 @@ export default function AuditTeamPage() {
                     </select>
                   ) : (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                      The user list is not available for your
-                      account. Ask an administrator to assign the
-                      team member.
+                      {usersError
+                        ? "The user list could not be loaded. Use Retry above."
+                        : loading
+                          ? "Loading available users..."
+                          : "No users are available for team assignment."}
                     </div>
                   )}
                 </div>
@@ -1192,4 +1146,3 @@ export default function AuditTeamPage() {
       </div>
   );
 }
-

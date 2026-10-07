@@ -711,9 +711,11 @@ export default function RevenueCyclePage() {
               handleContinue();
             }}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Continue to Purchasing and Payables"
+            title="Continue to Purchasing and Payables"
+            className="inline-flex w-fit self-end items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Continue to Purchasing & Payables
+            Continue
 
             <ArrowRight size={18} />
           </button>

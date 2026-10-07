@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { useState } from "react";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -17,7 +19,7 @@ import {
   Warehouse,
 } from "lucide-react";
 
-type RiskLevel = "Low" | "Medium" | "High";
+type RiskLevel = "" | "Low" | "Medium" | "High";
 
 type InventoryRisk = {
   id: number;
@@ -34,7 +36,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Existence",
     risk: "Inventory recorded in the accounting records may not physically exist.",
     assertion: "Existence",
-    level: "Medium",
+    level: "",
     response:
       "Attend physical inventory counts and perform test counts against inventory records.",
   },
@@ -43,7 +45,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Completeness",
     risk: "Inventory movements may not be completely recorded in the accounting system.",
     assertion: "Completeness",
-    level: "Medium",
+    level: "",
     response:
       "Test inventory movement reports and reconcile stock movements to accounting records.",
   },
@@ -52,7 +54,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Valuation",
     risk: "Inventory may be incorrectly valued or obsolete inventory may not be provided for.",
     assertion: "Valuation",
-    level: "High",
+    level: "",
     response:
       "Review costing methods, unit costs, ageing reports and provisions for obsolete or damaged inventory.",
   },
@@ -61,7 +63,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Ownership",
     risk: "Inventory may include goods that are not owned by the entity.",
     assertion: "Rights & Obligations",
-    level: "Low",
+    level: "",
     response:
       "Inspect purchase documents, ownership records and consignment arrangements.",
   },
@@ -70,7 +72,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Cut-off",
     risk: "Purchases and inventory movements may be recorded in the wrong accounting period.",
     assertion: "Cut-off",
-    level: "Medium",
+    level: "",
     response:
       "Perform cut-off testing around year-end for purchases, goods received and goods issued.",
   },
@@ -79,7 +81,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Physical Controls",
     risk: "Poor warehouse controls may result in loss, damage or unauthorized access to inventory.",
     assertion: "Existence / Safeguarding",
-    level: "Medium",
+    level: "",
     response:
       "Inspect warehouse controls, access restrictions, security arrangements and stock handling procedures.",
   },
@@ -88,7 +90,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Reconciliation",
     risk: "Differences between physical counts and accounting records may not be investigated.",
     assertion: "Accuracy",
-    level: "Medium",
+    level: "",
     response:
       "Review inventory reconciliations and investigate significant stock count differences.",
   },
@@ -97,7 +99,7 @@ const initialRisks: InventoryRisk[] = [
     area: "Inventory Adjustments",
     risk: "Unauthorized inventory adjustments may be processed.",
     assertion: "Accuracy / Authorization",
-    level: "Low",
+    level: "",
     response:
       "Test inventory adjustments for authorization and supporting documentation.",
   },
@@ -166,10 +168,11 @@ export default function InventoryPage() {
     "overview" | "risk" | "controls" | "procedures"
   >("overview");
 
-  const [risks, setRisks] = useState<InventoryRisk[]>(initialRisks);
-
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const workpaper = useWorkpaper(engagementId, "inventory");
+  const [risks, setRisks] = workpaper.field<InventoryRisk[]>("risks", initialRisks);
+  const saved = workpaper.saved;
+  const saving = workpaper.saving;
+  const setSaved = workpaper.setSaved;
 
   const updateRiskLevel = (id: number, level: RiskLevel) => {
     setRisks((currentRisks) =>
@@ -181,42 +184,10 @@ export default function InventoryPage() {
     setSaved(false);
   };
 
-  const handleSave = () => {
-    if (saving) return;
-
-    setSaving(true);
-    setSaved(false);
-
-    console.log("Inventory risk assessment:", {
-      engagementId,
-      risks,
-    });
-
-    setTimeout(() => {
-      setSaving(false);
-      setSaved(true);
-    }, 500);
-  };
-
-  const handleSaveAndContinue = () => {
-    if (saving) return;
-
-    setSaving(true);
-    setSaved(false);
-
-    console.log("Inventory risk assessment:", {
-      engagementId,
-      risks,
-    });
-
-    setTimeout(() => {
-      setSaving(false);
-      setSaved(true);
-
-      router.push(
-        `/engagements/${engagementId}/risk-assessment/transaction-cycles/financial-statement-close`
-      );
-    }, 500);
+  const handleSave = () => { void workpaper.save(); };
+  const handleSaveAndContinue = async () => {
+    if (!await workpaper.save(true)) return;
+    router.push(`/engagements/${engagementId}/risk-assessment/transaction-cycles/financial-statement-close`);
   };
 
   const getRiskClass = (level: RiskLevel) => {
@@ -241,6 +212,9 @@ export default function InventoryPage() {
 
   return (
     <div className="w-full min-w-0 space-y-6">
+      <WorkpaperNotice {...workpaper} />
+      <fieldset disabled={workpaper.blocked} className="space-y-6">
+        <p className="text-sm text-slate-600">Risk descriptions and responses are checklist guidance, not recorded findings. Select the engagement-specific risk levels before completion.</p>
         {/* PAGE HEADER */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -569,6 +543,7 @@ export default function InventoryPage() {
                               }
                               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                             >
+                              <option value="">Not assessed</option>
                               <option value="Low">Low</option>
                               <option value="Medium">Medium</option>
                               <option value="High">High</option>
@@ -748,6 +723,7 @@ export default function InventoryPage() {
             </div>
           </div>
         </section>
+      </fieldset>
     </div>
   );
 }

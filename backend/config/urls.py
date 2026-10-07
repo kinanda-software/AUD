@@ -84,11 +84,4 @@ urlpatterns = [
     include("apps.financials.urls"),
 ),
 
-    # ========================================================
-    # AI ASSISTANT API
-    # ========================================================
-    path(
-        "api/ai/",
-        include("apps.ai_assistant.urls"),
-    ),
 ]

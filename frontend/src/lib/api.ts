@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:8000/api";
+import { API_ORIGIN } from "@/lib/apiConfig";
+const API_URL = `${API_ORIGIN}/api`;
 
 /* =========================================================
    TYPES
@@ -35,6 +36,28 @@ export interface Engagement {
   updated_at?: string;
 
   [key: string]: unknown;
+}
+
+export interface ClientRecord {
+  id: number;
+  client_code: string;
+  legal_name: string;
+  trading_name: string;
+  client_type: "company" | "government" | "ngo" | "bank" | "insurance" | "other";
+  registration_number: string;
+  tax_identification_number: string;
+  industry: string;
+  address: string;
+  city: string;
+  country: string;
+  contact_person: string;
+  contact_email: string;
+  contact_phone: string;
+  status: "prospect" | "onboarding" | "active" | "inactive";
+  risk_level: "low" | "medium" | "high";
+  notes: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PlanningAssessment {
@@ -217,10 +240,10 @@ async function ensureCsrfToken(): Promise<string | null> {
    GENERIC API HELPER
 ========================================================= */
 
-export async function apiRequest<T>(
+export async function apiResponse(
   endpoint: string,
   options?: RequestInit
-): Promise<T> {
+): Promise<Response> {
   const method =
     options?.method?.toUpperCase() ?? "GET";
 
@@ -229,10 +252,18 @@ export async function apiRequest<T>(
   /*
    * Most AUD API requests use JSON.
    */
-  headers.set(
-    "Content-Type",
-    "application/json"
-  );
+  const isFormData =
+    typeof FormData !== "undefined" &&
+    options?.body instanceof FormData;
+
+  if (isFormData) {
+    headers.delete("Content-Type");
+  } else {
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
+  }
 
   /*
    * =======================================================
@@ -333,6 +364,14 @@ export async function apiRequest<T>(
     );
   }
 
+  return response;
+}
+
+export async function apiRequest<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  const response = await apiResponse(endpoint, options);
   /*
    * DELETE requests commonly return HTTP 204
    * with no response body.
@@ -392,16 +431,36 @@ export async function getEngagement(
    CLIENTS
 ========================================================= */
 
-export async function getClients() {
-  return apiRequest("/clients/");
+export async function getClients(): Promise<ClientRecord[]> {
+  return apiRequest<ClientRecord[]>("/clients/", { cache: "no-store" });
 }
 
 export async function getClient(
   id: number | string
-) {
-  return apiRequest(
-    `/clients/${id}/`
+) : Promise<ClientRecord> {
+  return apiRequest<ClientRecord>(
+    `/clients/${id}/`,
+    { cache: "no-store" }
   );
+}
+
+export async function createClient(
+  data: Partial<Omit<ClientRecord, "id" | "created_at" | "updated_at">>
+): Promise<ClientRecord> {
+  return apiRequest<ClientRecord>("/clients/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateClient(
+  id: number | string,
+  data: Partial<Omit<ClientRecord, "id" | "created_at" | "updated_at">>
+): Promise<ClientRecord> {
+  return apiRequest<ClientRecord>(`/clients/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
 
 /* =========================================================
@@ -581,6 +640,42 @@ export async function updateAuditScope(
 /* =========================================================
    PHASE 1 — AUDIT TEAM
 ========================================================= */
+
+export interface AuditTeamUser {
+  id: number;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  role?: string;
+  is_active?: boolean;
+}
+
+export async function getAuditTeamUsers(): Promise<AuditTeamUser[]> {
+  const data = await apiRequest<unknown>("/auth/audit-team-users/");
+  const users = Array.isArray(data)
+    ? data
+    : data !== null && typeof data === "object" && "users" in data
+      ? data.users
+      : undefined;
+
+  if (!Array.isArray(users) || !users.every(
+    (user): user is AuditTeamUser =>
+      user !== null &&
+      typeof user === "object" &&
+      Number.isInteger(user.id) &&
+      user.id > 0 &&
+      typeof user.username === "string" &&
+      ["first_name", "last_name", "email", "role"].every(
+        (key) => user[key] === undefined || typeof user[key] === "string"
+      ) &&
+      (user.is_active === undefined || typeof user.is_active === "boolean")
+  )) {
+    throw new Error("Invalid audit team users response.");
+  }
+
+  return users;
+}
 
 export async function getAuditTeamMembers() {
   return apiRequest<
@@ -1094,6 +1189,12 @@ export interface GeneralLedgerEntry {
   account_name: string;
   account_type: string;
   financial_statement_section: string;
+  dimensions: number[];
+  dimension_values: {
+    id: number;
+    dimension_type: "class" | "location" | "project";
+    name: string;
+  }[];
 
   transaction_date: string;
 
@@ -1235,6 +1336,324 @@ export async function deleteGeneralLedgerEntry(
 ): Promise<void> {
   return apiRequest<void>(
     `/financials/general-ledger/${id}/`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+/* =========================================================
+   FINANCIALS — JOURNAL ENTRIES
+========================================================= */
+
+export type JournalEntrySource =
+  | "manual"
+  | "import"
+  | "adjustment"
+  | "other";
+
+export type JournalEntryStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "posted"
+  | "void";
+
+export interface JournalLine {
+  id?: number;
+
+  journal_entry?: number;
+
+  account: number;
+  account_code?: string;
+  account_name?: string;
+  dimensions?: number[];
+  dimension_values?: {
+    id: number;
+    dimension_type: "class" | "location" | "project";
+    name: string;
+  }[];
+
+  debit: number | string;
+  credit: number | string;
+  amount?: number | string;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface JournalEntry {
+  id: number;
+
+  engagement: number;
+
+  entry_number: string;
+  transaction_date: string;
+  reference: string;
+  description: string;
+
+  source: JournalEntrySource;
+  status: JournalEntryStatus;
+  created_by: number | null;
+  approved_by: number | null;
+  approved_at: string | null;
+  reversal_of: number | null;
+  reversal_id: number | null;
+  requires_approval: boolean;
+  can_manage: boolean;
+  can_approve: boolean;
+  source_document: boolean;
+
+  lines: JournalLine[];
+
+  total_debit: number | string;
+  total_credit: number | string;
+  difference: number | string;
+
+  is_balanced: boolean;
+  line_count: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get all Journal Entries.
+ */
+export async function getJournalEntries(
+  params?: {
+    engagement?: number | string;
+    status?: JournalEntryStatus | "";
+    source?: JournalEntrySource | "";
+    date_from?: string;
+    date_to?: string;
+  }
+): Promise<JournalEntry[]> {
+  const searchParams = new URLSearchParams();
+
+  if (
+    params?.engagement !== undefined &&
+    params.engagement !== ""
+  ) {
+    searchParams.set(
+      "engagement",
+      String(params.engagement)
+    );
+  }
+
+  if (params?.status) {
+    searchParams.set(
+      "status",
+      params.status
+    );
+  }
+
+  if (params?.source) {
+    searchParams.set(
+      "source",
+      params.source
+    );
+  }
+
+  if (params?.date_from) {
+    searchParams.set(
+      "date_from",
+      params.date_from
+    );
+  }
+
+  if (params?.date_to) {
+    searchParams.set(
+      "date_to",
+      params.date_to
+    );
+  }
+
+  const query = searchParams.toString();
+
+  return apiRequest<JournalEntry[]>(
+    `/financials/journal-entries/${
+      query ? `?${query}` : ""
+    }`
+  );
+}
+
+/**
+ * Get one Journal Entry.
+ */
+export async function getJournalEntry(
+  id: number | string
+): Promise<JournalEntry> {
+  return apiRequest<JournalEntry>(
+    `/financials/journal-entries/${id}/`
+  );
+}
+
+/**
+ * Create a Journal Entry.
+ */
+export async function createJournalEntry(
+  data: Partial<JournalEntry>
+): Promise<JournalEntry> {
+  return apiRequest<JournalEntry>(
+    "/financials/journal-entries/",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/**
+ * Update a Journal Entry.
+ */
+export async function updateJournalEntry(
+  id: number | string,
+  data: Partial<JournalEntry>
+): Promise<JournalEntry> {
+  return apiRequest<JournalEntry>(
+    `/financials/journal-entries/${id}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/**
+ * Delete a Journal Entry.
+ */
+export async function deleteJournalEntry(
+  id: number | string
+): Promise<void> {
+  return apiRequest<void>(
+    `/financials/journal-entries/${id}/`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+/**
+ * Post a Journal Entry.
+ *
+ * This triggers the backend posting workflow:
+ *
+ * Journal Entry
+ *      ↓
+ * Validation
+ *      ↓
+ * General Ledger
+ *      ↓
+ * Journal status = posted
+ */
+export async function postJournalEntry(
+  id: number | string
+): Promise<JournalEntry> {
+  return apiRequest<JournalEntry>(
+    `/financials/journal-entries/${id}/post/`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    }
+  );
+}
+
+
+/* =========================================================
+   FINANCIALS — JOURNAL LINES
+========================================================= */
+
+/**
+ * Get all Journal Lines.
+ */
+export async function getJournalLines(
+  params?: {
+    journal_entry?: number | string;
+    account?: number | string;
+  }
+): Promise<JournalLine[]> {
+  const searchParams = new URLSearchParams();
+
+  if (
+    params?.journal_entry !== undefined &&
+    params.journal_entry !== ""
+  ) {
+    searchParams.set(
+      "journal_entry",
+      String(params.journal_entry)
+    );
+  }
+
+  if (
+    params?.account !== undefined &&
+    params.account !== ""
+  ) {
+    searchParams.set(
+      "account",
+      String(params.account)
+    );
+  }
+
+  const query = searchParams.toString();
+
+  return apiRequest<JournalLine[]>(
+    `/financials/journal-lines/${
+      query ? `?${query}` : ""
+    }`
+  );
+}
+
+/**
+ * Get one Journal Line.
+ */
+export async function getJournalLine(
+  id: number | string
+): Promise<JournalLine> {
+  return apiRequest<JournalLine>(
+    `/financials/journal-lines/${id}/`
+  );
+}
+
+/**
+ * Create a Journal Line.
+ */
+export async function createJournalLine(
+  data: Partial<JournalLine>
+): Promise<JournalLine> {
+  return apiRequest<JournalLine>(
+    "/financials/journal-lines/",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/**
+ * Update a Journal Line.
+ */
+export async function updateJournalLine(
+  id: number | string,
+  data: Partial<JournalLine>
+): Promise<JournalLine> {
+  return apiRequest<JournalLine>(
+    `/financials/journal-lines/${id}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/**
+ * Delete a Journal Line.
+ */
+export async function deleteJournalLine(
+  id: number | string
+): Promise<void> {
+  return apiRequest<void>(
+    `/financials/journal-lines/${id}/`,
     {
       method: "DELETE",
     }

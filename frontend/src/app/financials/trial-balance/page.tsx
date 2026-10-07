@@ -19,6 +19,7 @@ import {
 
 import {
   createTrialBalance,
+  generateTrialBalanceFromGL,
   getEngagements,
   getTrialBalances,
   type Engagement,
@@ -100,6 +101,9 @@ export default function TrialBalancePage() {
 
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  const [generatingGLId, setGeneratingGLId] =
+    useState<number | null>(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -213,6 +217,53 @@ export default function TrialBalancePage() {
     }
   }
 
+  async function handleGenerateFromGL(
+    trialBalance: TrialBalance
+  ) {
+    if (trialBalance.status === "locked") {
+      setError(
+        "A locked Trial Balance cannot be regenerated from the General Ledger."
+      );
+      setSuccess("");
+      return;
+    }
+
+    try {
+      setGeneratingGLId(trialBalance.id);
+      setError("");
+      setSuccess("");
+
+      const result =
+        await generateTrialBalanceFromGL(
+          trialBalance.id
+        );
+
+      console.log(
+        "GENERATE TRIAL BALANCE FROM GL RESULT:",
+        result
+      );
+
+      setSuccess(
+        `Trial Balance #${trialBalance.id} generated successfully from General Ledger. ${result.gl_entry_count} GL entries processed and ${result.line_count} Trial Balance lines generated.`
+      );
+
+      await loadData();
+    } catch (err) {
+      console.error(
+        "Failed to generate Trial Balance from GL:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate Trial Balance from General Ledger."
+      );
+    } finally {
+      setGeneratingGLId(null);
+    }
+  }
+
   function openTrialBalance(id: number) {
     router.push(`/financials/trial-balance/${id}`);
   }
@@ -236,371 +287,374 @@ export default function TrialBalancePage() {
   }
 
   return (
-
-      <div className="w-full">
-        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
-                <FileSpreadsheet size={18} />
-                Financials
-              </div>
-
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                Trial Balance
-              </h1>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Manage, review and lock engagement Trial
-                Balances.
-              </p>
+    <div className="w-full">
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
+              <FileSpreadsheet size={18} />
+              Financials
             </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={loadData}
-                disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw
-                  size={17}
-                  className={
-                    loading ? "animate-spin" : ""
-                  }
-                />
-                Refresh
-              </button>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Trial Balance
+            </h1>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateForm(true);
-                  setError("");
-                  setSuccess("");
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-              >
-                <Plus size={18} />
-                New Trial Balance
-              </button>
-            </div>
+            <p className="mt-1 text-sm text-slate-500">
+              Manage, review and lock engagement Trial
+              Balances.
+            </p>
           </div>
 
-          {/* Messages */}
-          {error && (
-            <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <AlertCircle
-                className="mt-0.5 shrink-0"
-                size={18}
-              />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-5 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-              <CheckCircle2
-                className="mt-0.5 shrink-0"
-                size={18}
-              />
-              <span>{success}</span>
-            </div>
-          )}
-
-          {/* Create Form */}
-          {showCreateForm && (
-            <div className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 px-5 py-4">
-                <h2 className="font-semibold text-slate-900">
-                  Create Trial Balance
-                </h2>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  Create the reporting period before
-                  entering account balances.
-                </p>
-              </div>
-
-              <form
-                onSubmit={handleCreate}
-                className="grid grid-cols-1 gap-5 p-5 md:grid-cols-2"
-              >
-                {/* Engagement */}
-                <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Engagement
-                  </label>
-
-                  <select
-                    value={selectedEngagement}
-                    onChange={(event) =>
-                      setSelectedEngagement(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
-                  >
-                    <option value="">
-                      Select an engagement
-                    </option>
-
-                    {engagements.map((engagement) => (
-                      <option
-                        key={engagement.id}
-                        value={engagement.id}
-                      >
-                        {engagement.engagement_code} —{" "}
-                        {engagement.title}
-                      </option>
-                    ))}
-                  </select>
-
-                  {engagements.length === 0 && (
-                    <p className="mt-2 text-sm text-amber-600">
-                      No engagements available.
-                    </p>
-                  )}
-
-                  {engagements.length > 0 && (
-                    <p className="mt-2 text-xs text-slate-500">
-                      {engagements.length} engagement
-                      {engagements.length !== 1
-                        ? "s"
-                        : ""}{" "}
-                      available.
-                    </p>
-                  )}
-                </div>
-
-                {/* Period Start */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Period Start
-                  </label>
-
-                  <input
-                    type="date"
-                    value={periodStart}
-                    onChange={(event) =>
-                      setPeriodStart(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
-                  />
-                </div>
-
-                {/* Period End */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Period End
-                  </label>
-
-                  <input
-                    type="date"
-                    value={periodEnd}
-                    onChange={(event) =>
-                      setPeriodEnd(event.target.value)
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    required
-                  />
-                </div>
-
-                {/* Currency */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Currency
-                  </label>
-
-                  <select
-                    value={currency}
-                    onChange={(event) =>
-                      setCurrency(event.target.value)
-                    }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option value="TZS">TZS</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                  </select>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Description
-                  </label>
-
-                  <input
-                    type="text"
-                    value={description}
-                    onChange={(event) =>
-                      setDescription(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. 2026 Financial Statement Audit TB"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
-                </div>
-
-                {/* Buttons */}
-                <div className="flex justify-end gap-3 md:col-span-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowCreateForm(false)
-                    }
-                    className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {creating && (
-                      <Loader2
-                        size={17}
-                        className="animate-spin"
-                      />
-                    )}
-
-                    Create Trial Balance
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Filter */}
-          <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Filter by Engagement
-            </label>
-
-            <select
-              value={selectedEngagement}
-              onChange={(event) =>
-                setSelectedEngagement(
-                  event.target.value
-                )
-              }
-              className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={loadData}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">
-                All engagements
-              </option>
+              <RefreshCw
+                size={17}
+                className={
+                  loading ? "animate-spin" : ""
+                }
+              />
+              Refresh
+            </button>
 
-              {engagements.map((engagement) => (
-                <option
-                  key={engagement.id}
-                  value={engagement.id}
-                >
-                  {engagement.engagement_code} —{" "}
-                  {engagement.title}
-                </option>
-              ))}
-            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm(true);
+                setError("");
+                setSuccess("");
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            >
+              <Plus size={18} />
+              New Trial Balance
+            </button>
           </div>
+        </div>
 
-          {/* Trial Balance Table */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {/* Messages */}
+        {error && (
+          <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <AlertCircle
+              className="mt-0.5 shrink-0"
+              size={18}
+            />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-5 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+            <CheckCircle2
+              className="mt-0.5 shrink-0"
+              size={18}
+            />
+            <span>{success}</span>
+          </div>
+        )}
+
+        {/* Create Form */}
+        {showCreateForm && (
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="font-semibold text-slate-900">
-                Trial Balances
+                Create Trial Balance
               </h2>
 
               <p className="mt-1 text-xs text-slate-500">
-                Select a Trial Balance to continue to
-                adjusted balances, lead schedules, or
-                financial statements.
+                Create the reporting period before
+                entering account balances.
               </p>
             </div>
 
-            {loading ? (
-              <div className="flex min-h-64 items-center justify-center">
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <Loader2
-                    size={22}
-                    className="animate-spin"
-                  />
-                  Loading Trial Balances...
-                </div>
+            <form
+              onSubmit={handleCreate}
+              className="grid grid-cols-1 gap-5 p-5 md:grid-cols-2"
+            >
+              {/* Engagement */}
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Engagement
+                </label>
+
+                <select
+                  value={selectedEngagement}
+                  onChange={(event) =>
+                    setSelectedEngagement(
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  required
+                >
+                  <option value="">
+                    Select an engagement
+                  </option>
+
+                  {engagements.map((engagement) => (
+                    <option
+                      key={engagement.id}
+                      value={engagement.id}
+                    >
+                      {engagement.engagement_code} —{" "}
+                      {engagement.title}
+                    </option>
+                  ))}
+                </select>
+
+                {engagements.length === 0 && (
+                  <p className="mt-2 text-sm text-amber-600">
+                    No engagements available.
+                  </p>
+                )}
+
+                {engagements.length > 0 && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    {engagements.length} engagement
+                    {engagements.length !== 1
+                      ? "s"
+                      : ""}{" "}
+                    available.
+                  </p>
+                )}
               </div>
-            ) : trialBalances.length === 0 ? (
-              <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center">
-                <FileSpreadsheet
-                  size={42}
-                  className="mb-3 text-slate-300"
+
+              {/* Period Start */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Period Start
+                </label>
+
+                <input
+                  type="date"
+                  value={periodStart}
+                  onChange={(event) =>
+                    setPeriodStart(
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  required
                 />
+              </div>
 
-                <h3 className="font-semibold text-slate-800">
-                  No Trial Balances found
-                </h3>
+              {/* Period End */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Period End
+                </label>
 
-                <p className="mt-1 max-w-md text-sm text-slate-500">
-                  Create a Trial Balance for an
-                  engagement to begin entering financial
-                  data.
-                </p>
+                <input
+                  type="date"
+                  value={periodEnd}
+                  onChange={(event) =>
+                    setPeriodEnd(event.target.value)
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  required
+                />
+              </div>
 
+              {/* Currency */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Currency
+                </label>
+
+                <select
+                  value={currency}
+                  onChange={(event) =>
+                    setCurrency(event.target.value)
+                  }
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="TZS">TZS</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                </select>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Description
+                </label>
+
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(event) =>
+                    setDescription(
+                      event.target.value
+                    )
+                  }
+                  placeholder="e.g. 2026 Financial Statement Audit TB"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex justify-end gap-3 md:col-span-2">
                 <button
                   type="button"
                   onClick={() =>
-                    setShowCreateForm(true)
+                    setShowCreateForm(false)
                   }
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  <Plus size={17} />
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {creating && (
+                    <Loader2
+                      size={17}
+                      className="animate-spin"
+                    />
+                  )}
+
                   Create Trial Balance
                 </button>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Engagement
-                      </th>
+            </form>
+          </div>
+        )}
 
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Period
-                      </th>
+        {/* Filter */}
+        <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Filter by Engagement
+          </label>
 
-                      <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Debit
-                      </th>
+          <select
+            value={selectedEngagement}
+            onChange={(event) =>
+              setSelectedEngagement(
+                event.target.value
+              )
+            }
+            className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">
+              All engagements
+            </option>
 
-                      <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Credit
-                      </th>
+            {engagements.map((engagement) => (
+              <option
+                key={engagement.id}
+                value={engagement.id}
+              >
+                {engagement.engagement_code} —{" "}
+                {engagement.title}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                      <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Difference
-                      </th>
+        {/* Trial Balance Table */}
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-4">
+            <h2 className="font-semibold text-slate-900">
+              Trial Balances
+            </h2>
 
-                      <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Status
-                      </th>
+            <p className="mt-1 text-xs text-slate-500">
+              Select a Trial Balance to continue to
+              adjusted balances, lead schedules, or
+              financial statements.
+            </p>
+          </div>
 
-                      <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
+          {loading ? (
+            <div className="flex min-h-64 items-center justify-center">
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <Loader2
+                  size={22}
+                  className="animate-spin"
+                />
+                Loading Trial Balances...
+              </div>
+            </div>
+          ) : trialBalances.length === 0 ? (
+            <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center">
+              <FileSpreadsheet
+                size={42}
+                className="mb-3 text-slate-300"
+              />
 
-                  <tbody className="divide-y divide-slate-100">
-                    {trialBalances.map((tb) => (
+              <h3 className="font-semibold text-slate-800">
+                No Trial Balances found
+              </h3>
+
+              <p className="mt-1 max-w-md text-sm text-slate-500">
+                Create a Trial Balance for an
+                engagement to begin entering financial
+                data.
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowCreateForm(true)
+                }
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                <Plus size={17} />
+                Create Trial Balance
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Engagement
+                    </th>
+
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Period
+                    </th>
+
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Debit
+                    </th>
+
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Credit
+                    </th>
+
+                    <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Difference
+                    </th>
+
+                    <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Status
+                    </th>
+
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {trialBalances.map((tb) => {
+                    const isGenerating =
+                      generatingGLId === tb.id;
+
+                    return (
                       <tr
                         key={tb.id}
                         className="hover:bg-slate-50"
@@ -669,7 +723,40 @@ export default function TrialBalancePage() {
 
                         {/* Actions */}
                         <td className="px-5 py-4">
-                          <div className="flex min-w-[420px] flex-wrap justify-end gap-2">
+                          <div className="flex min-w-[560px] flex-wrap justify-end gap-2">
+                            {/* Generate from General Ledger */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleGenerateFromGL(
+                                  tb
+                                )
+                              }
+                              disabled={
+                                isGenerating ||
+                                tb.status === "locked"
+                              }
+                              className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              title={
+                                tb.status === "locked"
+                                  ? "Locked Trial Balance cannot be regenerated"
+                                  : "Generate Trial Balance from posted General Ledger entries"
+                              }
+                            >
+                              {isGenerating ? (
+                                <Loader2
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <RefreshCw size={14} />
+                              )}
+
+                              {isGenerating
+                                ? "Generating..."
+                                : "Generate from GL"}
+                            </button>
+
                             {/* Open Trial Balance */}
                             <button
                               type="button"
@@ -734,96 +821,96 @@ export default function TrialBalancePage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Workflow Explanation */}
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet
-                  size={18}
-                  className="text-blue-600"
-                />
-
-                <p className="text-sm font-semibold text-blue-900">
-                  Adjusted Trial Balance
-                </p>
-              </div>
-
-              <p className="mt-2 text-xs leading-5 text-blue-800">
-                Review the original balances together
-                with posted audit adjustments.
-              </p>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+          )}
+        </div>
 
-            <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
-              <div className="flex items-center gap-2">
-                <Layers3
-                  size={18}
-                  className="text-purple-600"
-                />
+        {/* Workflow Explanation */}
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet
+                size={18}
+                className="text-blue-600"
+              />
 
-                <p className="text-sm font-semibold text-purple-900">
-                  Lead Schedules
-                </p>
-              </div>
-
-              <p className="mt-2 text-xs leading-5 text-purple-800">
-                Build account-level audit schedules and
-                supporting details from the selected Trial
-                Balance.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-              <div className="flex items-center gap-2">
-                <FileText
-                  size={18}
-                  className="text-green-600"
-                />
-
-                <p className="text-sm font-semibold text-green-900">
-                  Financial Statements
-                </p>
-              </div>
-
-              <p className="mt-2 text-xs leading-5 text-green-800">
-                Generate financial statements from the
-                adjusted balances of the selected Trial
-                Balance.
-              </p>
-            </div>
-          </div>
-
-          {/* Control Note */}
-          <div className="mt-5 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <ShieldCheck
-              size={20}
-              className="mt-0.5 shrink-0 text-blue-600"
-            />
-
-            <div>
               <p className="text-sm font-semibold text-blue-900">
-                Audit control
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-blue-800">
-                A Trial Balance must be balanced before it
-                can be locked. Once locked, the backend
-                prevents changes to its underlying lines.
-                The locked Trial Balance can still be used
-                for adjusted balances, lead schedules, and
-                financial statement reporting.
+                Adjusted Trial Balance
               </p>
             </div>
+
+            <p className="mt-2 text-xs leading-5 text-blue-800">
+              Review the original balances together
+              with posted audit adjustments.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+            <div className="flex items-center gap-2">
+              <Layers3
+                size={18}
+                className="text-purple-600"
+              />
+
+              <p className="text-sm font-semibold text-purple-900">
+                Lead Schedules
+              </p>
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-purple-800">
+              Build account-level audit schedules and
+              supporting details from the selected Trial
+              Balance.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+            <div className="flex items-center gap-2">
+              <FileText
+                size={18}
+                className="text-green-600"
+              />
+
+              <p className="text-sm font-semibold text-green-900">
+                Financial Statements
+              </p>
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-green-800">
+              Generate financial statements from the
+              adjusted balances of the selected Trial
+              Balance.
+            </p>
+          </div>
+        </div>
+
+        {/* Control Note */}
+        <div className="mt-5 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <ShieldCheck
+            size={20}
+            className="mt-0.5 shrink-0 text-blue-600"
+          />
+
+          <div>
+            <p className="text-sm font-semibold text-blue-900">
+              Audit control
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-blue-800">
+              A Trial Balance must be balanced before it
+              can be locked. Once locked, the backend
+              prevents changes to its underlying lines.
+              The locked Trial Balance can still be used
+              for adjusted balances, lead schedules, and
+              financial statement reporting.
+            </p>
           </div>
         </div>
       </div>
-
+    </div>
   );
 }

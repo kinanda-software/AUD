@@ -31,13 +31,6 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 # ============================================================
-# OPENAI
-# ============================================================
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-
-# ============================================================
 # SECURITY
 # ============================================================
 
@@ -102,7 +95,6 @@ INSTALLED_APPS = [
     # --------------------------------------------------------
     # AI ASSISTANT
     # --------------------------------------------------------
-    "apps.ai_assistant",
 ]
 
 
@@ -283,6 +275,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -295,6 +289,8 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 
 
@@ -319,3 +315,49 @@ REST_FRAMEWORK = {
     ],
 }
 
+
+# =========================================================
+# PASSWORD RESET / EMAIL
+# =========================================================
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:3000",
+)
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    "no-reply@aud.local",
+)
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+
+EMAIL_HOST = os.getenv(
+    "EMAIL_HOST",
+    "",
+)
+
+EMAIL_PORT = int(
+    os.getenv(
+        "EMAIL_PORT",
+        "587",
+    )
+)
+
+EMAIL_HOST_USER = os.getenv(
+    "EMAIL_HOST_USER",
+    "",
+)
+
+EMAIL_HOST_PASSWORD = os.getenv(
+    "EMAIL_HOST_PASSWORD",
+    "",
+)
+
+EMAIL_USE_TLS = os.getenv(
+    "EMAIL_USE_TLS",
+    "True",
+).lower() == "true"

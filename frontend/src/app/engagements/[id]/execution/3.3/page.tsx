@@ -1,7 +1,10 @@
 ﻿
 "use client";
+import { apiResponse } from "@/lib/api";
+import { isRecord } from "@/lib/typeGuards";
 
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -16,8 +19,6 @@ import {
   ChevronRight,
   Database,
 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:8000/api";
 
 interface FraudJournalEntryAssessment {
   id?: number;
@@ -92,11 +93,52 @@ const emptyAssessment: FraudJournalEntryAssessment = {
   further_procedures_required: false,
 };
 
+function isFraudJournalEntryAssessment(
+  value: unknown
+): value is FraudJournalEntryAssessment {
+  if (!isRecord(value)) return false;
+
+  const requiredStrings = [
+    "population_description",
+    "population_period",
+    "selection_method",
+    "selection_rationale",
+    "journal_entry_testing",
+    "testing_period",
+    "journal_entry_criteria",
+    "journal_entry_evidence",
+    "management_override_procedures",
+    "override_results",
+    "data_analytics_anomalies",
+    "anomaly_analysis",
+    "possible_fraud_indicators",
+    "fraud_risk_assessment",
+    "exceptions",
+    "exception_resolution",
+    "auditor_conclusion",
+    "fraud_implication",
+  ];
+
+  return (
+    typeof value.engagement === "number" &&
+    (value.id === undefined || typeof value.id === "number") &&
+    (value.total_population === null ||
+      typeof value.total_population === "number") &&
+    (value.selected_entries === null ||
+      typeof value.selected_entries === "number") &&
+    typeof value.exceptions_count === "number" &&
+    typeof value.further_procedures_required === "boolean" &&
+    requiredStrings.every((field) => typeof value[field] === "string")
+  );
+}
+
 export default function FraudJournalEntryProceduresPage() {
   const params = useParams();
   const router = useRouter();
 
   const engagementId = Number(params.id);
+  const isValidEngagementId =
+    Number.isFinite(engagementId) && engagementId > 0;
 
   const [assessment, setAssessment] =
     useState<FraudJournalEntryAssessment>({
@@ -120,7 +162,7 @@ export default function FraudJournalEntryProceduresPage() {
   // COOKIE HELPER
   // ==========================================================
 
-  const getCookie = (
+  const getCookie = useCallback((
     name: string
   ): string | null => {
     if (typeof document === "undefined") {
@@ -145,13 +187,13 @@ export default function FraudJournalEntryProceduresPage() {
     }
 
     return null;
-  };
+  }, []);
 
   // ==========================================================
   // API HEADERS
   // ==========================================================
 
-  const getHeaders = (
+  const getHeaders = useCallback((
     includeContentType = false
   ): HeadersInit => {
     const headers: HeadersInit = {
@@ -172,54 +214,23 @@ export default function FraudJournalEntryProceduresPage() {
     }
 
     return headers;
-  };
+  }, [getCookie]);
 
   // ==========================================================
   // AUTHENTICATION FAILURE
   // ==========================================================
-
-  const handleAuthenticationFailure = () => {
-    const currentPath =
-      window.location.pathname +
-      window.location.search;
-
-    console.warn(
-      "PHASE 3.3: Authentication failure."
-    );
-
-    router.replace(
-      `/login?next=${encodeURIComponent(
-        currentPath
-      )}`
-    );
-  };
 
   // ==========================================================
   // LOAD EXISTING WORKPAPER
   // ==========================================================
 
   useEffect(() => {
-    if (
-      !engagementId ||
-      Number.isNaN(engagementId)
-    ) {
-      setError(
-        "Invalid engagement ID."
-      );
-
-      setLoading(false);
-
-      return;
-    }
+    if (!isValidEngagementId) return;
 
     const loadAssessment = async () => {
       try {
-        setLoading(true);
-        setError("");
-        setSuccessMessage("");
-
         const url =
-          `${API_BASE_URL}/fraud-journal-entry-assessments/` +
+          `/fraud-journal-entry-assessments/` +
           `?engagement=${engagementId}`;
 
         console.log(
@@ -228,7 +239,7 @@ export default function FraudJournalEntryProceduresPage() {
         );
 
         const response =
-          await fetch(url, {
+          await apiResponse(url, {
             method: "GET",
 
             credentials: "include",
@@ -241,7 +252,7 @@ export default function FraudJournalEntryProceduresPage() {
         const responseText =
           await response.text();
 
-        let data: any = null;
+        let data: unknown = null;
 
         try {
           data = responseText
@@ -260,13 +271,6 @@ export default function FraudJournalEntryProceduresPage() {
             data,
           }
         );
-
-        if (
-          response.status === 401
-        ) {
-          handleAuthenticationFailure();
-          return;
-        }
 
         if (
           response.status === 403
@@ -289,22 +293,29 @@ export default function FraudJournalEntryProceduresPage() {
           );
         }
 
-        let records: any[] = [];
+        let records: FraudJournalEntryAssessment[] = [];
 
-        if (Array.isArray(data)) {
+        if (
+          Array.isArray(data) &&
+          data.every(isFraudJournalEntryAssessment)
+        ) {
           records = data;
         } else if (
-          data &&
-          Array.isArray(data.results)
+          isRecord(data) &&
+          Array.isArray(data.results) &&
+          data.results.every(isFraudJournalEntryAssessment)
         ) {
           records = data.results;
         } else if (
-          data &&
-          typeof data === "object" &&
-          data.id
+          isFraudJournalEntryAssessment(data)
         ) {
           records = [data];
+        } else if (data !== null) {
+          throw new Error("The Phase 3.3 API returned an invalid response.");
         }
+
+        setError("");
+        setSuccessMessage("");
 
         if (records.length > 0) {
           const existing =
@@ -361,7 +372,11 @@ export default function FraudJournalEntryProceduresPage() {
     };
 
     loadAssessment();
-  }, [engagementId]);
+  }, [engagementId, getHeaders, isValidEngagementId]);
+
+  const pageError = isValidEngagementId
+    ? error
+    : "Invalid engagement ID.";
 
   // ==========================================================
   // UPDATE FIELD
@@ -608,8 +623,8 @@ export default function FraudJournalEntryProceduresPage() {
         assessmentId !== null;
 
       const url = isUpdating
-        ? `${API_BASE_URL}/fraud-journal-entry-assessments/${assessmentId}/`
-        : `${API_BASE_URL}/fraud-journal-entry-assessments/`;
+        ? `/fraud-journal-entry-assessments/${assessmentId}/`
+        : `/fraud-journal-entry-assessments/`;
 
       const method = isUpdating
         ? "PATCH"
@@ -630,7 +645,7 @@ export default function FraudJournalEntryProceduresPage() {
       );
 
       const response =
-        await fetch(url, {
+        await apiResponse(url, {
           method,
 
           credentials: "include",
@@ -646,7 +661,7 @@ export default function FraudJournalEntryProceduresPage() {
       const responseText =
         await response.text();
 
-      let responseData: any = null;
+      let responseData: unknown = null;
 
       try {
         responseData =
@@ -730,9 +745,10 @@ export default function FraudJournalEntryProceduresPage() {
       // ------------------------------------------------------
 
       if (
-        !responseData ||
-        typeof responseData !==
-          "object"
+        !isFraudJournalEntryAssessment(responseData) ||
+        typeof responseData.id !== "number" ||
+        !Number.isInteger(responseData.id) ||
+        responseData.id <= 0
       ) {
         throw new Error(
           "The server returned an invalid response."
@@ -743,11 +759,7 @@ export default function FraudJournalEntryProceduresPage() {
       // STORE ID
       // ------------------------------------------------------
 
-      if (responseData.id) {
-        setAssessmentId(
-          responseData.id
-        );
-      }
+      setAssessmentId(responseData.id);
 
       // ------------------------------------------------------
       // UPDATE STATE
@@ -843,7 +855,7 @@ export default function FraudJournalEntryProceduresPage() {
   // LOADING
   // ==========================================================
 
-  if (loading) {
+  if (isValidEngagementId && loading) {
     return (
       
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -919,7 +931,7 @@ export default function FraudJournalEntryProceduresPage() {
 
         {/* ERROR */}
 
-        {error && (
+        {pageError && (
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
 
             <CircleAlert
@@ -933,7 +945,7 @@ export default function FraudJournalEntryProceduresPage() {
               </p>
 
               <p className="mt-1 break-words text-sm">
-                {error}
+                {pageError}
               </p>
             </div>
           </div>
@@ -1756,5 +1768,3 @@ export default function FraudJournalEntryProceduresPage() {
     
   );
 }
-
-

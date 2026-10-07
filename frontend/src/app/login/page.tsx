@@ -1,4 +1,9 @@
 ﻿"use client";
+import { API_ORIGIN } from "@/lib/apiConfig";
+
+
+import Link from "next/link";
+import LoginWebsite from "./LoginWebsite";
 
 import {
   FormEvent,
@@ -15,7 +20,6 @@ import {
   EyeOff,
   LockKeyhole,
   LogIn,
-  ShieldCheck,
   User,
 } from "lucide-react";
 
@@ -31,7 +35,7 @@ import {
 |
 |--------------------------------------------------------------------------
 */
-const API_URL = "http://localhost:8000";
+const API_URL = `${API_ORIGIN}`;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,6 +105,7 @@ function LoginForm() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -115,7 +120,21 @@ function LoginForm() {
 
   /*
   |--------------------------------------------------------------------------
-  | Check existing Django session
+  | Restore remembered username
+  |--------------------------------------------------------------------------
+  */
+  useEffect(() => {
+    const rememberedUsername =
+      localStorage.getItem("audit-remember-username");
+
+    if (rememberedUsername) {
+      setUsername(rememberedUsername);
+      setRememberMe(true);
+    }
+  }, []);
+  /*
+  |--------------------------------------------------------------------------
+  | Check existing authentication
   |--------------------------------------------------------------------------
   |
   | If the browser already has an authenticated Django session,
@@ -143,6 +162,7 @@ function LoginForm() {
       }, 5000);
 
       try {
+        const existingToken = localStorage.getItem("audit-token");
         const response = await fetch(
           `${API_URL}/api/auth/me/`,
           {
@@ -159,6 +179,7 @@ function LoginForm() {
 
             headers: {
               Accept: "application/json",
+              ...(existingToken ? { Authorization: `Token ${existingToken}` } : {}),
             },
 
             signal: controller.signal,
@@ -367,11 +388,6 @@ function LoginForm() {
           response
         );
 
-      console.log(
-        "LOGIN: Login response:",
-        data
-      );
-
       /*
       |--------------------------------------------------------------------------
       | 2. LOGIN FAILED
@@ -499,12 +515,12 @@ function LoginForm() {
 
       /*
       |--------------------------------------------------------------------------
-      | 4. VERIFY THE DJANGO SESSION
+      | 4. VERIFY THE RETURNED API TOKEN
       |--------------------------------------------------------------------------
       |
       | We immediately ask Django:
       |
-      | "Does this browser have an authenticated session?"
+      | "Does this API token authenticate the current user?"
       |
       |--------------------------------------------------------------------------
       */
@@ -521,6 +537,7 @@ function LoginForm() {
             headers: {
               Accept:
                 "application/json",
+              Authorization: `Token ${data.token}`,
             },
           }
         );
@@ -550,7 +567,7 @@ function LoginForm() {
         !sessionData?.authenticated
       ) {
         console.error(
-          "LOGIN: Django session was not authenticated."
+          "LOGIN: Returned API token was not authenticated."
         );
 
         /*
@@ -563,7 +580,7 @@ function LoginForm() {
         );
 
         setError(
-          "Login was accepted, but Django did not create an authenticated browser session. Please try again."
+          "Login was accepted, but the server did not recognize the returned API token. Please try again."
         );
 
         setLoading(false);
@@ -571,6 +588,21 @@ function LoginForm() {
         return;
       }
 
+      /*
+      |--------------------------------------------------------------------------
+      | Remember username preference
+      |--------------------------------------------------------------------------
+      */
+      if (rememberMe) {
+        localStorage.setItem(
+          "audit-remember-username",
+          cleanUsername
+        );
+      } else {
+        localStorage.removeItem(
+          "audit-remember-username"
+        );
+      }
       /*
       |--------------------------------------------------------------------------
       | 6. AUTHENTICATION SUCCESSFUL
@@ -617,7 +649,7 @@ function LoginForm() {
       );
 
       setError(
-        "Unable to connect to the AUD server. Make sure Django is running on port 8000."
+        `Unable to connect to the AUD server at ${API_URL}. Make sure the AUD backend is running at this address.`
       );
 
       setLoading(false);
@@ -631,21 +663,21 @@ function LoginForm() {
   */
   if (checkingSession) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="text-center">
+      <LoginWebsite>
+        <div role="status" className="py-16 text-center">
 
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
 
-          <p className="mt-4 text-sm font-medium text-slate-500">
+          <h2 id="sign-in-heading" className="mt-4 text-sm font-medium text-slate-500">
             Checking session...
-          </p>
+          </h2>
 
           <p className="mt-2 text-xs text-slate-400">
             Checking AUD authentication...
           </p>
 
         </div>
-      </main>
+      </LoginWebsite>
     );
   }
 
@@ -655,53 +687,15 @@ function LoginForm() {
   |--------------------------------------------------------------------------
   */
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 px-4 py-10">
-
-      <div className="pointer-events-none absolute inset-0">
-
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-blue-100/60 blur-3xl" />
-
-        <div className="absolute -bottom-40 -right-32 h-96 w-96 rounded-full bg-slate-200/70 blur-3xl" />
-
-      </div>
-
-      <div className="relative w-full max-w-md">
-
-        {/* Logo */}
-
-        <div className="mb-7 text-center">
-
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-xl shadow-blue-600/20">
-
-            <ShieldCheck
-              size={32}
-              strokeWidth={2}
-            />
-
-          </div>
-
-          <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950">
-            AUD Platform
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Audit Management System
-          </p>
-
-        </div>
-
-        {/* Login Card */}
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-200/50 sm:p-8">
-
+    <LoginWebsite>
           <div className="mb-7">
-
-            <h2 className="text-xl font-bold text-slate-950">
+            <p className="mb-3 text-xs font-bold tracking-widest text-blue-700">YOUR AUDIT WORKSPACE</p>
+            <h2 id="sign-in-heading" className="text-2xl font-bold tracking-tight text-slate-950">
               Welcome back
             </h2>
 
-            <p className="mt-1.5 text-sm text-slate-500">
-              Sign in to access your audit workspace.
+            <p className="mt-1 text-sm text-slate-500">
+              Sign in to your audit workspace.
             </p>
 
           </div>
@@ -709,7 +703,7 @@ function LoginForm() {
           {/* Error */}
 
           {error && (
-            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <div role="alert" id="login-error" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
 
               <p className="text-sm font-medium leading-5 text-red-700">
                 {error}
@@ -720,6 +714,8 @@ function LoginForm() {
 
           <form
             onSubmit={handleSubmit}
+            aria-describedby={error ? "login-error" : undefined}
+            aria-busy={loading}
             className="space-y-5"
           >
 
@@ -729,7 +725,7 @@ function LoginForm() {
 
               <label
                 htmlFor="username"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-1 block text-xs sm:text-sm font-semibold text-slate-700"
               >
                 Username
               </label>
@@ -738,7 +734,7 @@ function LoginForm() {
 
                 <User
                   size={18}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
 
                 <input
@@ -754,7 +750,7 @@ function LoginForm() {
                   placeholder="Enter your username"
                   autoComplete="username"
                   disabled={loading}
-                  className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50/50 py-3 pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
                 />
 
               </div>
@@ -767,7 +763,7 @@ function LoginForm() {
 
               <label
                 htmlFor="password"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-1 block text-xs sm:text-sm font-semibold text-slate-700"
               >
                 Password
               </label>
@@ -776,7 +772,7 @@ function LoginForm() {
 
                 <LockKeyhole
                   size={18}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
 
                 <input
@@ -796,7 +792,7 @@ function LoginForm() {
                   placeholder="Enter your password"
                   autoComplete="current-password"
                   disabled={loading}
-                  className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-11 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50/50 py-3 pl-10 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50"
                 />
 
                 <button
@@ -813,6 +809,7 @@ function LoginForm() {
                       ? "Hide password"
                       : "Show password"
                   }
+                  aria-pressed={showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed"
                 >
                   {showPassword ? (
@@ -826,12 +823,36 @@ function LoginForm() {
 
             </div>
 
+            {/* Session options */}
+
+            <div className="flex items-center justify-between gap-3">
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) =>
+                    setRememberMe(event.target.checked)
+                  }
+                  disabled={loading}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Remember username
+              </label>
+
+              <Link
+                href="/forgot-password"
+                className="text-xs font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             {/* Sign In */}
 
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-70"
             >
 
               {loading ? (
@@ -856,7 +877,7 @@ function LoginForm() {
 
           <div className="mt-7 border-t border-slate-100 pt-5 text-center">
 
-            <p className="text-xs leading-5 text-slate-400">
+            <p className="text-xs leading-5 text-slate-500">
               Authorized users only. Your access is
               protected by the AUD authentication
               system.
@@ -864,15 +885,10 @@ function LoginForm() {
 
           </div>
 
-        </div>
-
-        <p className="mt-6 text-center text-xs text-slate-400">
-          AUD Platform • Audit Management System
-        </p>
-
-      </div>
-
-    </main>
+          <p className="mt-4 text-center text-xs leading-5 text-slate-500">
+            Need an account? Contact your platform administrator.
+          </p>
+    </LoginWebsite>
   );
 }
 
@@ -883,19 +899,18 @@ function LoginForm() {
 */
 function LoginLoading() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-
-      <div className="text-center">
+    <LoginWebsite>
+      <div role="status" className="py-16 text-center">
 
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
 
-        <p className="mt-4 text-sm font-medium text-slate-500">
+        <h2 id="sign-in-heading" className="mt-4 text-sm font-medium text-slate-500">
           Loading...
-        </p>
+        </h2>
 
       </div>
 
-    </main>
+    </LoginWebsite>
   );
 }
 
@@ -913,3 +928,6 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
+
+

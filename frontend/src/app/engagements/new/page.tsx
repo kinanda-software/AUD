@@ -1,6 +1,7 @@
 
 "use client";
 
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,9 +15,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { getClients } from "@/lib/api";
-
-const API_URL = "http://localhost:8000/api";
+import { apiRequest, getClients } from "@/lib/api";
 
 type Client = {
   id: number;
@@ -25,48 +24,6 @@ type Client = {
   trading_name?: string;
   name?: string;
 };
-
-type EngagementResponse = {
-  id: number;
-  [key: string]: unknown;
-};
-
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const cookies = document.cookie.split(";");
-
-  for (const cookie of cookies) {
-    const [key, ...valueParts] = cookie.trim().split("=");
-
-    if (key === name) {
-      return decodeURIComponent(valueParts.join("="));
-    }
-  }
-
-  return null;
-}
-
-async function ensureCsrfToken(): Promise<string | null> {
-  let token = getCookie("csrftoken");
-
-  if (token) {
-    return token;
-  }
-
-  try {
-    await fetch(`${API_URL}/auth/csrf-token/`, {
-      method: "GET",
-      credentials: "include",
-    });
-  } catch (error) {
-    console.error("Failed to obtain CSRF token:", error);
-  }
-
-  return getCookie("csrftoken");
-}
 
 function formatServerError(data: unknown): string {
   if (!data) {
@@ -290,6 +247,7 @@ export default function NewEngagementPage() {
   ========================================================= */
 
   async function handleSaveAndContinue() {
+    if (saving) return;
     setSaveError("");
 
     /* -------------------------
@@ -352,12 +310,6 @@ export default function NewEngagementPage() {
 
     try {
       setSaving(true);
-
-      /* -------------------------
-         CSRF
-      ------------------------- */
-
-      const csrfToken = await ensureCsrfToken();
 
       /* -------------------------
          PAYLOAD
@@ -444,116 +396,10 @@ export default function NewEngagementPage() {
         progress_percentage: 0,
       };
 
-      /* -------------------------
-         DEBUG PAYLOAD
-      ------------------------- */
-
-      console.log(
-        "Creating engagement with payload:",
-        payload
-      );
-
-      /* -------------------------
-         POST REQUEST
-      ------------------------- */
-
-      const response = await fetch(
-        `${API_URL}/engagements/`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-
-            ...(csrfToken
-              ? {
-                  "X-CSRFToken": csrfToken,
-                }
-              : {}),
-          },
-
-          credentials: "include",
-
-          body: JSON.stringify(payload),
-        }
-      );
-
-      /* -------------------------
-         READ RESPONSE
-      ------------------------- */
-
-      const responseText = await response.text();
-
-      let data: unknown = null;
-
-      try {
-        data = responseText
-          ? JSON.parse(responseText)
-          : null;
-      } catch {
-        data = responseText;
-      }
-
-      /* -------------------------
-         ERROR RESPONSE
-      ------------------------- */
-
-      if (!response.ok) {
-        console.error(
-          "========================================"
-        );
-
-        console.error(
-          "ENGAGEMENT CREATION ERROR"
-        );
-
-        console.error(
-          "HTTP status:",
-          response.status
-        );
-
-        console.error(
-          "HTTP status text:",
-          response.statusText
-        );
-
-        console.error(
-          "Response URL:",
-          response.url
-        );
-
-        console.error(
-          "Response body:",
-          data
-        );
-
-        console.error(
-          "Payload sent:",
-          payload
-        );
-
-        console.error(
-          "========================================"
-        );
-
-        const message =
-          `Failed to create engagement (${response.status}): ${formatServerError(
-            data
-          )}`;
-
-        setSaveError(message);
-
-        return;
-      }
-
-      /* -------------------------
-         SUCCESS RESPONSE
-      ------------------------- */
-
-      console.log(
-        "Engagement created successfully:",
-        data
-      );
+      const data = await apiRequest<unknown>("/engagements/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
       /* -------------------------
          VERIFY ID
@@ -562,12 +408,12 @@ export default function NewEngagementPage() {
       if (
         !data ||
         typeof data !== "object" ||
-        !("id" in data)
+        !("id" in data) ||
+        typeof data.id !== "number" ||
+        !Number.isInteger(data.id) ||
+        data.id <= 0
       ) {
-        console.error(
-          "Server created engagement but did not return its ID:",
-          data
-        );
+        console.error("Engagement creation returned an invalid record ID.");
 
         setSaveError(
           "Engagement was created, but the server did not return its ID."
@@ -576,20 +422,12 @@ export default function NewEngagementPage() {
         return;
       }
 
-      const createdEngagement =
-        data as EngagementResponse;
-
-      console.log(
-        "Created engagement ID:",
-        createdEngagement.id
-      );
-
       /* -------------------------
          MOVE TO PHASE 1
       ------------------------- */
 
       router.push(
-        `/engagements/${createdEngagement.id}/audit-planning`
+        `/engagements/${data.id}/audit-planning`
       );
     } catch (error) {
       console.error(
@@ -597,11 +435,15 @@ export default function NewEngagementPage() {
         error
       );
 
-      setSaveError(
-        error instanceof Error
-          ? error.message
-          : "Unable to create engagement."
-      );
+      let message = error instanceof Error ? error.message : "Unable to create engagement.";
+      if (message.trim().startsWith("{") || message.trim().startsWith("[")) {
+        try {
+          message = formatServerError(JSON.parse(message));
+        } catch (parseError) {
+          if (!(parseError instanceof SyntaxError)) throw parseError;
+        }
+      }
+      setSaveError(message);
     } finally {
       setSaving(false);
     }
@@ -1103,7 +945,7 @@ export default function NewEngagementPage() {
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Record the firm's decision regarding the engagement.
+            Record the firm&apos;s decision regarding the engagement.
           </p>
         </div>
 
@@ -1480,4 +1322,3 @@ export default function NewEngagementPage() {
     </div>
   );
 }
-

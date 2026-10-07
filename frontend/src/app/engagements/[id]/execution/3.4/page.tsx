@@ -1,6 +1,8 @@
 ﻿"use client";
+import { apiResponse } from "@/lib/api";
 
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
 ArrowLeft,
@@ -13,8 +15,6 @@ Loader2,
 ArrowRight,
 CircleAlert,
 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:8000/api";
 
 const PROCEDURE_TYPES = [
 "Analytical Procedures",
@@ -75,7 +75,7 @@ const engagementId = params.id as string;
 // CSRF COOKIE
 // ============================================================
 
-const getCookie = (name: string): string | null => {
+const getCookie = useCallback((name: string): string | null => {
 if (typeof document === "undefined") {
 return null;
 }
@@ -96,13 +96,13 @@ for (const cookie of cookies) {
 return null;
 
 
-};
+}, []);
 
 // ============================================================
 // API HEADERS
 // ============================================================
 
-const getHeaders = (
+const getHeaders = useCallback((
 includeContentType = false
 ): HeadersInit => {
 const headers: HeadersInit = {
@@ -123,24 +123,11 @@ if (includeContentType) {
 return headers;
 
 
-};
+}, [getCookie]);
 
 // ============================================================
 // AUTHENTICATION FAILURE
 // ============================================================
-
-const handleAuthenticationFailure = () => {
-const currentPath =
-window.location.pathname +
-window.location.search;
-
-
-router.replace(
-  `/login?next=${encodeURIComponent(currentPath)}`
-);
-
-
-};
 
 // ============================================================
 // FORM STATE
@@ -194,8 +181,8 @@ const loadAssessment = async () => {
       engagementId
     );
 
-    const response = await fetch(
-      `${API_BASE_URL}/substantive-procedure-assessments/?engagement=${engagementId}`,
+    const response = await apiResponse(
+      `/substantive-procedure-assessments/?engagement=${engagementId}`,
       {
         method: "GET",
         credentials: "include",
@@ -208,15 +195,6 @@ const loadAssessment = async () => {
       "PHASE 3.4: GET status:",
       response.status
     );
-
-    if (response.status === 401) {
-      console.warn(
-        "PHASE 3.4: User is not authenticated."
-      );
-
-      handleAuthenticationFailure();
-      return;
-    }
 
     if (response.status === 403) {
       console.warn(
@@ -343,7 +321,7 @@ const loadAssessment = async () => {
 loadAssessment();
 
 
-}, [engagementId]);
+}, [engagementId, getHeaders]);
 
 // ============================================================
 // SAVE
@@ -530,8 +508,8 @@ try {
       recordId
     );
 
-    response = await fetch(
-      `${API_BASE_URL}/substantive-procedure-assessments/${recordId}/`,
+    response = await apiResponse(
+      `/substantive-procedure-assessments/${recordId}/`,
       {
         method: "PATCH",
         credentials: "include",
@@ -550,8 +528,8 @@ try {
       "PHASE 3.4: Creating new record."
     );
 
-    response = await fetch(
-      `${API_BASE_URL}/substantive-procedure-assessments/`,
+    response = await apiResponse(
+      `/substantive-procedure-assessments/`,
       {
         method: "POST",
         credentials: "include",
@@ -565,16 +543,6 @@ try {
     "PHASE 3.4: SAVE status:",
     response.status
   );
-
-  if (response.status === 401) {
-    console.warn(
-      "PHASE 3.4: Authentication failed during save."
-    );
-
-    handleAuthenticationFailure();
-
-    return false;
-  }
 
   if (response.status === 403) {
     let errorData: unknown = null;
@@ -1177,5 +1145,3 @@ return (  <div className="w-full bg-gray-50">
 
 );
 }
-
-

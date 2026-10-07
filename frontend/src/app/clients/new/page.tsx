@@ -1,9 +1,11 @@
 
 "use client";
 
+
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/api";
 import {
   ArrowLeft,
   Building2,
@@ -28,10 +30,6 @@ type EntityType =
   | "bank"
   | "insurance"
   | "other";
-
-const API_URL = "http://localhost:8000/api/clients/";
-const CSRF_URL =
-  "http://localhost:8000/api/auth/csrf-token/";
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -61,26 +59,6 @@ export default function NewClientPage() {
       ...current,
       [field]: value,
     }));
-  };
-
-  const getCookie = (
-    name: string
-  ): string | null => {
-    const cookies = document.cookie.split(";");
-
-    for (const cookie of cookies) {
-      const [key, ...valueParts] = cookie
-        .trim()
-        .split("=");
-
-      if (key === name) {
-        return decodeURIComponent(
-          valueParts.join("=")
-        );
-      }
-    }
-
-    return null;
   };
 
   const handleSubmit = async (
@@ -138,248 +116,18 @@ export default function NewClientPage() {
 
     try {
       setSaving(true);
-
-      // ==========================================
-      // STEP 1: GET DJANGO CSRF COOKIE
-      // ==========================================
-
-      const csrfResponse = await fetch(
-        CSRF_URL,
-        {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        }
-      );
-
-      if (!csrfResponse.ok) {
-        console.error(
-          "CSRF request failed:",
-          csrfResponse.status,
-          csrfResponse.statusText
-        );
-
-        const csrfContentType =
-          csrfResponse.headers.get(
-            "content-type"
-          ) || "";
-
-        const csrfData =
-          csrfContentType.includes(
-            "application/json"
-          )
-            ? await csrfResponse.json()
-            : await csrfResponse.text();
-
-        console.error(
-          "CSRF response:",
-          csrfData
-        );
-
-        setError(
-          "Unable to initialize security protection. Please refresh the page and try again."
-        );
-
-        return;
-      }
-
-      // ==========================================
-      // STEP 2: READ CSRF COOKIE
-      // ==========================================
-
-      const csrfToken =
-        getCookie("csrftoken");
-
-      if (!csrfToken) {
-        console.error(
-          "CSRF cookie was not found in the browser."
-        );
-
-        console.error(
-          "Available cookies:",
-          document.cookie
-        );
-
-        setError(
-          "CSRF security token was not received. Please refresh the page and try again."
-        );
-
-        return;
-      }
-
-      console.log(
-        "CSRF token received successfully."
-      );
-
-      // ==========================================
-      // STEP 3: CREATE CLIENT
-      // ==========================================
-
-      const response = await fetch(
-        API_URL,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json",
-
-            "X-CSRFToken":
-              csrfToken,
-          },
-
-          body: JSON.stringify({
-            client_code:
-              formData.client_code.trim(),
-
-            legal_name:
-              formData.legal_name.trim(),
-
-            client_type:
-              formData.client_type,
-
-            industry:
-              formData.industry.trim(),
-
-            address:
-              formData.address.trim(),
-
-            contact_person:
-              formData.contact_person.trim(),
-
-            contact_email:
-              formData.contact_email.trim(),
-
-            contact_phone:
-              formData.contact_phone.trim(),
-
-            status:
-              formData.status,
-
-            risk_level:
-              formData.risk_level,
-          }),
-        }
-      );
-
-      // ==========================================
-      // STEP 4: READ BACKEND RESPONSE
-      // ==========================================
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        ) || "";
-
-      const data =
-        contentType.includes(
-          "application/json"
-        )
-          ? await response.json()
-          : await response.text();
-
-      // ==========================================
-      // STEP 5: HANDLE BACKEND ERROR
-      // ==========================================
-
-      if (!response.ok) {
-        console.error(
-          "========== CLIENT CREATION ERROR =========="
-        );
-
-        console.error(
-          "HTTP Status:",
-          response.status
-        );
-
-        console.error(
-          "HTTP Status Text:",
-          response.statusText
-        );
-
-        console.error(
-          "Response Data:",
-          data
-        );
-
-        console.error(
-          "Response Data JSON:",
-          JSON.stringify(
-            data,
-            null,
-            2
-          )
-        );
-
-        console.error(
-          "=========================================="
-        );
-
-        let message =
-          `Failed to create client (${response.status}).`;
-
-        if (
-          typeof data === "string"
-        ) {
-          message =
-            data || message;
-        } else if (
-          data &&
-          typeof data === "object"
-        ) {
-          if (
-            "detail" in data &&
-            data.detail
-          ) {
-            message = String(
-              data.detail
-            );
-          } else {
-            const errors =
-              Object.entries(data)
-                .map(
-                  ([field, messages]) => {
-                    const text =
-                      Array.isArray(
-                        messages
-                      )
-                        ? messages.join(
-                            ", "
-                          )
-                        : String(
-                            messages
-                          );
-
-                    return `${field}: ${text}`;
-                  }
-                )
-                .join(" | ");
-
-            if (errors) {
-              message = errors;
-            }
-          }
-        }
-
-        setError(message);
-
-        return;
-      }
-
-      // ==========================================
-      // STEP 6: SUCCESS
-      // ==========================================
-
-      console.log(
-        "Client created successfully:",
-        data
-      );
+      await createClient({
+        client_code: formData.client_code.trim(),
+        legal_name: formData.legal_name.trim(),
+        client_type: formData.client_type,
+        industry: formData.industry.trim(),
+        address: formData.address.trim(),
+        contact_person: formData.contact_person.trim(),
+        contact_email: formData.contact_email.trim(),
+        contact_phone: formData.contact_phone.trim(),
+        status: formData.status,
+        risk_level: formData.risk_level,
+      });
 
       setSuccess(
         "Client created successfully."
@@ -400,7 +148,9 @@ export default function NewClientPage() {
       );
 
       setError(
-        "Unable to connect to the Django backend. Make sure the backend server is running."
+        err instanceof Error
+          ? err.message
+          : "Unable to create client."
       );
     } finally {
       setSaving(false);
@@ -861,4 +611,3 @@ export default function NewClientPage() {
     </div>
   );
 }
-

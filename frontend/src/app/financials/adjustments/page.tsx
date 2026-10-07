@@ -1,4 +1,6 @@
 "use client";
+import { apiRequest } from "@/lib/api";
+
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -16,8 +18,6 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-
-const API_URL = "http://localhost:8000";
 
 type Engagement = {
   id: number;
@@ -82,43 +82,6 @@ type AdjustmentForm = {
   amount: string;
 };
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const cookies = document.cookie.split("; ");
-
-  for (const cookie of cookies) {
-    const [key, ...valueParts] = cookie.split("=");
-
-    if (key === name) {
-      return decodeURIComponent(valueParts.join("="));
-    }
-  }
-
-  return null;
-}
-
-async function getCsrfToken(): Promise<string | null> {
-  const existingToken = getCookie("csrftoken");
-
-  if (existingToken) {
-    return existingToken;
-  }
-
-  try {
-    await fetch(`${API_URL}/api/auth/csrf/`, {
-      method: "GET",
-      credentials: "include",
-    });
-  } catch {
-    // The actual request will report the useful error.
-  }
-
-  return getCookie("csrftoken");
-}
-
 function formatAmount(value: string | number) {
   const amount = Number(value);
 
@@ -157,50 +120,10 @@ function formatTrialBalanceLabel(trialBalance: TrialBalance) {
   return `TB #${trialBalance.id} • ${start} - ${end} • ${trialBalance.status}`;
 }
 
-function getApiErrorMessage(
-  data: any,
-  fallback: string
-): string {
-  if (!data) {
-    return fallback;
-  }
-
-  if (typeof data === "string") {
-    return data;
-  }
-
-  if (typeof data.detail === "string") {
-    return data.detail;
-  }
-
-  if (typeof data.error === "string") {
-    return data.error;
-  }
-
-  const fields = [
-    "trial_balance",
-    "amount",
-    "adjustment_number",
-    "description",
-    "debit_account",
-    "credit_account",
-    "engagement",
-    "status",
-  ];
-
-  for (const field of fields) {
-    const value = data[field];
-
-    if (Array.isArray(value) && value.length > 0) {
-      return String(value[0]);
-    }
-
-    if (typeof value === "string") {
-      return value;
-    }
-  }
-
-  return fallback;
+function listResults<T>(data: T[] | { results: T[] }): T[] {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.results)) return data.results;
+  throw new Error("The server returned an invalid financial list response.");
 }
 
 export default function AdjustmentsPage() {
@@ -275,34 +198,17 @@ export default function AdjustmentsPage() {
       ]);
     } catch (err) {
       console.error(err);
-      setError("Unable to load financial data.");
+      setError(err instanceof Error ? err.message : "Unable to load financial data.");
     } finally {
       setLoading(false);
     }
   }
 
   async function loadEngagements() {
-    const response = await fetch(`${API_URL}/api/engagements/`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(
-        getApiErrorMessage(
-          data,
-          "Failed to load engagements."
-        )
-      );
-    }
-
-    const results = Array.isArray(data)
-      ? data
-      : data?.results || [];
-
-    setEngagements(results);
+    const data = await apiRequest<Engagement[] | { results: Engagement[] }>(
+      "/engagements/", { cache: "no-store" }
+    );
+    setEngagements(listResults(data));
   }
 
   async function loadAdjustments() {
@@ -319,32 +225,16 @@ export default function AdjustmentsPage() {
 
       const query = params.toString();
 
-      const response = await fetch(
-        `${API_URL}/api/financials/adjustments/${
+      const data = await apiRequest<Adjustment[] | { results: Adjustment[] }>(
+        `/financials/adjustments/${
           query ? `?${query}` : ""
         }`,
         {
-          credentials: "include",
           cache: "no-store",
         }
       );
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(
-            data,
-            "Failed to load adjustments."
-          )
-        );
-      }
-
-      const results = Array.isArray(data)
-        ? data
-        : data?.results || [];
-
-      setAdjustments(results);
+      setAdjustments(listResults(data));
     } catch (err) {
       console.error(err);
 
@@ -361,31 +251,15 @@ export default function AdjustmentsPage() {
     setFormError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/financials/chart-of-accounts/by-engagement/${engagementId}/`,
+      const data = await apiRequest<Account[] | { results: Account[] }>(
+        `/financials/chart-of-accounts/by-engagement/${engagementId}/`,
         {
-          credentials: "include",
           cache: "no-store",
         }
       );
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(
-            data,
-            "Failed to load accounts."
-          )
-        );
-      }
-
-      const results = Array.isArray(data)
-        ? data
-        : data?.results || [];
-
       setAccounts(
-        results.filter(
+        listResults(data).filter(
           (account: Account) => account.is_active
         )
       );
@@ -412,30 +286,14 @@ export default function AdjustmentsPage() {
       const params = new URLSearchParams();
       params.set("engagement", engagementId);
 
-      const response = await fetch(
-        `${API_URL}/api/financials/trial-balances/?${params.toString()}`,
+      const data = await apiRequest<TrialBalance[] | { results: TrialBalance[] }>(
+        `/financials/trial-balances/?${params.toString()}`,
         {
-          credentials: "include",
           cache: "no-store",
         }
       );
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(
-            data,
-            "Failed to load trial balances."
-          )
-        );
-      }
-
-      const results = Array.isArray(data)
-        ? data
-        : data?.results || [];
-
-      setTrialBalances(results);
+      setTrialBalances(listResults(data));
     } catch (err) {
       console.error(err);
 
@@ -611,8 +469,6 @@ export default function AdjustmentsPage() {
     setSaving(true);
 
     try {
-      const csrfToken = await getCsrfToken();
-
       const payload = {
         engagement: Number(form.engagement),
         trial_balance: Number(form.trial_balance),
@@ -631,43 +487,13 @@ export default function AdjustmentsPage() {
       );
 
       const url = editingId
-        ? `${API_URL}/api/financials/adjustments/${editingId}/`
-        : `${API_URL}/api/financials/adjustments/`;
+        ? `/financials/adjustments/${editingId}/`
+        : "/financials/adjustments/";
 
-      const response = await fetch(url, {
+      await apiRequest<Adjustment>(url, {
         method: editingId ? "PATCH" : "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken
-            ? {
-                "X-CSRFToken": csrfToken,
-              }
-            : {}),
-        },
         body: JSON.stringify(payload),
       });
-
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (!response.ok) {
-        console.error(
-          "Adjustment save error:",
-          response.status,
-          data
-        );
-
-        setFormError(
-          getApiErrorMessage(
-            data,
-            `Unable to save adjustment. Server returned ${response.status}.`
-          )
-        );
-
-        return;
-      }
 
       setSuccess(
         editingId
@@ -719,36 +545,12 @@ export default function AdjustmentsPage() {
     setSuccess("");
 
     try {
-      const csrfToken = await getCsrfToken();
-
-      const response = await fetch(
-        `${API_URL}/api/financials/adjustments/${adjustment.id}/post/`,
+      await apiRequest<Adjustment>(
+        `/financials/adjustments/${adjustment.id}/post/`,
         {
           method: "POST",
-          credentials: "include",
-          headers: {
-            ...(csrfToken
-              ? {
-                  "X-CSRFToken": csrfToken,
-                }
-              : {}),
-          },
         }
       );
-
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (!response.ok) {
-        setError(
-          getApiErrorMessage(
-            data,
-            `Unable to post this adjustment. Server returned ${response.status}.`
-          )
-        );
-        return;
-      }
 
       setSuccess(
         `Adjustment ${adjustment.adjustment_number} posted successfully.`
@@ -786,36 +588,12 @@ export default function AdjustmentsPage() {
     setSuccess("");
 
     try {
-      const csrfToken = await getCsrfToken();
-
-      const response = await fetch(
-        `${API_URL}/api/financials/adjustments/${adjustment.id}/reject/`,
+      await apiRequest<Adjustment>(
+        `/financials/adjustments/${adjustment.id}/reject/`,
         {
           method: "POST",
-          credentials: "include",
-          headers: {
-            ...(csrfToken
-              ? {
-                  "X-CSRFToken": csrfToken,
-                }
-              : {}),
-          },
         }
       );
-
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (!response.ok) {
-        setError(
-          getApiErrorMessage(
-            data,
-            `Unable to reject this adjustment. Server returned ${response.status}.`
-          )
-        );
-        return;
-      }
 
       setSuccess(
         `Adjustment ${adjustment.adjustment_number} rejected.`

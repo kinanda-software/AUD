@@ -60,6 +60,9 @@ desktop.ini
 *.temp
 *.swp
 *.swo
+*.backup
+*-backup
+*.bak
 
 # TypeScript
 *.tsbuildinfo

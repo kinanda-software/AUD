@@ -1,8 +1,8 @@
 
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { getClients, type ClientRecord } from "@/lib/api";
 import {
   AlertCircle,
   Building2,
@@ -18,16 +18,17 @@ import {
   Users,
 } from "lucide-react";
 
-type ClientStatus = "Active" | "Onboarding" | "Inactive";
+type ClientStatus = "Prospect" | "Active" | "Onboarding" | "Inactive";
 
 type RiskLevel = "Low" | "Moderate" | "High" | "Significant";
 
 type EntityType =
   | "Private Company"
-  | "Public Company"
   | "Non-Governmental Organization"
   | "Government Entity"
-  | "Partnership";
+  | "Bank"
+  | "Insurance"
+  | "Other";
 
 type Client = {
   id: number;
@@ -45,7 +46,43 @@ type Client = {
   updated_at?: string;
 };
 
-const API_URL = "http://localhost:8000/api/clients/";
+function toClientView(client: ClientRecord): Client {
+  const statusLabels: Record<ClientRecord["status"], ClientStatus> = {
+    prospect: "Prospect",
+    onboarding: "Onboarding",
+    active: "Active",
+    inactive: "Inactive",
+  };
+  const riskLabels: Record<ClientRecord["risk_level"], RiskLevel> = {
+    low: "Low",
+    medium: "Moderate",
+    high: "High",
+  };
+  const entityLabels: Record<ClientRecord["client_type"], EntityType> = {
+    company: "Private Company",
+    government: "Government Entity",
+    ngo: "Non-Governmental Organization",
+    bank: "Bank",
+    insurance: "Insurance",
+    other: "Other",
+  };
+
+  return {
+    id: client.id,
+    code: client.client_code,
+    name: client.legal_name,
+    entity_type: entityLabels[client.client_type],
+    industry: client.industry,
+    location: [client.city, client.country].filter(Boolean).join(", "),
+    contact_person: client.contact_person,
+    email: client.contact_email,
+    phone: client.contact_phone,
+    status: statusLabels[client.status],
+    risk: riskLabels[client.risk_level],
+    created_at: client.created_at,
+    updated_at: client.updated_at,
+  };
+}
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -59,7 +96,7 @@ export default function ClientsPage() {
     useState<"All" | RiskLevel>("All");
 
   useEffect(() => {
-    loadClients();
+    void loadClients();
   }, []);
 
   async function loadClients() {
@@ -67,33 +104,8 @@ export default function ClientsPage() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(API_URL, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load clients. Status: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
-
-      if (Array.isArray(data)) {
-        setClients(data);
-      } else if (
-        data.results &&
-        Array.isArray(data.results)
-      ) {
-        setClients(data.results);
-      } else {
-        setClients([]);
-      }
+      const data = await getClients();
+      setClients(data.map(toClientView));
     } catch (err) {
       console.error("Failed to load clients:", err);
 
@@ -168,6 +180,9 @@ export default function ClientsPage() {
 
   function getStatusClasses(status: ClientStatus) {
     switch (status) {
+      case "Prospect":
+        return "bg-slate-100 text-slate-600 border border-slate-200";
+
       case "Active":
         return "bg-emerald-50 text-emerald-700 border border-emerald-200";
 
@@ -382,6 +397,10 @@ export default function ClientsPage() {
             >
               <option value="All">
                 All Statuses
+              </option>
+
+              <option value="Prospect">
+                Prospect
               </option>
 
               <option value="Active">
@@ -615,4 +634,3 @@ export default function ClientsPage() {
     </div>
   );
 }
-

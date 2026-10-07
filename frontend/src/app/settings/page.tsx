@@ -146,7 +146,7 @@ export default function SettingsPage() {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Configure your firm's audit platform, users, workflow,
+              Configure your firm&apos;s audit platform, users, workflow,
               security, and system preferences.
             </p>
           </div>
@@ -701,7 +701,7 @@ export default function SettingsPage() {
             </h3>
 
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Settings control the firm's platform-level configuration.
+              Settings control the firm&apos;s platform-level configuration.
               Detailed audit procedures, risk assessments, engagement
               workpapers, conclusion procedures, and reporting activities
               remain within their respective audit workflows.
@@ -719,7 +719,6 @@ export default function SettingsPage() {
     </div>
   );
 }
-
 
 
 

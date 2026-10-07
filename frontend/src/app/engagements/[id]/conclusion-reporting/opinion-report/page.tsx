@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -359,204 +360,141 @@ export default function ClientCommunicationsPage() {
   const params = useParams();
   const router = useRouter();
 
-  const engagementId = String(params.id ?? "1");
+  const engagementId = String(params.id ?? "");
+  const workpaper = useWorkpaper(engagementId, "opinion-report");
 
-  const [completionStatus, setCompletionStatus] =
-    useState<CompletionStatus>("Not Started");
-
-  const [saved, setSaved] = useState(false);
+  const completionStatus = workpaper.status as CompletionStatus;
+  const setCompletionStatus = workpaper.setStatus;
+  const saved = workpaper.saved;
+  const setSaved = workpaper.setSaved;
 
   /* =======================================================
      ISA 265 — DEFICIENCIES
   ======================================================= */
 
-  const [deficiencies, setDeficiencies] = useState<Deficiency[]>([
-    {
-      id: 1,
-      reference: "DEF-001",
-      financialStatementArea: "",
-      classification: "Not a Deficiency",
-      description: "",
-      potentialEffect: "",
-      managementResponse: "",
-      auditorRecommendation: "",
-      communicationStatus: "Not Communicated",
-    },
-  ]);
+  const [deficiencies, setDeficiencies] = workpaper.field<Deficiency[]>("deficiencies", []);
 
   /* =======================================================
      ISA 260 — GOVERNANCE
   ======================================================= */
 
   const [governanceMeetingDate, setGovernanceMeetingDate] =
-    useState("");
+    workpaper.field("governanceMeetingDate", "");
 
   const [primaryGovernanceContact, setPrimaryGovernanceContact] =
-    useState("");
+    workpaper.field("primaryGovernanceContact", "");
 
   const [
     governanceCommunicationCompleted,
     setGovernanceCommunicationCompleted,
-  ] = useState(false);
+  ] = workpaper.field("governanceCommunicationCompleted", false);
 
   const [governanceMatters, setGovernanceMatters] =
-    useState<GovernanceMatter[]>([
-      {
-        id: 1,
-        reference: "GOV-001",
-        matterCommunicated: "",
-        significance: "Routine",
-        communicationMethod: "Meeting",
-        recipient: "",
-        communicationDate: "",
-        responseOutcome: "",
-        communicationStatus: "Not Communicated",
-      },
-    ]);
+    workpaper.field<GovernanceMatter[]>("governanceMatters", []);
 
   /* =======================================================
      ISA 580 — REPRESENTATIONS
   ======================================================= */
 
   const [representations, setRepresentations] =
-    useState<RepresentationItem[]>([
-      {
-        id: 1,
-        reference: "REP-001",
-        representation:
-          "Completeness of information provided to the auditor",
-        responsiblePerson: "",
-        expectedDate: "",
-        receivedDate: "",
-        status: "Pending",
-        comments: "",
-      },
-
-      {
-        id: 2,
-        reference: "REP-002",
-        representation:
-          "Management responsibility for the financial statements",
-        responsiblePerson: "",
-        expectedDate: "",
-        receivedDate: "",
-        status: "Pending",
-        comments: "",
-      },
-
-      {
-        id: 3,
-        reference: "REP-003",
-        representation:
-          "Disclosure of all relevant matters and transactions",
-        responsiblePerson: "",
-        expectedDate: "",
-        receivedDate: "",
-        status: "Pending",
-        comments: "",
-      },
-    ]);
+    workpaper.field<RepresentationItem[]>("representations", []);
 
   const [
     writtenRepresentationLetterDate,
     setWrittenRepresentationLetterDate,
-  ] = useState("");
+  ] = workpaper.field("writtenRepresentationLetterDate", "");
 
   const [representationStatus, setRepresentationStatus] =
-    useState<RepresentationStatus>("Pending");
+    workpaper.field<RepresentationStatus>("representationStatus", "Pending");
 
   const [
     writtenRepresentationConclusion,
     setWrittenRepresentationConclusion,
-  ] = useState("");
+  ] = workpaper.field("writtenRepresentationConclusion", "");
 
   /* =======================================================
      MANAGEMENT COMMUNICATION
   ======================================================= */
 
   const [managementMeetingDate, setManagementMeetingDate] =
-    useState("");
+    workpaper.field("managementMeetingDate", "");
 
   const [primaryManagementContact, setPrimaryManagementContact] =
-    useState("");
+    workpaper.field("primaryManagementContact", "");
 
   const [
     managementCommunicationCompleted,
     setManagementCommunicationCompleted,
-  ] = useState(false);
+  ] = workpaper.field("managementCommunicationCompleted", false);
 
   const [communicationSummary, setCommunicationSummary] =
-    useState("");
+    workpaper.field("communicationSummary", "");
 
   /* =======================================================
      OUTSTANDING MATTERS
   ======================================================= */
 
   const [outstandingMatters, setOutstandingMatters] =
-    useState("");
+    workpaper.field("outstandingMatters", "");
+  const [outstandingMattersCleared, setOutstandingMattersCleared] =
+    workpaper.field("outstandingMattersCleared", false);
 
   /* =======================================================
      OVERALL CONCLUSION
   ======================================================= */
 
   const [auditorConclusion, setAuditorConclusion] =
-    useState("");
+    workpaper.field("auditorConclusion", "");
 
   /* =======================================================
      DERIVED VALUES
   ======================================================= */
 
-  const applicableDeficiencies = useMemo(
+  const applicableDeficiencies = (
     () =>
       deficiencies.filter(
         (item) =>
           item.classification !== "Not a Deficiency"
-      ),
-    [deficiencies]
-  );
+      )
+  )();
 
-  const significantDeficiencies = useMemo(
+  const significantDeficiencies = (
     () =>
       deficiencies.filter(
         (item) =>
           item.classification === "Significant Deficiency"
-      ),
-    [deficiencies]
-  );
+      )
+  )();
 
-  const communicatedDeficiencies = useMemo(
+  const communicatedDeficiencies = (
     () =>
       applicableDeficiencies.filter(
         (item) =>
           item.communicationStatus === "Communicated"
-      ),
-    [applicableDeficiencies]
-  );
+      )
+  )();
 
-  const communicatedGovernanceMatters = useMemo(
+  const communicatedGovernanceMatters = (
     () =>
       governanceMatters.filter(
         (item) =>
           item.communicationStatus === "Communicated"
-      ),
-    [governanceMatters]
-  );
+      )
+  )();
 
-  const receivedRepresentations = useMemo(
+  const receivedRepresentations = (
     () =>
       representations.filter(
         (item) => item.status === "Received"
-      ),
-    [representations]
-  );
+      )
+  )();
 
-  const exceptionRepresentations = useMemo(
+  const exceptionRepresentations = (
     () =>
       representations.filter(
         (item) => item.status === "Exception"
-      ),
-    [representations]
-  );
+      )
+  )();
 
   /* =======================================================
      READINESS
@@ -592,31 +530,7 @@ export default function ClientCommunicationsPage() {
   const managementReady =
     managementCommunicationCompleted;
 
-  const outstandingMattersReady = useMemo(() => {
-    const value = outstandingMatters
-      .trim()
-      .toLowerCase();
-
-    if (!value) {
-      return false;
-    }
-
-    const resolvedPhrases = [
-      "none",
-      "no outstanding matters",
-      "no outstanding communication matters",
-      "none outstanding",
-      "all matters resolved",
-      "all outstanding matters resolved",
-      "resolved",
-      "cleared",
-      "all matters cleared",
-    ];
-
-    return resolvedPhrases.some((phrase) =>
-      value.includes(phrase)
-    );
-  }, [outstandingMatters]);
+  const outstandingMattersReady = outstandingMattersCleared && outstandingMatters.trim() !== "";
 
   const conclusionReady =
     auditorConclusion.trim().length > 0;
@@ -849,57 +763,7 @@ export default function ClientCommunicationsPage() {
      SAVE
   ======================================================= */
 
-  const handleSave = () => {
-    const workpaperData = {
-      engagementId,
-
-      completionStatus,
-
-      deficiencies,
-
-      governance: {
-        governanceMeetingDate,
-        primaryGovernanceContact,
-        governanceCommunicationCompleted,
-        governanceMatters,
-      },
-
-      representations: {
-        writtenRepresentationLetterDate,
-        representationStatus,
-        representations,
-        writtenRepresentationConclusion,
-      },
-
-      management: {
-        managementMeetingDate,
-        primaryManagementContact,
-        managementCommunicationCompleted,
-        communicationSummary,
-      },
-
-      outstandingMatters,
-
-      auditorConclusion,
-
-      savedAt: new Date().toISOString(),
-    };
-
-    console.log(
-      "4.5 Client Communications Workpaper:",
-      workpaperData
-    );
-
-    setSaved(true);
-
-    if (completionStatus === "Not Started") {
-      setCompletionStatus("In Progress");
-    }
-
-    window.alert(
-      "Client Communications workpaper saved."
-    );
-  };
+  const handleSave = () => { void workpaper.save(); };
 
   /* =======================================================
      COMPLETE
@@ -963,12 +827,7 @@ export default function ClientCommunicationsPage() {
       return;
     }
 
-    setCompletionStatus("Completed");
-    setSaved(true);
-
-    window.alert(
-      "4.5 Client Communications has been marked as completed."
-    );
+    void workpaper.save(true);
   };
 
   /* =======================================================
@@ -990,7 +849,7 @@ export default function ClientCommunicationsPage() {
    * "In Progress".
    */
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!communicationReady) {
       window.alert(
         "Please complete all required 4.5 Client Communications requirements before continuing to 4.6."
@@ -999,8 +858,7 @@ export default function ClientCommunicationsPage() {
       return;
     }
 
-    setCompletionStatus("Completed");
-
+    if (!await workpaper.save(true)) return;
     router.push(
       `/engagements/${engagementId}/conclusion-reporting/documentation-archive`
     );
@@ -1013,7 +871,18 @@ export default function ClientCommunicationsPage() {
   return (
 
       <main className="min-w-0 flex-1 bg-slate-50">
+        <WorkpaperNotice {...workpaper} />
+        <fieldset disabled={workpaper.blocked}>
+          <BooleanCheck checked={outstandingMattersCleared} onChange={setOutstandingMattersCleared}>
+            I have reviewed and cleared outstanding communication matters; supporting details are documented below.
+          </BooleanCheck>
         <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+          <div role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            Unsaved working notes: no communication records are loaded or saved by this page.
+            Lists start empty. Add actual engagement matters; counts describe only entries in
+            this workpaper, not independently verified audit findings. Saving records the workpaper; completion does not issue an audit opinion or report.
+            Leaving or refreshing discards entries. This page does not issue an audit opinion.
+          </div>
 
           {/* =================================================
               PAGE HEADER
@@ -1079,6 +948,7 @@ export default function ClientCommunicationsPage() {
                 <button
                   type="button"
                   onClick={handleSave}
+                  disabled={workpaper.blocked}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
                   <Save className="h-4 w-4" />
@@ -1091,6 +961,8 @@ export default function ClientCommunicationsPage() {
                 <button
                   type="button"
                   onClick={handleComplete}
+                  disabled={workpaper.blocked}
+                  title="Complete the validated workpaper; this does not issue an opinion."
                   className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition ${
                     communicationReady
                       ? "bg-emerald-600 hover:bg-emerald-700"
@@ -2199,6 +2071,7 @@ export default function ClientCommunicationsPage() {
                   <button
                     type="button"
                     onClick={handleSave}
+                    disabled={workpaper.blocked}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     <Save className="h-4 w-4" />
@@ -2228,6 +2101,7 @@ export default function ClientCommunicationsPage() {
 
           </div>
         </div>
+        </fieldset>
       </main>
 
   );

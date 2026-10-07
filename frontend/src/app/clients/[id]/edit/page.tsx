@@ -1,9 +1,11 @@
 ﻿
 "use client";
 
+
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { getClient, updateClient } from "@/lib/api";
 import {
   ArrowLeft,
   Building2,
@@ -15,7 +17,7 @@ type ClientForm = {
   client_code: string;
   legal_name: string;
   trading_name: string;
-  client_type: string;
+  client_type: "company" | "government" | "ngo" | "bank" | "insurance" | "other";
   registration_number: string;
   tax_identification_number: string;
   industry: string;
@@ -25,37 +27,16 @@ type ClientForm = {
   contact_person: string;
   contact_email: string;
   contact_phone: string;
-  status: string;
-  risk_level: string;
+  status: "prospect" | "onboarding" | "active" | "inactive";
+  risk_level: "low" | "medium" | "high";
   notes: string;
 };
-
-const API_URL = "http://localhost:8000/api/clients/";
-const CSRF_URL = "http://localhost:8000/api/auth/csrf-token/";
-
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const cookies = document.cookie.split(";");
-
-  for (const cookie of cookies) {
-    const [key, ...valueParts] = cookie.trim().split("=");
-
-    if (key === name) {
-      return decodeURIComponent(valueParts.join("="));
-    }
-  }
-
-  return null;
-}
 
 const emptyForm: ClientForm = {
   client_code: "",
   legal_name: "",
   trading_name: "",
-  client_type: "",
+  client_type: "company",
   registration_number: "",
   tax_identification_number: "",
   industry: "",
@@ -65,8 +46,8 @@ const emptyForm: ClientForm = {
   contact_person: "",
   contact_email: "",
   contact_phone: "",
-  status: "",
-  risk_level: "",
+  status: "prospect",
+  risk_level: "medium",
   notes: "",
 };
 
@@ -92,36 +73,7 @@ export default function EditClientPage() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`${API_URL}${clientId}/`, {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        });
-
-        const data = await response.json().catch(() => null);
-
-        console.log("Client details response:", response.status, data);
-
-        if (response.status === 401 || response.status === 403) {
-          throw new Error(
-            "You are not authenticated or do not have permission to edit this client."
-          );
-        }
-
-        if (response.status === 404) {
-          throw new Error("Client was not found.");
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            data?.detail ||
-              data?.message ||
-              `Failed to load client. Server returned ${response.status}.`
-          );
-        }
+        const data = await getClient(String(clientId));
 
         setForm({
           client_code: data?.client_code ?? "",
@@ -171,39 +123,6 @@ export default function EditClientPage() {
     }));
   };
 
-  const getCsrfToken = async (): Promise<string> => {
-    let csrfToken = getCookie("csrftoken");
-
-    if (csrfToken) {
-      return csrfToken;
-    }
-
-    const csrfResponse = await fetch(CSRF_URL, {
-      method: "GET",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!csrfResponse.ok) {
-      throw new Error(
-        `Unable to initialize security token. Server returned ${csrfResponse.status}.`
-      );
-    }
-
-    csrfToken = getCookie("csrftoken");
-
-    if (!csrfToken) {
-      throw new Error(
-        "CSRF token was not provided by the server."
-      );
-    }
-
-    return csrfToken;
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -217,61 +136,7 @@ export default function EditClientPage() {
       setError("");
       setSuccess("");
 
-      const csrfToken = await getCsrfToken();
-
-      const response = await fetch(`${API_URL}${clientId}/`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "X-CSRFToken": csrfToken,
-        },
-        body: JSON.stringify(form),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      console.log("Client update response:", response.status, data);
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error(
-          data?.detail ||
-            "You are not authenticated or do not have permission to update this client."
-        );
-      }
-
-      if (response.status === 404) {
-        throw new Error("Client was not found.");
-      }
-
-      if (!response.ok) {
-        let errorMessage = `Failed to update client. Server returned ${response.status}.`;
-
-        if (data) {
-          if (data.detail) {
-            errorMessage = data.detail;
-          } else if (data.message) {
-            errorMessage = data.message;
-          } else if (typeof data === "object") {
-            const validationErrors = Object.entries(data)
-              .map(([field, messages]) => {
-                if (Array.isArray(messages)) {
-                  return `${field}: ${messages.join(", ")}`;
-                }
-
-                return `${field}: ${String(messages)}`;
-              })
-              .join(" | ");
-
-            if (validationErrors) {
-              errorMessage = validationErrors;
-            }
-          }
-        }
-
-        throw new Error(errorMessage);
-      }
+      await updateClient(String(clientId), form);
 
       setSuccess("Client updated successfully.");
 
@@ -697,5 +562,3 @@ function FormField({
     </div>
   );
 }
-
-

@@ -704,7 +704,7 @@ export default function EngagementsPage() {
 
               <p className="mt-1 text-sm text-slate-500">
                 Search and filter
-                the firm's current
+                the firm&apos;s current
                 audit engagements.
               </p>
             </div>
@@ -1239,7 +1239,7 @@ export default function EngagementsPage() {
             </h3>
 
             <p className="mt-1 text-sm leading-6 text-slate-500">
-              Access the firm's
+              Access the firm&apos;s
               four-phase audit
               methodology and
               workflow.
@@ -1267,7 +1267,7 @@ export default function EngagementsPage() {
             <p className="mt-1 text-sm leading-6 text-slate-500">
               Review clients
               associated with the
-              firm's audit
+              firm&apos;s audit
               engagements.
             </p>
 
@@ -1342,4 +1342,3 @@ export default function EngagementsPage() {
     </div>
   );
 }
-

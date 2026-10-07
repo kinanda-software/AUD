@@ -1,4 +1,7 @@
 ﻿"use client";
+import { apiResponse } from "@/lib/api";
+import { isRecord } from "@/lib/typeGuards";
+
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -71,33 +74,54 @@ type ApiRiskPoint = {
   updated_at?: string;
 };
 
-const API_BASE_URL = "http://localhost:8000/api";
+function isAssertion(value: unknown): value is Assertion {
+  return [
+    "Existence",
+    "Completeness",
+    "Accuracy",
+    "Cut-off",
+    "Classification",
+    "Valuation",
+    "Rights & Obligations",
+    "Presentation & Disclosure",
+  ].includes(String(value));
+}
 
-/*
- * ============================================================
- * CSRF COOKIE HELPER
- * ============================================================
- */
+function isRiskLevel(value: unknown): value is RiskLevel {
+  return ["Low", "Medium", "High", "Significant"].includes(
+    String(value)
+  );
+}
 
-const getCookie = (name: string): string | null => {
-  if (typeof document === "undefined") {
-    return null;
-  }
+function isApiRiskPoint(value: unknown): value is ApiRiskPoint {
+  if (!isRecord(value)) return false;
 
-  const cookies = document.cookie.split(";");
-
-  for (const cookie of cookies) {
-    const trimmedCookie = cookie.trim();
-
-    if (trimmedCookie.startsWith(`${name}=`)) {
-      return decodeURIComponent(
-        trimmedCookie.substring(name.length + 1)
-      );
-    }
-  }
-
-  return null;
-};
+  return (
+    typeof value.id === "number" &&
+    typeof value.engagement === "number" &&
+    typeof value.sort_order === "number" &&
+    typeof value.account === "string" &&
+    typeof value.risk_description === "string" &&
+    Array.isArray(value.assertions) &&
+    value.assertions.every(isAssertion) &&
+    typeof value.fraud_risk === "boolean" &&
+    typeof value.complexity === "boolean" &&
+    typeof value.subjectivity === "boolean" &&
+    typeof value.uncertainty === "boolean" &&
+    typeof value.management_bias === "boolean" &&
+    isRiskLevel(value.likelihood) &&
+    isRiskLevel(value.magnitude) &&
+    typeof value.significant_risk === "boolean" &&
+    typeof value.control_response === "string" &&
+    typeof value.rationale === "string" &&
+    (value.engagement_code === undefined ||
+      typeof value.engagement_code === "string") &&
+    (value.created_at === undefined ||
+      typeof value.created_at === "string") &&
+    (value.updated_at === undefined ||
+      typeof value.updated_at === "string")
+  );
+}
 
 /*
  * ============================================================
@@ -107,25 +131,17 @@ const getCookie = (name: string): string | null => {
 
 const parseResponse = async (
   response: Response
-): Promise<any> => {
+): Promise<unknown> => {
   const contentType =
     response.headers.get("content-type") || "";
 
+  if (response.status === 204) return null;
+
   if (contentType.includes("application/json")) {
-    try {
-      return await response.json();
-    } catch {
-      return null;
-    }
+    return response.json();
   }
 
-  try {
-    const text = await response.text();
-
-    return text || null;
-  } catch {
-    return null;
-  }
+  throw new Error("The risk points API returned a non-JSON response.");
 };
 
 /*
@@ -135,7 +151,7 @@ const parseResponse = async (
  */
 
 const formatApiError = (
-  data: any,
+  data: unknown,
   status: number
 ): string => {
   if (!data) {
@@ -146,19 +162,16 @@ const formatApiError = (
     return data;
   }
 
-  if (data.detail) {
-    return String(data.detail);
-  }
+  if (isRecord(data)) {
+    const detail = data.detail;
+    if (typeof detail === "string") return detail;
 
-  if (data.message) {
-    return String(data.message);
-  }
+    const message = data.message;
+    if (typeof message === "string") return message;
 
-  if (data.error) {
-    return String(data.error);
-  }
+    const error = data.error;
+    if (typeof error === "string") return error;
 
-  if (typeof data === "object") {
     const messages: string[] = [];
 
     Object.entries(data).forEach(
@@ -200,34 +213,25 @@ const formatApiError = (
  */
 
 const authenticatedFetch = async (
-  url: string,
+  endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> => {
-  const csrfToken = getCookie("csrftoken");
-
-  const headers = new Headers(
-    options.headers || {}
-  );
-
-  headers.set("Accept", "application/json");
-
-  if (options.body) {
-    headers.set(
-      "Content-Type",
-      "application/json"
-    );
+  try {
+    return await apiResponse(endpoint, {
+      ...options,
+      cache: "no-store",
+    });
+  } catch (err) {
+    if (!(err instanceof Error)) throw err;
+    let data: unknown;
+    try {
+      data = JSON.parse(err.message);
+    } catch (parseError) {
+      if (!(parseError instanceof SyntaxError)) throw parseError;
+      throw err;
+    }
+    throw new Error(formatApiError(data, 0));
   }
-
-  if (csrfToken) {
-    headers.set("X-CSRFToken", csrfToken);
-  }
-
-  return fetch(url, {
-    ...options,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
 };
 
 /*
@@ -362,14 +366,17 @@ export default function RiskPointsPage() {
   const router = useRouter();
 
   const engagementId = Number(params.id);
+  const isValidEngagementId =
+    Number.isFinite(engagementId) && engagementId > 0;
 
   const [riskItems, setRiskItems] =
-    useState<RiskItem[]>([
-      createEmptyRisk(1),
+    useState<RiskItem[]>(() => [
+      createEmptyRisk(Date.now()),
     ]);
 
   const [loading, setLoading] =
     useState(true);
+  const pageLoading = isValidEngagementId && loading;
 
   const [saving, setSaving] =
     useState(false);
@@ -387,28 +394,14 @@ export default function RiskPointsPage() {
    */
 
   useEffect(() => {
-    if (
-      !engagementId ||
-      Number.isNaN(engagementId)
-    ) {
-      setError(
-        "Invalid engagement ID."
-      );
-
-      setLoading(false);
-
-      return;
-    }
+    if (!isValidEngagementId) return;
 
     const loadRiskPoints =
       async () => {
         try {
-          setLoading(true);
-          setError("");
-
           const response =
             await authenticatedFetch(
-              `${API_BASE_URL}/risk-points/?engagement=${engagementId}`,
+              `/risk-points/?engagement=${engagementId}`,
               {
                 method: "GET",
               }
@@ -419,15 +412,6 @@ export default function RiskPointsPage() {
               response
             );
 
-          if (!response.ok) {
-            throw new Error(
-              `Failed to load risk points (${response.status}): ${formatApiError(
-                data,
-                response.status
-              )}`
-            );
-          }
-
           /*
            * DRF can return:
            *
@@ -436,15 +420,28 @@ export default function RiskPointsPage() {
            *    { results: [] }
            */
 
+          if (
+            !(
+              Array.isArray(data) &&
+              data.every(isApiRiskPoint)
+            ) &&
+            !(
+              isRecord(data) &&
+              Array.isArray(data.results) &&
+              data.results.every(isApiRiskPoint)
+            )
+          ) {
+            throw new Error("The risk points API returned an invalid list response.");
+          }
+
           const records: ApiRiskPoint[] =
             Array.isArray(data)
               ? data
-              : Array.isArray(
-                  data?.results
-                )
+              : isRecord(data) && Array.isArray(data.results)
               ? data.results
               : [];
 
+          setError("");
           const mappedRisks =
             records
               .sort(
@@ -463,7 +460,7 @@ export default function RiskPointsPage() {
             );
           } else {
             setRiskItems([
-              createEmptyRisk(1),
+              createEmptyRisk(Date.now()),
             ]);
           }
 
@@ -485,7 +482,11 @@ export default function RiskPointsPage() {
       };
 
     loadRiskPoints();
-  }, [engagementId]);
+  }, [engagementId, isValidEngagementId]);
+
+  const pageError = isValidEngagementId
+    ? error
+    : "Invalid engagement ID.";
 
   /*
    * ============================================================
@@ -618,25 +619,13 @@ export default function RiskPointsPage() {
       try {
         const response =
           await authenticatedFetch(
-            `${API_BASE_URL}/risk-points/${id}/`,
+            `/risk-points/${id}/`,
             {
               method: "DELETE",
             }
           );
 
-        const data =
-          await parseResponse(
-            response
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to delete risk point (${response.status}): ${formatApiError(
-              data,
-              response.status
-            )}`
-          );
-        }
+        await parseResponse(response);
       } catch (err) {
         console.error(
           "Error deleting risk point:",
@@ -758,7 +747,7 @@ export default function RiskPointsPage() {
           ) {
             response =
               await authenticatedFetch(
-                `${API_BASE_URL}/risk-points/${item.id}/`,
+                `/risk-points/${item.id}/`,
                 {
                   method: "PATCH",
                   body: JSON.stringify(
@@ -777,7 +766,7 @@ export default function RiskPointsPage() {
           else {
             response =
               await authenticatedFetch(
-                `${API_BASE_URL}/risk-points/`,
+                `/risk-points/`,
                 {
                   method: "POST",
                   body: JSON.stringify(
@@ -791,20 +780,6 @@ export default function RiskPointsPage() {
             await parseResponse(
               response
             );
-
-          if (!response.ok) {
-            console.error(
-              "Risk point API error:",
-              data
-            );
-
-            throw new Error(
-              `Failed to save risk point (${response.status}): ${formatApiError(
-                data,
-                response.status
-              )}`
-            );
-          }
 
           if (!data) {
             throw new Error(
@@ -957,7 +932,7 @@ export default function RiskPointsPage() {
    * ============================================================
    */
 
-  if (loading) {
+  if (pageLoading) {
     return (
       
         <div className="w-full bg-slate-50">
@@ -1045,7 +1020,7 @@ export default function RiskPointsPage() {
           {/* ERROR */}
           {/* ================================================= */}
 
-          {error && (
+          {pageError && (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
               <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
 
@@ -1055,7 +1030,7 @@ export default function RiskPointsPage() {
                 </p>
 
                 <p className="mt-1 text-sm text-red-700">
-                  {error}
+                  {pageError}
                 </p>
               </div>
             </div>
@@ -1714,4 +1689,3 @@ export default function RiskPointsPage() {
     
   );
 }
-

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -18,29 +19,30 @@ export default function RiskReassessmentPage() {
   const router = useRouter();
 
   const engagementId = String(params.id ?? "");
+  const workpaper = useWorkpaper(engagementId, "risk-reassessment");
 
-  const [riskArea, setRiskArea] = useState("");
-  const [assertion, setAssertion] = useState("");
-  const [originalRisk, setOriginalRisk] = useState("");
+  const [riskArea, setRiskArea] = workpaper.field("riskArea", "");
+  const [assertion, setAssertion] = workpaper.field("assertion", "");
+  const [originalRisk, setOriginalRisk] = workpaper.field("originalRisk", "");
 
-  const [newEvidence, setNewEvidence] = useState("");
-  const [unexpectedResults, setUnexpectedResults] = useState("");
-  const [controlExceptions, setControlExceptions] = useState("");
-  const [misstatements, setMisstatements] = useState("");
+  const [newEvidence, setNewEvidence] = workpaper.field("newEvidence", "");
+  const [unexpectedResults, setUnexpectedResults] = workpaper.field("unexpectedResults", "");
+  const [controlExceptions, setControlExceptions] = workpaper.field("controlExceptions", "");
+  const [misstatements, setMisstatements] = workpaper.field("misstatements", "");
   const [confirmationExceptions, setConfirmationExceptions] =
-    useState("");
+    workpaper.field("confirmationExceptions", "");
 
-  const [reassessedRisk, setReassessedRisk] = useState("");
-  const [riskChangeReason, setRiskChangeReason] = useState("");
+  const [reassessedRisk, setReassessedRisk] = workpaper.field("reassessedRisk", "");
+  const [riskChangeReason, setRiskChangeReason] = workpaper.field("riskChangeReason", "");
 
   const [additionalProcedures, setAdditionalProcedures] =
-    useState("");
+    workpaper.field("additionalProcedures", "");
 
-  const [conclusion, setConclusion] = useState("");
+  const [conclusion, setConclusion] = workpaper.field("conclusion", "");
 
-  const [saved, setSaved] = useState(false);
+  const saved = workpaper.saved;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!riskArea || !reassessedRisk || !conclusion) {
       alert(
         "Please complete the risk area, reassessed risk and auditor conclusion."
@@ -48,26 +50,7 @@ export default function RiskReassessmentPage() {
       return;
     }
 
-    const assessmentData = {
-      engagementId,
-      section: "3.6",
-      riskArea,
-      assertion,
-      originalRisk,
-      newEvidence,
-      unexpectedResults,
-      controlExceptions,
-      misstatements,
-      confirmationExceptions,
-      reassessedRisk,
-      riskChangeReason,
-      additionalProcedures,
-      conclusion,
-    };
-
-    console.log("Risk Reassessment:", assessmentData);
-
-    setSaved(true);
+    if (!await workpaper.save(true)) return;
 
     router.replace(
       `/engagements/${engagementId}/conclusion-reporting`
@@ -81,6 +64,8 @@ export default function RiskReassessmentPage() {
   return (
 
       <main className="min-w-0 flex-1 bg-gray-50">
+        <WorkpaperNotice {...workpaper} />
+        <fieldset disabled={workpaper.blocked}>
         <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* HEADER */}
@@ -447,6 +432,10 @@ export default function RiskReassessmentPage() {
 
           {/* ACTIONS */}
           <div className="mb-8 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <button type="button" onClick={() => void workpaper.save()}
+              className="rounded-lg border border-blue-300 px-5 py-3 text-sm font-semibold text-blue-700">
+              Save Draft
+            </button>
             <button
               type="button"
               onClick={handleBack}
@@ -475,6 +464,7 @@ export default function RiskReassessmentPage() {
           </div>
 
         </div>
+        </fieldset>
       </main>
 
   );

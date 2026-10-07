@@ -1,6 +1,9 @@
 ﻿"use client";
+import { API_ORIGIN } from "@/lib/apiConfig";
+
 
 import { getAdjustedTrialBalance } from "@/lib/api";
+import { isRecord } from "@/lib/typeGuards";
 import {
   Suspense,
   useEffect,
@@ -24,7 +27,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = `${API_ORIGIN}/api`;
 
 type TrialBalance = {
   id: number;
@@ -85,6 +88,10 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
+function toText(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 function toBoolean(value: unknown): boolean {
   if (typeof value === "boolean") {
     return value;
@@ -130,50 +137,30 @@ function formatDate(date: string) {
 ========================================================= */
 
 function normalizeLines(
-  rawLines: any[]
+  rawLines: unknown[]
 ): AdjustedTrialBalanceLine[] {
-  return rawLines.map((line: any, index: number) => ({
-    account_id: Number(
-      line.account_id ??
-        line.account ??
-        line.id ??
-        index + 1
-    ),
-
-    account_code: String(
-      line.account_code ?? ""
-    ),
-
-    account_name: String(
-      line.account_name ??
-        line.account ??
+  return rawLines.map((value, index) => {
+    const line = isRecord(value) ? value : {};
+    return {
+      account_id: toNumber(
+        line.account_id ??
+          line.account ??
+          line.id ??
+          index + 1
+      ),
+      account_code: toText(line.account_code, ""),
+      account_name: toText(
+        line.account_name ?? line.account,
         ""
-    ),
-
-    original_debit: toNumber(
-      line.original_debit
-    ),
-
-    original_credit: toNumber(
-      line.original_credit
-    ),
-
-    adjustment_debit: toNumber(
-      line.adjustment_debit
-    ),
-
-    adjustment_credit: toNumber(
-      line.adjustment_credit
-    ),
-
-    adjusted_debit: toNumber(
-      line.adjusted_debit
-    ),
-
-    adjusted_credit: toNumber(
-      line.adjusted_credit
-    ),
-  }));
+      ),
+      original_debit: toNumber(line.original_debit),
+      original_credit: toNumber(line.original_credit),
+      adjustment_debit: toNumber(line.adjustment_debit),
+      adjustment_credit: toNumber(line.adjustment_credit),
+      adjusted_debit: toNumber(line.adjusted_debit),
+      adjusted_credit: toNumber(line.adjusted_credit),
+    };
+  });
 }
 
 /* =========================================================
@@ -182,8 +169,9 @@ function normalizeLines(
 
 function calculateSummaryFromLines(
   lines: AdjustedTrialBalanceLine[],
-  apiSummary?: any
+  apiSummary?: unknown
 ): Summary {
+  const summary = isRecord(apiSummary) ? apiSummary : {};
   const totalOriginalDebit = lines.reduce(
     (total, line) =>
       total + line.original_debit,
@@ -230,53 +218,53 @@ function calculateSummaryFromLines(
 
   return {
     total_original_debit:
-      apiSummary?.total_original_debit !== undefined
-        ? toNumber(apiSummary.total_original_debit)
+      summary.total_original_debit !== undefined
+        ? toNumber(summary.total_original_debit)
         : totalOriginalDebit,
 
     total_original_credit:
-      apiSummary?.total_original_credit !== undefined
-        ? toNumber(apiSummary.total_original_credit)
+      summary.total_original_credit !== undefined
+        ? toNumber(summary.total_original_credit)
         : totalOriginalCredit,
 
     total_adjustment_debit:
-      apiSummary?.total_adjustment_debit !== undefined
-        ? toNumber(apiSummary.total_adjustment_debit)
+      summary.total_adjustment_debit !== undefined
+        ? toNumber(summary.total_adjustment_debit)
         : totalAdjustmentDebit,
 
     total_adjustment_credit:
-      apiSummary?.total_adjustment_credit !== undefined
-        ? toNumber(apiSummary.total_adjustment_credit)
+      summary.total_adjustment_credit !== undefined
+        ? toNumber(summary.total_adjustment_credit)
         : totalAdjustmentCredit,
 
     total_adjusted_debit:
-      apiSummary?.total_adjusted_debit !== undefined
-        ? toNumber(apiSummary.total_adjusted_debit)
+      summary.total_adjusted_debit !== undefined
+        ? toNumber(summary.total_adjusted_debit)
         : totalAdjustedDebit,
 
     total_adjusted_credit:
-      apiSummary?.total_adjusted_credit !== undefined
-        ? toNumber(apiSummary.total_adjusted_credit)
+      summary.total_adjusted_credit !== undefined
+        ? toNumber(summary.total_adjusted_credit)
         : totalAdjustedCredit,
 
     difference:
-      apiSummary?.difference !== undefined
-        ? toNumber(apiSummary.difference)
+      summary.difference !== undefined
+        ? toNumber(summary.difference)
         : difference,
 
     is_balanced:
-      apiSummary?.is_balanced !== undefined
-        ? toBoolean(apiSummary.is_balanced)
+      summary.is_balanced !== undefined
+        ? toBoolean(summary.is_balanced)
         : isBalanced,
 
     line_count:
-      apiSummary?.line_count !== undefined
-        ? Number(apiSummary.line_count)
+      summary.line_count !== undefined
+        ? toNumber(summary.line_count)
         : lines.length,
 
     posted_adjustment_count:
-      apiSummary?.posted_adjustment_count !== undefined
-        ? Number(apiSummary.posted_adjustment_count)
+      summary.posted_adjustment_count !== undefined
+        ? toNumber(summary.posted_adjustment_count)
         : 0,
   };
 }
@@ -308,31 +296,29 @@ async function getTrialBalanceDetails(
     return {};
   }
 
-  const data = await response.json();
+  const parsed: unknown = await response.json();
+  if (!isRecord(parsed)) {
+    throw new Error("The Trial Balance API returned an invalid response.");
+  }
 
   return {
-    id: Number(data.id ?? id),
+    id: toNumber(parsed.id ?? id),
 
     engagement: Number(
-      data.engagement ??
-        data.engagement_id ??
+      parsed.engagement ??
+        parsed.engagement_id ??
         0
     ),
 
-    period_start:
-      data.period_start ?? "",
+    period_start: toText(parsed.period_start, ""),
 
-    period_end:
-      data.period_end ?? "",
+    period_end: toText(parsed.period_end, ""),
 
-    currency:
-      data.currency ?? "TZS",
+    currency: toText(parsed.currency, "TZS"),
 
-    status:
-      data.status ?? "unknown",
+    status: toText(parsed.status, "unknown"),
 
-    description:
-      data.description ?? "",
+    description: toText(parsed.description, ""),
   };
 }
 
@@ -341,34 +327,32 @@ async function getTrialBalanceDetails(
 ========================================================= */
 
 function normalizeAdjustedTrialBalance(
-  rawResult: any,
+  rawResult: unknown,
   trialBalanceDetails: Partial<TrialBalance>,
   requestedTrialBalanceId: number
 ): AdjustedTrialBalanceResponse {
-  let raw = rawResult ?? {};
+  if (!isRecord(rawResult)) {
+    throw new Error("The Adjusted Trial Balance API returned an invalid response.");
+  }
+  let raw: Record<string, unknown> = rawResult;
 
   if (
-    raw?.data &&
-    (
-      raw.data.lines ||
-      raw.data.summary ||
-      raw.data.trial_balance
-    )
+    isRecord(raw.data) &&
+    (raw.data.lines || raw.data.summary || raw.data.trial_balance)
   ) {
     raw = raw.data;
   }
 
-  const rawLines = Array.isArray(
-    raw?.lines
-  )
+  const rawLines: unknown[] = Array.isArray(raw.lines)
     ? raw.lines
     : [];
 
   const lines =
     normalizeLines(rawLines);
 
-  const rawTrialBalance =
-    raw?.trial_balance ?? {};
+  const rawTrialBalance = isRecord(raw.trial_balance)
+    ? raw.trial_balance
+    : {};
 
   const trialBalance: TrialBalance = {
     id: Number(
@@ -384,36 +368,36 @@ function normalizeAdjustedTrialBalance(
         0
     ),
 
-    period_start:
-      rawTrialBalance.period_start ??
-      trialBalanceDetails.period_start ??
-      "",
+    period_start: toText(
+      rawTrialBalance.period_start,
+      trialBalanceDetails.period_start ?? ""
+    ),
 
-    period_end:
-      rawTrialBalance.period_end ??
-      trialBalanceDetails.period_end ??
-      "",
+    period_end: toText(
+      rawTrialBalance.period_end,
+      trialBalanceDetails.period_end ?? ""
+    ),
 
-    currency:
-      rawTrialBalance.currency ??
-      trialBalanceDetails.currency ??
-      "TZS",
+    currency: toText(
+      rawTrialBalance.currency,
+      trialBalanceDetails.currency ?? "TZS"
+    ),
 
-    status:
-      rawTrialBalance.status ??
-      trialBalanceDetails.status ??
-      "unknown",
+    status: toText(
+      rawTrialBalance.status,
+      trialBalanceDetails.status ?? "unknown"
+    ),
 
-    description:
-      rawTrialBalance.description ??
-      trialBalanceDetails.description ??
-      "",
+    description: toText(
+      rawTrialBalance.description,
+      trialBalanceDetails.description ?? ""
+    ),
   };
 
   const summary =
     calculateSummaryFromLines(
       lines,
-      raw?.summary
+      raw.summary
     );
 
   return {
@@ -1093,6 +1077,13 @@ function AdjustedTrialBalanceContent() {
                             <div className="mt-1 text-sm text-slate-500">
                               {line.account_name}
                             </div>
+
+                            <Link
+                              href={`/financials/audit-trace?engagement=${trial_balance.engagement}&trial_balance=${trial_balance.id}&account=${line.account_id}`}
+                              className="mt-1 inline-block text-xs text-blue-700 hover:underline"
+                            >
+                              Trace account
+                            </Link>
 
                           </td>
 

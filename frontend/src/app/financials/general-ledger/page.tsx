@@ -26,6 +26,10 @@ import {
   type GeneralLedgerSource,
   type GeneralLedgerStatus,
 } from "@/lib/api";
+import {
+  getFinancialDimensions,
+  type FinancialDimension,
+} from "@/lib/financialWorkflows";
 
 const SOURCE_OPTIONS: {
   value: GeneralLedgerSource;
@@ -161,6 +165,8 @@ export default function GeneralLedgerPage() {
 
   const [entryError, setEntryError] =
     useState("");
+  const [dimensionOptions, setDimensionOptions] =
+    useState<FinancialDimension[]>([]);
 
   const [form, setForm] = useState({
     engagement: "",
@@ -172,7 +178,11 @@ export default function GeneralLedgerPage() {
     credit: "",
     source: "manual" as GeneralLedgerSource,
     status: "draft" as GeneralLedgerStatus,
+    dimensions: [] as string[],
   });
+  const activeDimensionOptions = dimensionOptions.filter(
+    (dimension) => dimension.engagement === Number(form.engagement)
+  );
 
   async function loadEngagements() {
     try {
@@ -242,6 +252,26 @@ export default function GeneralLedgerPage() {
     dateTo,
   ]);
 
+  useEffect(() => {
+    let active = true;
+    if (!form.engagement) {
+      return () => { active = false; };
+    }
+    void getFinancialDimensions(Number(form.engagement)).then(
+      (result) => { if (active) setDimensionOptions(result); },
+      (err: unknown) => {
+        if (active) {
+          setEntryError(
+            err instanceof Error
+              ? err.message
+              : "Could not load financial dimensions."
+          );
+        }
+      }
+    );
+    return () => { active = false; };
+  }, [form.engagement]);
+
   /* =========================================================
      NEW ENTRY FUNCTIONS
   ========================================================= */
@@ -259,6 +289,7 @@ export default function GeneralLedgerPage() {
       credit: "",
       source: "manual",
       status: "draft",
+      dimensions: [],
     });
 
     setIsNewEntryOpen(true);
@@ -280,6 +311,7 @@ export default function GeneralLedgerPage() {
     setForm((current) => ({
       ...current,
       [field]: value,
+      ...(field === "engagement" ? { dimensions: [] } : {}),
     }));
   }
 
@@ -357,6 +389,7 @@ export default function GeneralLedgerPage() {
         credit,
         source: form.source,
         status: form.status,
+        dimensions: form.dimensions.map(Number),
       });
 
       setIsNewEntryOpen(false);
@@ -372,6 +405,7 @@ export default function GeneralLedgerPage() {
         credit: "",
         source: "manual",
         status: "draft",
+        dimensions: [],
       });
 
       await loadGeneralLedger(true);
@@ -415,6 +449,9 @@ export default function GeneralLedgerPage() {
         entry.description,
         entry.account_type,
         entry.financial_statement_section,
+        ...(entry.dimension_values || []).map(
+          (dimension) => `${dimension.dimension_type} ${dimension.name}`
+        ),
         sourceLabel(entry.source),
         statusLabel(entry.status),
       ]
@@ -808,6 +845,10 @@ export default function GeneralLedgerPage() {
                     </th>
 
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Dimensions
+                    </th>
+
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Reference
                     </th>
 
@@ -853,6 +894,15 @@ export default function GeneralLedgerPage() {
                         <div className="mt-1 text-xs text-slate-500">
                           {entry.account_name}
                         </div>
+                      </td>
+
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {entry.dimension_values.length
+                          ? entry.dimension_values.map(
+                              (dimension) =>
+                                `${dimension.dimension_type}: ${dimension.name}`
+                            ).join(", ")
+                          : "—"}
                       </td>
 
                       <td className="px-4 py-4 text-sm text-slate-600">
@@ -1051,6 +1101,39 @@ export default function GeneralLedgerPage() {
                     </p>
                   </div>
                 )}
+
+                <fieldset className="rounded-xl border border-slate-200 p-4">
+                  <legend className="px-1 text-sm font-semibold text-slate-700">
+                    Class, location, and project
+                  </legend>
+                  {activeDimensionOptions.length ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {activeDimensionOptions.map((dimension) => (
+                        <label key={dimension.id} className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={form.dimensions.includes(String(dimension.id))}
+                            onChange={(event) => {
+                              setForm((current) => ({
+                                ...current,
+                                dimensions: event.target.checked
+                                  ? [...current.dimensions, String(dimension.id)]
+                                  : current.dimensions.filter(
+                                      (id) => id !== String(dimension.id)
+                                    ),
+                              }));
+                            }}
+                          />
+                          <span>{dimension.dimension_type}: {dimension.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      No active dimensions have been configured for this engagement.
+                    </p>
+                  )}
+                </fieldset>
 
                 {/* Date + Reference */}
                 <div className="grid gap-5 md:grid-cols-2">

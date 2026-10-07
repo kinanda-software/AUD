@@ -1,6 +1,9 @@
 ﻿"use client";
+import { apiResponse } from "@/lib/api";
+import { isRecord } from "@/lib/typeGuards";
 
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -15,8 +18,6 @@ import {
   Save,
   Loader2,
 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:8000/api";
 
 interface ControlTestExecution {
   id?: number;
@@ -61,6 +62,54 @@ type ApiResponse =
   | ControlTestExecution[]
   | PaginatedResponse;
 
+function isControlTestExecution(
+  value: unknown
+): value is ControlTestExecution {
+  if (!isRecord(value)) return false;
+
+  const requiredStrings = [
+    "control_name",
+    "control_reference",
+    "assertion",
+    "control_type",
+    "testing_objective",
+    "test_procedure",
+    "population",
+    "sampling_method",
+    "audit_evidence",
+    "result",
+    "exception_nature",
+    "exception_effect",
+    "reliance_decision",
+    "auditor_conclusion",
+  ];
+
+  return (
+    typeof value.engagement === "number" &&
+    (value.id === undefined || typeof value.id === "number") &&
+    (value.sample_size === null || typeof value.sample_size === "number") &&
+    typeof value.exceptions_found === "number" &&
+    requiredStrings.every((field) => typeof value[field] === "string")
+  );
+}
+
+function isApiResponse(value: unknown): value is ApiResponse {
+  if (Array.isArray(value)) {
+    return value.every(isControlTestExecution);
+  }
+
+  if (!isRecord(value)) return false;
+  if (
+    value.results !== undefined &&
+    (!Array.isArray(value.results) ||
+      !value.results.every(isControlTestExecution))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export default function ExecuteControlsPage() {
   const params = useParams();
   const router = useRouter();
@@ -68,97 +117,11 @@ export default function ExecuteControlsPage() {
   const engagementId = params.id as string;
 
   // ==========================================================
-  // CSRF COOKIE
-  // ==========================================================
-
-  const getCookie = (name: string): string | null => {
-    if (typeof document === "undefined") {
-      return null;
-    }
-
-    const cookies = document.cookie.split(";");
-
-    for (const cookie of cookies) {
-      const trimmedCookie = cookie.trim();
-
-      if (trimmedCookie.startsWith(`${name}=`)) {
-        return decodeURIComponent(
-          trimmedCookie.substring(name.length + 1)
-        );
-      }
-    }
-
-    return null;
-  };
-
-  // ==========================================================
   // AUTHENTICATED FETCH
   // ==========================================================
 
-  const authenticatedFetch = async (
-    url: string,
-    options: RequestInit = {}
-  ) => {
-    const csrfToken = getCookie("csrftoken");
-
-    const headers = new Headers(
-      options.headers || {}
-    );
-
-    headers.set(
-      "Accept",
-      "application/json"
-    );
-
-    if (options.body) {
-      headers.set(
-        "Content-Type",
-        "application/json"
-      );
-    }
-
-    if (csrfToken) {
-      headers.set(
-        "X-CSRFToken",
-        csrfToken
-      );
-    }
-
-    return fetch(url, {
-      ...options,
-      headers,
-      credentials: "include",
-      cache: "no-store",
-    });
-  };
-
-  // ==========================================================
-  // RESPONSE PARSER
-  // ==========================================================
-
-  const parseResponse = async (
-    response: Response
-  ): Promise<any> => {
-    const contentType =
-      response.headers.get("content-type") || "";
-
-    if (
-      contentType.includes("application/json")
-    ) {
-      return response.json();
-    }
-
-    const text = await response.text();
-
-    return text || null;
-  };
-
-  // ==========================================================
-  // API ERROR FORMATTER
-  // ==========================================================
-
-  const formatApiError = (
-    data: any,
+  const formatApiError = useCallback((
+    data: unknown,
     status: number
   ): string => {
     if (!data) {
@@ -169,40 +132,26 @@ export default function ExecuteControlsPage() {
       return data;
     }
 
-    if (data.detail) {
-      return String(data.detail);
-    }
+    if (isRecord(data)) {
+      const detail = data.detail;
+      if (typeof detail === "string") return detail;
 
-    if (data.message) {
-      return String(data.message);
-    }
+      const message = data.message;
+      if (typeof message === "string") return message;
 
-    if (data.error) {
-      return String(data.error);
-    }
+      const error = data.error;
+      if (typeof error === "string") return error;
 
-    if (typeof data === "object") {
       const messages: string[] = [];
-
-      Object.entries(data).forEach(
-        ([field, value]) => {
-          if (Array.isArray(value)) {
-            messages.push(
-              `${field}: ${value.join(", ")}`
-            );
-          } else if (
-            typeof value === "string"
-          ) {
-            messages.push(
-              `${field}: ${value}`
-            );
-          } else if (value !== null && value !== undefined) {
-            messages.push(
-              `${field}: ${JSON.stringify(value)}`
-            );
-          }
+      Object.entries(data).forEach(([field, value]) => {
+        if (Array.isArray(value)) {
+          messages.push(`${field}: ${value.join(", ")}`);
+        } else if (typeof value === "string") {
+          messages.push(`${field}: ${value}`);
+        } else if (value !== null && value !== undefined) {
+          messages.push(`${field}: ${JSON.stringify(value)}`);
         }
-      );
+      });
 
       if (messages.length > 0) {
         return messages.join(" | ");
@@ -210,7 +159,48 @@ export default function ExecuteControlsPage() {
     }
 
     return `Request failed with status ${status}.`;
-  };
+  }, []);
+
+  const authenticatedFetch = useCallback(async (
+    endpoint: string,
+    options: RequestInit = {}
+  ) => {
+    try {
+      return await apiResponse(endpoint, {
+        ...options,
+        cache: "no-store",
+      });
+    } catch (err) {
+      if (!(err instanceof Error)) throw err;
+      let data: unknown;
+      try {
+        data = JSON.parse(err.message);
+      } catch (parseError) {
+        if (!(parseError instanceof SyntaxError)) throw parseError;
+        throw err;
+      }
+      throw new Error(formatApiError(data, 0));
+    }
+  }, [formatApiError]);
+
+  // ==========================================================
+  // RESPONSE PARSER
+  // ==========================================================
+
+  const parseResponse = useCallback(async (
+    response: Response
+  ): Promise<unknown> => {
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (
+      contentType.includes("application/json")
+    ) {
+      return response.json();
+    }
+
+    throw new Error("The control test API returned a non-JSON response.");
+  }, []);
 
   // ==========================================================
   // FORM STATE
@@ -301,20 +291,13 @@ export default function ExecuteControlsPage() {
   // ==========================================================
 
   useEffect(() => {
-    if (!engagementId) {
-      setLoading(false);
-      return;
-    }
+    if (!engagementId) return;
 
     const loadTest = async () => {
       try {
-        setLoading(true);
-        setError("");
-        setSuccessMessage("");
-
         const response =
           await authenticatedFetch(
-            `${API_BASE_URL}/control-test-executions/?engagement=${encodeURIComponent(
+            `/control-test-executions/?engagement=${encodeURIComponent(
               engagementId
             )}`,
             {
@@ -322,18 +305,14 @@ export default function ExecuteControlsPage() {
             }
           );
 
-        const data: ApiResponse =
+        const parsedData =
           await parseResponse(response);
-
-        if (!response.ok) {
-          const message =
-            formatApiError(
-              data,
-              response.status
-            );
-
-          throw new Error(message);
+        if (!isApiResponse(parsedData)) {
+          throw new Error("The control test API returned an invalid response.");
         }
+        const data = parsedData;
+        setError("");
+        setSuccessMessage("");
 
         // ======================================================
         // SUPPORT BOTH:
@@ -359,6 +338,8 @@ export default function ExecuteControlsPage() {
           Array.isArray(data.results)
         ) {
           tests = data.results;
+        } else {
+          throw new Error("The control test API returned an invalid list response.");
         }
 
         if (tests.length > 0) {
@@ -459,7 +440,7 @@ export default function ExecuteControlsPage() {
     };
 
     loadTest();
-  }, [engagementId]);
+  }, [engagementId, authenticatedFetch, parseResponse]);
 
   // ==========================================================
   // VALIDATION
@@ -654,8 +635,8 @@ export default function ExecuteControlsPage() {
         testId !== null;
 
       const url = isUpdating
-        ? `${API_BASE_URL}/control-test-executions/${testId}/`
-        : `${API_BASE_URL}/control-test-executions/`;
+        ? `/control-test-executions/${testId}/`
+        : `/control-test-executions/`;
 
       const response =
         await authenticatedFetch(
@@ -676,32 +657,20 @@ export default function ExecuteControlsPage() {
           response
         );
 
-      if (!response.ok) {
-        console.error(
-          "3.1 API error:",
-          responseData
-        );
-
-        throw new Error(
-          formatApiError(
-            responseData,
-            response.status
-          )
-        );
-      }
-
       // ======================================================
       // SAVE RETURNED ID
       // ======================================================
 
       if (
-        responseData &&
-        responseData.id
+        !isRecord(responseData) ||
+        typeof responseData.id !== "number" ||
+        !Number.isInteger(responseData.id) ||
+        responseData.id <= 0
       ) {
-        setTestId(
-          Number(responseData.id)
-        );
+        throw new Error("The server returned an invalid saved control test ID. Reload before retrying.");
       }
+
+      setTestId(responseData.id);
 
       setSaved(true);
 
@@ -1702,4 +1671,3 @@ export default function ExecuteControlsPage() {
     
   );
 }
-

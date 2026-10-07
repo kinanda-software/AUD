@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import {
 import {
   getEngagement,
   getTransactionCycleAssessmentsByEngagement,
+  type Engagement,
   type TransactionCycleAssessment,
 } from "@/lib/api";
 
@@ -103,24 +104,22 @@ export default function TransactionCyclesPage() {
   const engagementId = String(params.id);
 
   const [engagement, setEngagement] =
-    useState<any>(null);
+    useState<Engagement | null>(null);
 
   const [assessments, setAssessments] =
     useState<TransactionCycleAssessment[]>(
       []
     );
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loadedEngagementId, setLoadedEngagementId] =
+    useState<string | null>(null);
+  const loading = loadedEngagementId !== engagementId;
 
   const [error, setError] =
     useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const [
         engagementData,
         assessmentData,
@@ -131,6 +130,7 @@ export default function TransactionCyclesPage() {
         ),
       ]);
 
+      setError(null);
       setEngagement(engagementData);
       setAssessments(assessmentData);
     } catch (err) {
@@ -146,13 +146,13 @@ export default function TransactionCyclesPage() {
 
       setError(message);
     } finally {
-      setLoading(false);
+      setLoadedEngagementId(engagementId);
     }
-  };
+  }, [engagementId]);
 
   useEffect(() => {
-    loadData();
-  }, [engagementId]);
+    void loadData();
+  }, [loadData]);
 
   const assessmentMap = useMemo(() => {
     const map = new Map<
@@ -202,13 +202,11 @@ export default function TransactionCyclesPage() {
 
   const engagementCode =
     engagement?.engagement_code ??
-    engagement?.code ??
     `AUD-${engagementId}`;
 
   const engagementName =
-    engagement?.name ??
+    engagement?.title ??
     engagement?.client_name ??
-    engagement?.client?.name ??
     "Financial Statement Audit";
 
   return (

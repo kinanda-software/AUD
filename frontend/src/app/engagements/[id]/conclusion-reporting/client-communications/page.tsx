@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -73,132 +75,71 @@ export default function ClientCommunicationsPage() {
   const router = useRouter();
 
   const engagementId = String(params.id ?? "");
+  const workpaper = useWorkpaper(engagementId, "client-communications");
 
   // =====================================================
   // GENERAL STATE
   // =====================================================
 
-  const [completionStatus, setCompletionStatus] =
-    useState<CompletionStatus>("Not Started");
-
-  const [saved, setSaved] = useState(false);
+  const completionStatus = workpaper.status as CompletionStatus;
+  const setCompletionStatus = workpaper.setStatus;
 
   // =====================================================
   // ISA 265 — INTERNAL CONTROL DEFICIENCIES
   // =====================================================
 
-  const [deficiencies, setDeficiencies] = useState<Deficiency[]>([
-    {
-      id: "DEF-001",
-      title: "Example control deficiency",
-      description:
-        "Document the nature of the deficiency, the affected control and the potential effect.",
-      severity: "Other Deficiency",
-      affectedArea: "Financial reporting",
-      managementResponse: "",
-      communicatedTo: "Those Charged With Governance",
-      communicationDate: "",
-      status: "Draft",
-    },
-  ]);
+  const [deficiencies, setDeficiencies] = workpaper.field<Deficiency[]>("deficiencies", []);
 
   // =====================================================
   // ISA 260 — GOVERNANCE COMMUNICATION
   // =====================================================
 
-  const [governanceMatters, setGovernanceMatters] = useState<
+  const [governanceMatters, setGovernanceMatters] = workpaper.field<
     GovernanceMatter[]
-  >([
-    {
-      id: "GOV-001",
-      matterType: "Audit Scope",
-      title: "Overall audit scope and strategy",
-      description:
-        "Communicate the planned scope, timing and significant areas of the audit.",
-      communicatedTo: "Those Charged With Governance",
-      communicationDate: "",
-      response: "",
-      status: "Draft",
-    },
-  ]);
+  >("governanceMatters", []);
 
   // =====================================================
   // ISA 580 — WRITTEN REPRESENTATIONS
   // =====================================================
 
-  const [representationItems, setRepresentationItems] = useState<
+  const [representationItems, setRepresentationItems] = workpaper.field<
     RepresentationItem[]
-  >([
-    {
-      id: "REP-001",
-      representation:
-        "Management has provided all relevant information and access to persons within the entity.",
-      responsiblePerson: "",
-      requestedDate: "",
-      receivedDate: "",
-      status: "Requested",
-      notes: "",
-    },
-    {
-      id: "REP-002",
-      representation:
-        "Management has disclosed all known actual or suspected fraud and non-compliance affecting the financial statements.",
-      responsiblePerson: "",
-      requestedDate: "",
-      receivedDate: "",
-      status: "Requested",
-      notes: "",
-    },
-    {
-      id: "REP-003",
-      representation:
-        "Management has disclosed all known uncorrected misstatements and their effect on the financial statements.",
-      responsiblePerson: "",
-      requestedDate: "",
-      receivedDate: "",
-      status: "Requested",
-      notes: "",
-    },
-  ]);
+  >("representationItems", []);
 
   // =====================================================
   // MANAGEMENT RESPONSES
   // =====================================================
 
-  const [managementResponses, setManagementResponses] = useState("");
+  const [managementResponses, setManagementResponses] = workpaper.field("managementResponses", "");
 
   // =====================================================
   // FINAL COMMUNICATION
   // =====================================================
 
   const [auditorCommunicationConclusion, setAuditorCommunicationConclusion] =
-    useState("");
+    workpaper.field("auditorCommunicationConclusion", "");
 
   const [finalCommunicationDate, setFinalCommunicationDate] =
-    useState("");
+    workpaper.field("finalCommunicationDate", "");
 
   const [communicationResponsiblePerson, setCommunicationResponsiblePerson] =
-    useState("");
+    workpaper.field("communicationResponsiblePerson", "");
 
-  const [finalReviewCompleted, setFinalReviewCompleted] = useState(false);
+  const [finalReviewCompleted, setFinalReviewCompleted] = workpaper.field("finalReviewCompleted", false);
 
   // =====================================================
   // HELPER
   // =====================================================
 
   const markInProgress = () => {
-    setSaved(false);
-
-    if (completionStatus === "Not Started") {
-      setCompletionStatus("In Progress");
-    }
+    setCompletionStatus("In Progress");
   };
 
   // =====================================================
   // STATISTICS
   // =====================================================
 
-  const deficiencyStats = useMemo(() => {
+  const deficiencyStats = (() => {
     const communicated = deficiencies.filter(
       (item) => item.status === "Communicated"
     ).length;
@@ -219,9 +160,9 @@ export default function ClientCommunicationsPage() {
       cleared,
       significant,
     };
-  }, [deficiencies]);
+  })();
 
-  const governanceStats = useMemo(() => {
+  const governanceStats = (() => {
     const communicated = governanceMatters.filter(
       (item) => item.status === "Communicated"
     ).length;
@@ -242,9 +183,9 @@ export default function ClientCommunicationsPage() {
       cleared,
       outstanding,
     };
-  }, [governanceMatters]);
+  })();
 
-  const representationStats = useMemo(() => {
+  const representationStats = (() => {
     const received = representationItems.filter(
       (item) => item.status === "Received"
     ).length;
@@ -258,13 +199,13 @@ export default function ClientCommunicationsPage() {
       received,
       outstanding,
     };
-  }, [representationItems]);
+  })();
 
   // =====================================================
   // READINESS
   // =====================================================
 
-  const deficienciesReady = useMemo(() => {
+  const deficienciesReady = (() => {
     return (
       deficiencies.length === 0 ||
       deficiencies.every(
@@ -273,9 +214,9 @@ export default function ClientCommunicationsPage() {
           item.status === "Cleared"
       )
     );
-  }, [deficiencies]);
+  })();
 
-  const governanceReady = useMemo(() => {
+  const governanceReady = (() => {
     return (
       governanceMatters.length === 0 ||
       governanceMatters.every(
@@ -284,16 +225,16 @@ export default function ClientCommunicationsPage() {
           item.status === "Cleared"
       )
     );
-  }, [governanceMatters]);
+  })();
 
-  const representationsReady = useMemo(() => {
+  const representationsReady = (() => {
     return (
       representationItems.length === 0 ||
       representationItems.every(
         (item) => item.status === "Received"
       )
     );
-  }, [representationItems]);
+  })();
 
   // =====================================================
   // FINAL READINESS
@@ -304,7 +245,7 @@ export default function ClientCommunicationsPage() {
 
   const finalReviewReady = finalReviewCompleted;
 
-  const communicationReady = useMemo(() => {
+  const communicationReady = (() => {
     return (
       deficienciesReady &&
       governanceReady &&
@@ -312,19 +253,13 @@ export default function ClientCommunicationsPage() {
       conclusionReady &&
       finalReviewReady
     );
-  }, [
-    deficienciesReady,
-    governanceReady,
-    representationsReady,
-    conclusionReady,
-    finalReviewReady,
-  ]);
+  })();
 
   // =====================================================
   // OPEN MATTERS COUNT
   // =====================================================
 
-  const openMattersCount = useMemo(() => {
+  const openMattersCount = (() => {
     const openDeficiencies = deficiencies.filter(
       (item) =>
         item.status !== "Communicated" &&
@@ -346,11 +281,7 @@ export default function ClientCommunicationsPage() {
       openGovernance +
       openRepresentations
     );
-  }, [
-    deficiencies,
-    governanceMatters,
-    representationItems,
-  ]);
+  })();
 
   // =====================================================
   // START
@@ -358,7 +289,6 @@ export default function ClientCommunicationsPage() {
 
   const handleStart = () => {
     setCompletionStatus("In Progress");
-    setSaved(false);
   };
 
   // =====================================================
@@ -388,13 +318,13 @@ export default function ClientCommunicationsPage() {
     setDeficiencies((current) => [
       ...current,
       {
-        id: `DEF-${String(current.length + 1).padStart(3, "0")}`,
+        id: `DEF-${crypto.randomUUID()}`,
         title: "",
         description: "",
         severity: "Other Deficiency",
         affectedArea: "",
         managementResponse: "",
-        communicatedTo: "Those Charged With Governance",
+        communicatedTo: "",
         communicationDate: "",
         status: "Draft",
       },
@@ -438,11 +368,11 @@ export default function ClientCommunicationsPage() {
     setGovernanceMatters((current) => [
       ...current,
       {
-        id: `GOV-${String(current.length + 1).padStart(3, "0")}`,
+        id: `GOV-${crypto.randomUUID()}`,
         matterType: "Other",
         title: "",
         description: "",
-        communicatedTo: "Those Charged With Governance",
+        communicatedTo: "",
         communicationDate: "",
         response: "",
         status: "Draft",
@@ -487,7 +417,7 @@ export default function ClientCommunicationsPage() {
     setRepresentationItems((current) => [
       ...current,
       {
-        id: `REP-${String(current.length + 1).padStart(3, "0")}`,
+        id: `REP-${crypto.randomUUID()}`,
         representation: "",
         responsiblePerson: "",
         requestedDate: "",
@@ -512,106 +442,9 @@ export default function ClientCommunicationsPage() {
   // SAVE
   // =====================================================
 
-  const handleSave = () => {
-    const communicationData = {
-      engagementId,
-      section: "4.4",
-      completionStatus,
-      deficiencies,
-      governanceMatters,
-      representationItems,
-      managementResponses,
-      auditorCommunicationConclusion,
-      finalCommunicationDate,
-      communicationResponsiblePerson,
-      finalReviewCompleted,
-    };
-
-    console.log(
-      "Client Communications:",
-      communicationData
-    );
-
-    setSaved(true);
-
-    if (completionStatus === "Not Started") {
-      setCompletionStatus("In Progress");
-    }
-  };
-
   // =====================================================
   // COMPLETE
   // =====================================================
-
-  const handleComplete = () => {
-    if (!communicationReady) {
-      const missing: string[] = [];
-
-      if (!deficienciesReady) {
-        missing.push(
-          "ISA 265: Set every deficiency Communication Status to Communicated or Cleared."
-        );
-      }
-
-      if (!governanceReady) {
-        missing.push(
-          "ISA 260: Set every governance matter Status to Communicated or Cleared."
-        );
-      }
-
-      if (!representationsReady) {
-        missing.push(
-          "ISA 580: Set every written representation Status to Received."
-        );
-      }
-
-      if (!conclusionReady) {
-        missing.push(
-          "Auditor Communication Conclusion: Enter the auditor's overall conclusion."
-        );
-      }
-
-      if (!finalReviewReady) {
-        missing.push(
-          "Final Communication Review: Tick the final communication review checkbox."
-        );
-      }
-
-      alert(
-        `Client Communications cannot be completed yet.\n\n${missing
-          .map((item) => `• ${item}`)
-          .join("\n")}`
-      );
-
-      return;
-    }
-
-    const communicationData = {
-      engagementId,
-      section: "4.4",
-      completionStatus: "Completed",
-      deficiencies,
-      governanceMatters,
-      representationItems,
-      managementResponses,
-      auditorCommunicationConclusion,
-      finalCommunicationDate,
-      communicationResponsiblePerson,
-      finalReviewCompleted,
-    };
-
-    console.log(
-      "Completed Client Communications:",
-      communicationData
-    );
-
-    setCompletionStatus("Completed");
-    setSaved(true);
-
-    alert(
-      "Phase 4.4 Client Communications completed successfully."
-    );
-  };
 
   // =====================================================
   // NAVIGATION
@@ -629,7 +462,7 @@ export default function ClientCommunicationsPage() {
     );
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!communicationReady) {
       alert(
         "Please complete all required Client Communications items before continuing."
@@ -637,6 +470,7 @@ export default function ClientCommunicationsPage() {
       return;
     }
 
+    if (!await workpaper.save(true)) return;
     router.push(
       `/engagements/${engagementId}/conclusion-reporting/opinion-report`
     );
@@ -649,6 +483,8 @@ export default function ClientCommunicationsPage() {
   return (
 
       <main className="min-w-0 flex-1 bg-slate-50">
+        <WorkpaperNotice {...workpaper} />
+        <fieldset disabled={workpaper.blocked}>
         <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
 
           {/* HEADER */}
@@ -698,6 +534,13 @@ export default function ClientCommunicationsPage() {
           </div>
 
           {/* ENGAGEMENT SUMMARY */}
+          <div role="status" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            Unsaved working notes: this page does not load or save communication records.
+            Lists start empty; add only actual engagement matters. Counts describe entries
+            in this browser view, not a verified absence of findings or outstanding requests.
+            Saves are stored in the engagement database. Completion validates the recorded communications and representations.
+            Leaving or refreshing this page discards your entries.
+          </div>
 
           <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-6">
 
@@ -1555,30 +1398,20 @@ export default function ClientCommunicationsPage() {
 
               <button
                 type="button"
-                onClick={handleSave}
-                className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                onClick={() => void workpaper.save()}
+                disabled={workpaper.blocked}
+                className="flex cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 opacity-50"
               >
-                {saved ? (
-                  <>
-                    <CheckCircle2 size={18} />
-                    Saved
-                  </>
-                ) : (
-                  <>
-                    <Save size={18} />
-                    Save Workpaper
-                  </>
-                )}
+                <Save size={18} />
+                Save Unavailable
               </button>
 
               <button
                 type="button"
-                onClick={handleComplete}
-                className={`flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-white transition ${
-                  communicationReady
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "cursor-not-allowed bg-orange-500 hover:bg-orange-600"
-                }`}
+                onClick={() => void workpaper.save(true)}
+                disabled={workpaper.blocked}
+                title="Communication completion is not persisted."
+                className="flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-gray-400 px-6 py-3 text-sm font-semibold text-white"
               >
                 <CheckCircle2 size={18} />
                 Complete 4.4
@@ -1603,6 +1436,7 @@ export default function ClientCommunicationsPage() {
           </div>
 
         </div>
+        </fieldset>
       </main>
 
   );

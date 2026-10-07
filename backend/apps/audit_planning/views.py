@@ -1,4 +1,8 @@
 from rest_framework import viewsets
+from django.db import transaction
+from rest_framework.exceptions import ValidationError
+from apps.engagements.models import Engagement
+from .archive_validation import validate_archive_completion
 
 from .models import (
     AuditScope,
@@ -554,9 +558,55 @@ class RemediationActionViewSet(
 # PHASE 4.6 — DOCUMENTATION ARCHIVE
 # ============================================================
 
-class DocumentationArchiveViewSet(
-    viewsets.ModelViewSet
-):
+class ArchiveMutationMixin:
+    @transaction.atomic
+    def perform_create(self, serializer):
+        engagement = serializer.validated_data["engagement"]
+        Engagement.objects.select_for_update().get(pk=engagement.pk)
+        self.ensure_unlocked(engagement.pk)
+        self.save_archive(serializer, engagement)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        engagement = serializer.instance.engagement
+        if serializer.validated_data.get("engagement", engagement) != engagement:
+            raise ValidationError("Archive records cannot move between engagements.")
+        Engagement.objects.select_for_update().get(pk=engagement.pk)
+        self.ensure_unlocked(engagement.pk)
+        self.save_archive(serializer, engagement)
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        Engagement.objects.select_for_update().get(pk=instance.engagement_id)
+        self.ensure_unlocked(instance.engagement_id)
+        instance.delete()
+
+    def ensure_unlocked(self, engagement_id):
+        if ArchiveStatus.objects.filter(engagement_id=engagement_id, locked=True).exists():
+            raise ValidationError("This engagement archive is locked and read-only.")
+
+    def save_archive(self, serializer, engagement):
+        if isinstance(serializer, ArchiveStatusSerializer) and serializer.validated_data.get("locked"):
+            archive = DocumentationArchive.objects.filter(engagement=engagement).first()
+            validate_archive_completion(archive.data if archive else None)
+            completed_at = serializer.validated_data.get("documentation_completed_at")
+            retention = serializer.validated_data.get("retention_period_years")
+            if not completed_at or not retention or retention < 1:
+                raise ValidationError("A completion date and positive retention period are required.")
+            serializer.save()
+            archive.data = {**archive.data, "completionStatus": "Completed", "archiveStatus": "Archived"}
+            archive.save(update_fields=["data", "updated_at"])
+        else:
+            if isinstance(serializer, DocumentationArchiveSerializer):
+                data = serializer.validated_data.get("data", serializer.instance.data if serializer.instance else {})
+                if not isinstance(data, dict):
+                    raise ValidationError("Documentation archive data must be an object.")
+                if data.get("archiveStatus") == "Archived":
+                    raise ValidationError("Lock the archive before claiming archived status.")
+            serializer.save()
+
+
+class DocumentationArchiveViewSet(ArchiveMutationMixin, viewsets.ModelViewSet):
     queryset = DocumentationArchive.objects.select_related(
         "engagement"
     ).all()
@@ -582,9 +632,7 @@ class DocumentationArchiveViewSet(
 # PHASE 4.6 — ARCHIVE STATUS
 # ============================================================
 
-class ArchiveStatusViewSet(
-    viewsets.ModelViewSet
-):
+class ArchiveStatusViewSet(ArchiveMutationMixin, viewsets.ModelViewSet):
     queryset = ArchiveStatus.objects.select_related(
         "engagement"
     ).all()

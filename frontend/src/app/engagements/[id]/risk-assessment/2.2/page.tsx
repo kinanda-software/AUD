@@ -1,4 +1,7 @@
 "use client";
+import { apiResponse } from "@/lib/api";
+import { isRecord } from "@/lib/typeGuards";
+
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -18,8 +21,6 @@ import {
   Loader2,
   CircleAlert,
 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:8000/api";
 
 interface ProcessFlowWalkthrough {
   id: number;
@@ -54,42 +55,50 @@ interface ProcessFlowWalkthrough {
   updated_at?: string;
 }
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
+function isProcessFlowWalkthrough(
+  value: unknown
+): value is ProcessFlowWalkthrough {
+  if (!isRecord(value)) return false;
 
-  const cookies = document.cookie.split("; ");
-
-  for (const cookie of cookies) {
-    const [key, ...valueParts] = cookie.split("=");
-
-    if (key === name) {
-      return decodeURIComponent(valueParts.join("="));
-    }
-  }
-
-  return null;
+  return (
+    typeof value.id === "number" &&
+    typeof value.engagement === "number" &&
+    [
+      "process_name",
+      "process_owner",
+      "department",
+      "walkthrough_date",
+      "process_description",
+      "process_flow",
+      "key_controls",
+      "control_objectives",
+      "control_owner",
+      "it_applications",
+      "it_dependencies",
+      "interfaces",
+      "walkthrough_procedure",
+      "evidence_obtained",
+      "observations",
+      "exceptions",
+      "conclusion",
+    ].every((field) => typeof value[field] === "string") &&
+    (value.engagement_code === undefined ||
+      typeof value.engagement_code === "string") &&
+    (value.created_at === undefined ||
+      typeof value.created_at === "string") &&
+    (value.updated_at === undefined ||
+      typeof value.updated_at === "string")
+  );
 }
 
-async function parseResponse(response: Response) {
+async function parseResponse(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    try {
-      return await response.json();
-    } catch {
-      return null;
-    }
+    return response.json();
   }
 
-  try {
-    const text = await response.text();
-
-    return text || null;
-  } catch {
-    return null;
-  }
+  throw new Error("The workpaper API returned a non-JSON response.");
 }
 
 function formatApiError(
@@ -104,11 +113,8 @@ function formatApiError(
     return data;
   }
 
-  if (
-    typeof data === "object" &&
-    data !== null
-  ) {
-    const objectData = data as Record<string, unknown>;
+  if (isRecord(data)) {
+    const objectData = data;
 
     if (
       typeof objectData.detail === "string" &&
@@ -200,7 +206,12 @@ export default function ProcessFlowWalkthroughsPage() {
     number | null
   >(null);
 
-  const [loading, setLoading] = useState(true);
+  const [loadedEngagementId, setLoadedEngagementId] =
+    useState<string | null>(null);
+  const isValidEngagementId =
+    typeof engagementId === "string" && engagementId.length > 0;
+  const loading =
+    isValidEngagementId && loadedEngagementId !== engagementId;
   const [saving, setSaving] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -211,29 +222,25 @@ export default function ProcessFlowWalkthroughsPage() {
   // =========================================================
 
   const authenticatedFetch = async (
-    url: string,
+    endpoint: string,
     options: RequestInit = {}
   ) => {
-    const csrfToken = getCookie("csrftoken");
-
-    const headers = new Headers(options.headers);
-
-    headers.set("Accept", "application/json");
-
-    if (options.body) {
-      headers.set("Content-Type", "application/json");
+    try {
+      return await apiResponse(endpoint, {
+        ...options,
+        cache: "no-store",
+      });
+    } catch (err) {
+      if (!(err instanceof Error)) throw err;
+      let data: unknown;
+      try {
+        data = JSON.parse(err.message);
+      } catch (parseError) {
+        if (!(parseError instanceof SyntaxError)) throw parseError;
+        throw err;
+      }
+      throw new Error(formatApiError(data, err.message));
     }
-
-    if (csrfToken) {
-      headers.set("X-CSRFToken", csrfToken);
-    }
-
-    return fetch(url, {
-      ...options,
-      headers,
-      credentials: "include",
-      cache: "no-store",
-    });
   };
 
   // =========================================================
@@ -241,19 +248,12 @@ export default function ProcessFlowWalkthroughsPage() {
   // =========================================================
 
   useEffect(() => {
-    if (!engagementId) {
-      setLoading(false);
-      setError("Invalid engagement ID.");
-      return;
-    }
+    if (!isValidEngagementId) return;
 
     const loadWorkpaper = async () => {
-      setLoading(true);
-      setError("");
-
       try {
         const url =
-          `${API_BASE_URL}/process-flow-walkthroughs/` +
+          `/process-flow-walkthroughs/` +
           `?engagement=${encodeURIComponent(
             String(engagementId)
           )}`;
@@ -280,44 +280,28 @@ export default function ProcessFlowWalkthroughsPage() {
           data
         );
 
-        if (!response.ok) {
-          throw new Error(
-            formatApiError(
-              data,
-              `Failed to load Phase 2.2 workpaper. HTTP ${response.status}.`
-            )
-          );
-        }
-
         let workpapers: ProcessFlowWalkthrough[] = [];
 
-        if (Array.isArray(data)) {
+        if (
+          Array.isArray(data) &&
+          data.every(isProcessFlowWalkthrough)
+        ) {
           workpapers = data;
         } else if (
-          data &&
-          typeof data === "object" &&
-          Array.isArray(
-            (data as {
-              results?: ProcessFlowWalkthrough[];
-            }).results
-          )
+          isRecord(data) &&
+          Array.isArray(data.results) &&
+          data.results.every(isProcessFlowWalkthrough)
         ) {
-          workpapers = (
-            data as {
-              results: ProcessFlowWalkthrough[];
-            }
-          ).results;
+          workpapers = data.results;
         } else if (
-          data &&
-          typeof data === "object" &&
-          typeof (data as ProcessFlowWalkthrough).id ===
-            "number"
+          isProcessFlowWalkthrough(data)
         ) {
-          workpapers = [
-            data as ProcessFlowWalkthrough,
-          ];
+          workpapers = [data];
+        } else {
+          throw new Error("The workpaper API returned an invalid list response.");
         }
 
+        setError("");
         if (workpapers.length === 0) {
           console.log(
             "No Phase 2.2 workpaper exists yet."
@@ -418,12 +402,16 @@ export default function ProcessFlowWalkthroughsPage() {
             : "Unable to load the Phase 2.2 workpaper."
         );
       } finally {
-        setLoading(false);
+        setLoadedEngagementId(engagementId);
       }
     };
 
     loadWorkpaper();
-  }, [engagementId]);
+  }, [engagementId, isValidEngagementId]);
+
+  const pageError = isValidEngagementId
+    ? error
+    : "Invalid engagement ID.";
 
   // =========================================================
   // MARK FORM AS EDITED
@@ -532,7 +520,7 @@ export default function ProcessFlowWalkthroughsPage() {
 
       if (workpaperId !== null) {
         const url =
-          `${API_BASE_URL}/process-flow-walkthroughs/` +
+          `/process-flow-walkthroughs/` +
           `${workpaperId}/`;
 
         console.log(
@@ -559,7 +547,7 @@ export default function ProcessFlowWalkthroughsPage() {
 
       else {
         const url =
-          `${API_BASE_URL}/process-flow-walkthroughs/`;
+          `/process-flow-walkthroughs/`;
 
         console.log(
           "PHASE 2.2 SAVE METHOD: POST"
@@ -594,15 +582,6 @@ export default function ProcessFlowWalkthroughsPage() {
         "DATABASE RESPONSE:",
         data
       );
-
-      if (!response.ok) {
-        throw new Error(
-          formatApiError(
-            data,
-            `Failed to save Phase 2.2 workpaper. HTTP ${response.status}.`
-          )
-        );
-      }
 
       if (
         !data ||
@@ -870,7 +849,7 @@ export default function ProcessFlowWalkthroughsPage() {
               ERROR
           ================================================== */}
 
-          {error && (
+          {pageError && (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
               <CircleAlert
                 size={20}
@@ -883,7 +862,7 @@ export default function ProcessFlowWalkthroughsPage() {
                 </p>
 
                 <p className="mt-1 text-sm">
-                  {error}
+                  {pageError}
                 </p>
               </div>
             </div>
@@ -1426,7 +1405,7 @@ export default function ProcessFlowWalkthroughsPage() {
                 </h2>
 
                 <p className="text-sm text-slate-500">
-                  Summarize the auditor's conclusion from
+                  Summarize the auditor&apos;s conclusion from
                   the walkthrough.
                 </p>
               </div>
@@ -1513,7 +1492,3 @@ export default function ProcessFlowWalkthroughsPage() {
       </div>
   );
 }
-
-
-
-

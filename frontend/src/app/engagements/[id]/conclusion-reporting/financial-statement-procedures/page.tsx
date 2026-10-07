@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
+import { useParams, useRouter } from "next/navigation";
 type ReviewStatus = "Not Started" | "In Progress" | "Completed";
 
 type ChecklistStatus =
@@ -114,18 +115,6 @@ const initialDisclosureItems: DisclosureItem[] = [
   },
 ];
 
-const initialSubsequentEvents: SubsequentEvent[] = [
-  {
-    id: 1,
-    reference: "SE-001",
-    eventDate: "",
-    description: "",
-    financialImpact: "",
-    treatment: "No Adjustment",
-    conclusion: "",
-  },
-];
-
 const initialComparativeReview: ComparativeReview = {
   period: "Prior Period",
   reviewed: false,
@@ -160,24 +149,26 @@ function getReviewStatusClasses(status: ReviewStatus): string {
 
 export default function FinancialStatementProceduresPage() {
   const params = useParams();
+  const router = useRouter();
 
   const engagementId = String(params.id ?? "");
+  const workpaper = useWorkpaper(engagementId, "financial-statement-procedures");
 
-  const [completionStatus, setCompletionStatus] =
-    useState<ReviewStatus>("Not Started");
-
-  const [saved, setSaved] = useState(false);
+  const completionStatus = workpaper.status as ReviewStatus;
+  const setCompletionStatus = workpaper.setStatus;
+  const saved = workpaper.saved;
+  const setSaved = workpaper.setSaved;
 
   const [disclosureItems, setDisclosureItems] =
-    useState<DisclosureItem[]>(initialDisclosureItems);
+    workpaper.field<DisclosureItem[]>("disclosureItems", initialDisclosureItems);
 
   const [subsequentEvents, setSubsequentEvents] =
-    useState<SubsequentEvent[]>(initialSubsequentEvents);
+    workpaper.field<SubsequentEvent[]>("subsequentEvents", []);
 
   const [comparativeReview, setComparativeReview] =
-    useState<ComparativeReview>(initialComparativeReview);
+    workpaper.field<ComparativeReview>("comparativeReview", initialComparativeReview);
 
-  const [analyticalReview, setAnalyticalReview] = useState({
+  const [analyticalReview, setAnalyticalReview] = workpaper.field("analyticalReview", {
     performed: false,
     overallReasonableness: "",
     unexpectedRelationships: "",
@@ -186,38 +177,38 @@ export default function FinancialStatementProceduresPage() {
     conclusion: "",
   });
 
-  const [issuesIdentified, setIssuesIdentified] = useState("");
+  const [issuesIdentified, setIssuesIdentified] = workpaper.field("issuesIdentified", "");
 
   const [overallConclusion, setOverallConclusion] =
-    useState("");
+    workpaper.field("overallConclusion", "");
 
-  const disclosureReviewedCount = useMemo(() => {
+  const disclosureReviewedCount = (() => {
     return disclosureItems.filter(
       (item) => item.status === "Reviewed"
     ).length;
-  }, [disclosureItems]);
+  })();
 
-  const disclosureIssuesCount = useMemo(() => {
+  const disclosureIssuesCount = (() => {
     return disclosureItems.filter(
       (item) => item.status === "Issue Identified"
     ).length;
-  }, [disclosureItems]);
+  })();
 
-  const subsequentEventsCount = useMemo(() => {
+  const subsequentEventsCount = (() => {
     return subsequentEvents.filter(
       (item) =>
         item.description.trim() !== "" ||
         item.eventDate.trim() !== ""
     ).length;
-  }, [subsequentEvents]);
+  })();
 
-  const subsequentEventIssuesCount = useMemo(() => {
+  const subsequentEventIssuesCount = (() => {
     return subsequentEvents.filter(
       (item) =>
         item.treatment === "Adjustment Required" ||
         item.treatment === "Disclosure Required"
     ).length;
-  }, [subsequentEvents]);
+  })();
 
   const analyticalReviewComplete =
     analyticalReview.performed &&
@@ -225,9 +216,7 @@ export default function FinancialStatementProceduresPage() {
     analyticalReview.conclusion.trim() !== "";
 
   function markInProgress() {
-    setCompletionStatus((current) =>
-      current === "Completed" ? current : "In Progress"
-    );
+    setCompletionStatus();
 
     setSaved(false);
   }
@@ -332,25 +321,8 @@ export default function FinancialStatementProceduresPage() {
     markInProgress();
   }
 
-  function handleSave() {
-    setSaved(true);
-
-    if (
-      disclosureReviewedCount > 0 ||
-      subsequentEventsCount > 0 ||
-      comparativeReview.reviewed ||
-      analyticalReview.performed ||
-      issuesIdentified.trim() !== "" ||
-      overallConclusion.trim() !== ""
-    ) {
-      setCompletionStatus("In Progress");
-    }
-  }
-
-  function handleComplete() {
-    setCompletionStatus("Completed");
-    setSaved(true);
-  }
+  function handleSave() { void workpaper.save(); }
+  function handleComplete() { void workpaper.save(true); }
 
   function goBack() {
     window.history.back();
@@ -361,8 +333,7 @@ export default function FinancialStatementProceduresPage() {
       return;
     }
 
-    window.location.href =
-      `/engagements/${engagementId}/conclusion-reporting`;
+    router.push(`/engagements/${engagementId}/conclusion-reporting`);
   }
 
   function continueToSummaryReview() {
@@ -370,13 +341,14 @@ export default function FinancialStatementProceduresPage() {
       return;
     }
 
-    window.location.href =
-      `/engagements/${engagementId}/conclusion-reporting/summary-review`;
+    router.push(`/engagements/${engagementId}/conclusion-reporting/summary-review`);
   }
 
   return (
 
       <main className="min-w-0 flex-1 bg-gray-50">
+        <WorkpaperNotice {...workpaper} />
+        <fieldset disabled={workpaper.blocked}>
         <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
           {/* Page Header */}
           <header className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -386,10 +358,10 @@ export default function FinancialStatementProceduresPage() {
                   <button
                     type="button"
                     onClick={goBack}
-                    className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    className="mt-1 flex shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     aria-label="Go back"
                   >
-                    â†
+                    Back
                   </button>
 
                   <div className="min-w-0">
@@ -436,7 +408,7 @@ export default function FinancialStatementProceduresPage() {
               onClick={goToPhase4Overview}
               className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
-              â† Phase 4 Overview
+              Phase 4 Overview
             </button>
 
             <div className="flex flex-wrap gap-2">
@@ -1184,6 +1156,7 @@ export default function FinancialStatementProceduresPage() {
             </div>
           </section>
         </div>
+        </fieldset>
       </main>
 
   );
@@ -1364,16 +1337,6 @@ function CompletionItem({
       }`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-            displayCompleted
-              ? "bg-green-600 text-white"
-              : "bg-gray-200 text-gray-500"
-          }`}
-        >
-          {displayCompleted ? "âœ“" : "•"}
-        </div>
-
         <span className="text-sm font-medium text-gray-800">
           {label}
         </span>

@@ -1,5 +1,9 @@
 
 "use client";
+import { API_ORIGIN } from "@/lib/apiConfig";
+import { isRecord } from "@/lib/typeGuards";
+import { apiResponse } from "@/lib/api";
+
 
 import {
   FormEvent,
@@ -20,7 +24,7 @@ import {
   Users,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8000";
+const API_URL = `${API_ORIGIN}`;
 
 type UserRecord = {
   id: number;
@@ -35,6 +39,24 @@ type UserRecord = {
   date_joined: string;
   last_login: string | null;
 };
+
+function isUserRecord(value: unknown): value is UserRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "number" &&
+    typeof value.username === "string" &&
+    typeof value.first_name === "string" &&
+    typeof value.last_name === "string" &&
+    typeof value.email === "string" &&
+    typeof value.role === "string" &&
+    (value.role_display === undefined ||
+      typeof value.role_display === "string") &&
+    typeof value.is_active === "boolean" &&
+    typeof value.is_staff === "boolean" &&
+    typeof value.date_joined === "string" &&
+    (typeof value.last_login === "string" || value.last_login === null)
+  );
+}
 
 type UserForm = {
   username: string;
@@ -165,7 +187,7 @@ function getFullName(user: UserRecord): string {
 }
 
 function getErrorMessage(
-  data: any,
+  data: unknown,
   fallback: string
 ): string {
   if (!data) {
@@ -176,20 +198,19 @@ function getErrorMessage(
     return data;
   }
 
-  if (data.detail) {
-    return String(data.detail);
-  }
+  if (isRecord(data)) {
+    const detail = data.detail;
+    if (typeof detail === "string") return detail;
 
-  if (data.error) {
-    return String(data.error);
-  }
+    const apiError = data.error;
+    if (typeof apiError === "string") return apiError;
 
-  if (data.message) {
-    return String(data.message);
-  }
+    const message = data.message;
+    if (typeof message === "string") return message;
 
-  if (data.details && typeof data.details === "object") {
-    const messages = Object.entries(data.details)
+    const details = data.details;
+    if (isRecord(details)) {
+      const messages = Object.entries(details)
       .map(([field, value]) => {
         const text = Array.isArray(value)
           ? value.join(", ")
@@ -199,8 +220,9 @@ function getErrorMessage(
       })
       .join(" | ");
 
-    if (messages) {
-      return messages;
+      if (messages) {
+        return messages;
+      }
     }
   }
 
@@ -250,12 +272,13 @@ export default function UsersPage() {
         return;
       }
 
-      const data = await response.json();
+      const data: unknown = await response.json();
+      const user = isRecord(data) && isRecord(data.user)
+        ? data.user
+        : data;
 
-      const user = data?.user || data;
-
-      if (user?.id) {
-        setCurrentUserId(Number(user.id));
+      if (isRecord(user) && typeof user.id === "number") {
+        setCurrentUserId(user.id);
       }
     } catch (error) {
       console.error(
@@ -266,9 +289,6 @@ export default function UsersPage() {
   };
 
   const loadUsers = async () => {
-    setLoading(true);
-    setError("");
-
     try {
       const token = getToken();
 
@@ -288,7 +308,7 @@ export default function UsersPage() {
         }
       );
 
-      const data = await response
+      const data: unknown = await response
         .json()
         .catch(() => null);
 
@@ -301,14 +321,20 @@ export default function UsersPage() {
         );
       }
 
-      const loadedUsers = Array.isArray(
-        data?.users
-      )
-        ? data.users
-        : Array.isArray(data)
-        ? data
-        : [];
+      let loadedUsers: UserRecord[];
+      if (Array.isArray(data) && data.every(isUserRecord)) {
+        loadedUsers = data;
+      } else if (
+        isRecord(data) &&
+        Array.isArray(data.users) &&
+        data.users.every(isUserRecord)
+      ) {
+        loadedUsers = data.users;
+      } else {
+        throw new Error("The server returned an invalid user list.");
+      }
 
+      setError("");
       setUsers(loadedUsers);
     } catch (error) {
       console.error(
@@ -583,40 +609,17 @@ export default function UsersPage() {
       return;
     }
 
-    const token = getToken();
-
-    if (!token) {
-      setError(
-        "Authentication token was not found. Please log in again."
-      );
-      return;
-    }
-
     setError("");
     setSuccess("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/auth/users/${user.id}/`,
+      await apiResponse(
+        `/auth/users/${user.id}/`,
         {
           method: "DELETE",
-          credentials: "include",
           headers: authHeaders(),
         }
       );
-
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          getErrorMessage(
-            data,
-            "Unable to delete user."
-          )
-        );
-      }
 
       setSuccess(
         `User "${user.username}" deleted successfully.`
@@ -624,16 +627,18 @@ export default function UsersPage() {
 
       await loadUsers();
     } catch (error) {
-      console.error(
-        "User deletion failed:",
-        error
-      );
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to delete user."
-      );
+      let message = "Unable to delete user. Please retry or contact the administrator.";
+      if (error instanceof Error) {
+        try {
+          message = getErrorMessage(JSON.parse(error.message), message);
+        } catch (parseError) {
+          if (!(parseError instanceof SyntaxError)) throw parseError;
+          if (!error.message.trim().startsWith("<")) {
+            message = error.message;
+          }
+        }
+      }
+      setError(message);
     }
   };
 
@@ -1477,4 +1482,3 @@ export default function UsersPage() {
     </div>
   );
 }
-

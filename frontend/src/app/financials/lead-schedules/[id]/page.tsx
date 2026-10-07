@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiRequest } from "@/lib/api";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -16,7 +17,6 @@ import {
   X,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8000/api";
 
 type Engagement = {
   id: number;
@@ -130,102 +130,6 @@ type FormData = {
   status: LeadSchedule["status"];
 };
 
-function getCsrfToken(): string {
-  const match = document.cookie.match(
-    /(?:^|;\s*)csrftoken=([^;]+)/
-  );
-
-  return match ? decodeURIComponent(match[1]) : "";
-}
-
-async function getApiErrorMessage(
-  response: Response
-): Promise<string> {
-  try {
-    const data = await response.json();
-
-    if (typeof data === "string") {
-      return data;
-    }
-
-    if (data?.detail) {
-      return String(data.detail);
-    }
-
-    if (Array.isArray(data)) {
-      return data.join(", ");
-    }
-
-    if (data && typeof data === "object") {
-      return Object.entries(data)
-        .map(([field, value]) => {
-          if (Array.isArray(value)) {
-            return `${field}: ${value.join(", ")}`;
-          }
-
-          return `${field}: ${String(value)}`;
-        })
-        .join(" | ");
-    }
-
-    return `Request failed with status ${response.status}.`;
-  } catch {
-    return `Request failed with status ${response.status}.`;
-  }
-}
-
-async function apiRequest<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const method = (
-    options.method || "GET"
-  ).toUpperCase();
-
-  if (method !== "GET" && !getCsrfToken()) {
-    await fetch(`${API_URL}/auth/csrf/`, {
-      credentials: "include",
-    });
-  }
-
-  const headers = new Headers(options.headers);
-
-  headers.set(
-    "Content-Type",
-    "application/json"
-  );
-
-  const csrfToken = getCsrfToken();
-
-  if (method !== "GET" && csrfToken) {
-    headers.set(
-      "X-CSRFToken",
-      csrfToken
-    );
-  }
-
-  const response = await fetch(
-    `${API_URL}${path}`,
-    {
-      ...options,
-      headers,
-      credentials: "include",
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getApiErrorMessage(response)
-    );
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json();
-}
-
 function toNumber(
   value: string | number | undefined | null
 ): number {
@@ -254,7 +158,7 @@ function formatMoney(
 function formatDate(
   value?: string
 ): string {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   const date = new Date(value);
 
@@ -1316,7 +1220,7 @@ export default function LeadScheduleDetailPage() {
                 {formatDate(
                   trialBalance?.period_start
                 )}
-                {" — "}
+                {" â€” "}
                 {formatDate(
                   trialBalance?.period_end
                 )}
@@ -1337,7 +1241,7 @@ export default function LeadScheduleDetailPage() {
               <p className="mt-1 text-xs text-slate-500">
                 {account?.account_code ||
                   schedule.account_code ||
-                  "—"}
+                  "â€”"}
               </p>
             </div>
 
@@ -1433,7 +1337,7 @@ export default function LeadScheduleDetailPage() {
                     ) : (
                       <p className="mt-2 text-sm text-slate-900">
                         {schedule.reference ||
-                          "—"}
+                          "â€”"}
                       </p>
                     )}
                   </div>
@@ -1957,7 +1861,7 @@ export default function LeadScheduleDetailPage() {
 
                                   <td className="px-4 py-4 text-slate-600">
                                     {detail.reference ||
-                                      "—"}
+                                      "â€”"}
                                   </td>
 
                                   <td className="px-4 py-4 text-right font-medium text-slate-900">
@@ -2641,3 +2545,4 @@ export default function LeadScheduleDetailPage() {
       </div>
   );
 }
+

@@ -1,4 +1,5 @@
-"use client";
+﻿"use client";
+
 
 import {
   FormEvent,
@@ -25,11 +26,10 @@ import {
 } from "lucide-react";
 
 import {
+  apiRequest,
   getAdjustedTrialBalance,
   type AdjustedTrialBalance,
 } from "@/lib/api";
-
-const API_URL = "http://localhost:8000/api";
 
 type Engagement = {
   id: number;
@@ -98,176 +98,6 @@ type FormData = {
   status: "draft" | "in_review" | "completed";
 };
 
-function getCsrfToken(): string {
-  if (typeof document === "undefined") {
-    return "";
-  }
-
-  const cookie = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrftoken="));
-
-  if (!cookie) {
-    return "";
-  }
-
-  return decodeURIComponent(
-    cookie.substring("csrftoken=".length)
-  );
-}
-
-async function ensureCsrfToken(): Promise<string> {
-  let token = getCsrfToken();
-
-  if (token) {
-    return token;
-  }
-
-  try {
-    await fetch(`${API_URL}/auth/csrf-token/`, {
-      method: "GET",
-      credentials: "include",
-    });
-  } catch {
-    return "";
-  }
-
-  token = getCsrfToken();
-
-  return token;
-}
-
-function getApiErrorMessage(
-  data: unknown,
-  fallback: string
-): string {
-  if (typeof data === "string") {
-    return data || fallback;
-  }
-
-  if (Array.isArray(data)) {
-    return data.map(String).join(" ");
-  }
-
-  if (
-    typeof data === "object" &&
-    data !== null
-  ) {
-    const objectData =
-      data as Record<string, unknown>;
-
-    if (
-      Array.isArray(
-        objectData.non_field_errors
-      )
-    ) {
-      return objectData.non_field_errors
-        .map(String)
-        .join(" ");
-    }
-
-    if (
-      typeof objectData.detail === "string"
-    ) {
-      return objectData.detail;
-    }
-
-    const messages = Object.entries(
-      objectData
-    ).flatMap(([field, value]) => {
-      if (Array.isArray(value)) {
-        return value.map(
-          (message) =>
-            `${field}: ${String(message)}`
-        );
-      }
-
-      if (typeof value === "string") {
-        return [`${field}: ${value}`];
-      }
-
-      return [];
-    });
-
-    if (messages.length > 0) {
-      return messages.join(" | ");
-    }
-  }
-
-  return fallback;
-}
-
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const method = (
-    options.method || "GET"
-  ).toUpperCase();
-
-  const headers = new Headers(
-    options.headers
-  );
-
-  headers.set(
-    "Content-Type",
-    "application/json"
-  );
-
-  if (
-    ["POST", "PUT", "PATCH", "DELETE"].includes(
-      method
-    )
-  ) {
-    const csrfToken =
-      await ensureCsrfToken();
-
-    if (csrfToken) {
-      headers.set(
-        "X-CSRFToken",
-        csrfToken
-      );
-    }
-  }
-
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-      method,
-      headers,
-      credentials: "include",
-    }
-  );
-
-  const contentType =
-    response.headers.get(
-      "content-type"
-    ) || "";
-
-  let data: unknown = null;
-
-  if (
-    contentType.includes(
-      "application/json"
-    )
-  ) {
-    data = await response.json();
-  } else {
-    data = await response.text();
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      getApiErrorMessage(
-        data,
-        `Request failed with status ${response.status}`
-      )
-    );
-  }
-
-  return data as T;
-}
 
 function formatMoney(
   value: number | string,
@@ -997,7 +827,7 @@ function LeadSchedulesContent() {
     if (existingSchedule) {
       const accountLabel =
         selectedAccount
-          ? `${selectedAccount.account_code} — ${selectedAccount.account_name}`
+          ? `${selectedAccount.account_code} â€” ${selectedAccount.account_name}`
           : `Account #${form.account}`;
 
       setError(
@@ -1630,11 +1460,11 @@ function LeadSchedulesContent() {
                               key={tb.id}
                               value={tb.id}
                             >
-                              TB #{tb.id} —{" "}
+                              TB #{tb.id} â€”{" "}
                               {
                                 tb.period_end
                               }{" "}
-                              —{" "}
+                              â€”{" "}
                               {getTrialBalanceStatusLabel(
                                 tb.status
                               )}
@@ -1722,7 +1552,7 @@ function LeadSchedulesContent() {
                               {
                                 account.account_code
                               }{" "}
-                              —{" "}
+                              â€”{" "}
                               {
                                 account.account_name
                               }
@@ -2144,3 +1974,8 @@ export default function LeadSchedulesPage() {
     </Suspense>
   );
 }
+
+
+
+
+

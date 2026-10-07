@@ -1,4 +1,3 @@
-
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -11,12 +10,17 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
 
-  // Login page must remain standalone.
-  if (pathname === "/login") {
+  // Public authentication pages.
+  // These pages must be accessible without being logged in.
+  const isPublicRoute =
+    pathname === "/login" ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/reset-password/");
+
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 
-  // All other pages use the main application layout.
+  // All other pages use the authenticated application layout.
   return <AppLayout>{children}</AppLayout>;
 }
-

@@ -1,1110 +1,266 @@
-
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity,
-  AlertTriangle,
-  ArrowRight,
-  BarChart3,
-  Bell,
-  BriefcaseBusiness,
-  CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  FileText,
-  Plus,
-  ShieldAlert,
-  Target,
-  TrendingUp,
-  Users,
+  ArrowRight, BriefcaseBusiness, CalendarDays, CheckCircle2,
+  ClipboardCheck, Plus, RefreshCw, ShieldAlert, Users,
 } from "lucide-react";
+import { useAuthUser } from "@/components/layout/AuthContext";
+import {
+  deadlineLabel, daysUntil, formatCalendarDate, greeting, loadDashboard,
+  recordLabel, summarizeDashboard, type DashboardData,
+} from "@/lib/dashboard";
 
-type RiskLevel = "High" | "Medium" | "Low";
-
-type Engagement = {
-  id: string;
-  code: string;
-  client: string;
-  status: string;
-  risk: RiskLevel;
-  progress: number;
-  phase: string;
-  dueDate: string;
-};
-
-const engagements: Engagement[] = [
-  {
-    id: "eng-001",
-    code: "AUD-2026-001",
-    client: "ABC Manufacturing Ltd",
-    status: "Fieldwork",
-    risk: "High",
-    progress: 62,
-    phase: "Phase 3",
-    dueDate: "12 Sep 2026",
-  },
-  {
-    id: "eng-002",
-    code: "AUD-2026-002",
-    client: "Tanzania Commercial Bank",
-    status: "Reporting",
-    risk: "High",
-    progress: 88,
-    phase: "Phase 4",
-    dueDate: "18 Sep 2026",
-  },
-  {
-    id: "eng-003",
-    code: "AUD-2026-003",
-    client: "Greenfield Agro Ltd",
-    status: "In Progress",
-    risk: "Medium",
-    progress: 41,
-    phase: "Phase 2",
-    dueDate: "25 Sep 2026",
-  },
-  {
-    id: "eng-004",
-    code: "AUD-2026-004",
-    client: "Kilimanjaro Logistics Ltd",
-    status: "Planning",
-    risk: "Medium",
-    progress: 18,
-    phase: "Phase 1",
-    dueDate: "30 Sep 2026",
-  },
-  {
-    id: "eng-005",
-    code: "AUD-2026-005",
-    client: "East Africa Holdings PLC",
-    status: "Completed",
-    risk: "Low",
-    progress: 100,
-    phase: "Completed",
-    dueDate: "Completed",
-  },
-];
-
-const workflow = [
-  {
-    number: "01",
-    title: "Planning",
-    description: "Engagement acceptance, materiality and planning",
-    count: 6,
-    progress: 76,
-  },
-  {
-    number: "02",
-    title: "Risk Assessment",
-    description: "Identify and assess risks of material misstatement",
-    count: 5,
-    progress: 61,
-  },
-  {
-    number: "03",
-    title: "Risk Response",
-    description: "Controls testing and substantive procedures",
-    count: 9,
-    progress: 68,
-  },
-  {
-    number: "04",
-    title: "Conclusion & Reporting",
-    description: "Final review, opinion and reporting",
-    count: 4,
-    progress: 84,
-  },
-];
-
-const deadlines = [
-  {
-    client: "ABC Manufacturing Ltd",
-    task: "Complete risk response workpapers",
-    date: "12 Sep",
-    days: "8 days",
-    urgent: true,
-  },
-  {
-    client: "Tanzania Commercial Bank",
-    task: "Finalize audit opinion",
-    date: "18 Sep",
-    days: "14 days",
-    urgent: false,
-  },
-  {
-    client: "Greenfield Agro Ltd",
-    task: "Complete risk assessment",
-    date: "25 Sep",
-    days: "21 days",
-    urgent: false,
-  },
-  {
-    client: "Kilimanjaro Logistics Ltd",
-    task: "Approve audit planning",
-    date: "30 Sep",
-    days: "26 days",
-    urgent: false,
-  },
-];
-
-const attentionItems = [
-  {
-    title: "High-risk engagement requires review",
-    description: "ABC Manufacturing Ltd",
-    type: "High Risk",
-    icon: ShieldAlert,
-  },
-  {
-    title: "Workpapers pending manager review",
-    description: "2 workpapers require approval",
-    type: "Review",
-    icon: FileText,
-  },
-  {
-    title: "Materiality approval pending",
-    description: "Kilimanjaro Logistics Ltd",
-    type: "Approval",
-    icon: Target,
-  },
-  {
-    title: "EQR review pending",
-    description: "Tanzania Commercial Bank",
-    type: "Quality",
-    icon: CheckCircle2,
-  },
-];
-
-const recentActivity = [
-  {
-    title: "Risk assessment completed",
-    description: "Greenfield Agro Ltd",
-    time: "32 minutes ago",
-    icon: CheckCircle2,
-  },
-  {
-    title: "Workpaper submitted for review",
-    description: "ABC Manufacturing Ltd",
-    time: "1 hour ago",
-    icon: FileText,
-  },
-  {
-    title: "Management representation received",
-    description: "Tanzania Commercial Bank",
-    time: "3 hours ago",
-    icon: Users,
-  },
-  {
-    title: "Audit report submitted for review",
-    description: "Tanzania Commercial Bank",
-    time: "Yesterday",
-    icon: BarChart3,
-  },
-];
-
-function getRiskStyle(risk: RiskLevel) {
-  switch (risk) {
-    case "High":
-      return "border-red-100 bg-red-50 text-red-700";
-
-    case "Medium":
-      return "border-amber-100 bg-amber-50 text-amber-700";
-
-    case "Low":
-      return "border-emerald-100 bg-emerald-50 text-emerald-700";
-
-    default:
-      return "border-slate-100 bg-slate-50 text-slate-700";
-  }
+function riskClasses(risk: string) {
+  return risk === "high" ? "bg-red-50 text-red-800"
+    : risk === "medium" ? "bg-amber-50 text-amber-800"
+    : risk === "low" ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700";
 }
 
-function getStatusStyle(status: string) {
-  switch (status) {
-    case "Planning":
-      return "bg-slate-100 text-slate-700";
-
-    case "In Progress":
-      return "bg-blue-50 text-blue-700";
-
-    case "Fieldwork":
-      return "bg-violet-50 text-violet-700";
-
-    case "Reporting":
-      return "bg-amber-50 text-amber-700";
-
-    case "Completed":
-      return "bg-emerald-50 text-emerald-700";
-
-    default:
-      return "bg-slate-100 text-slate-700";
-  }
-}
-
-function ProgressBar({ value }: { value: number }) {
+function ProgressBar({ value, label }: { value: number; label: string }) {
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-      <div
-        className="h-full rounded-full bg-blue-600 transition-all duration-500"
-        style={{ width: `${value}%` }}
-      />
+    <div role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-slate-200">
+      <div className="h-full rounded-full bg-blue-700" style={{ width: `${value}%` }} />
     </div>
-  );
-}
-
-function ClipboardListIcon({
-  size,
-  className,
-}: {
-  size?: number;
-  className?: string;
-}) {
-  return (
-    <BriefcaseBusiness
-      size={size}
-      className={className}
-    />
   );
 }
 
 export default function DashboardPage() {
-  const [greeting, setGreeting] =
-    useState("Good morning");
+  const user = useAuthUser();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const loadController = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const updateGreeting = () => {
-      const hour = new Date().getHours();
-
-      if (hour >= 5 && hour < 12) {
-        setGreeting("Good morning");
-      } else if (hour >= 12 && hour < 17) {
-        setGreeting("Good afternoon");
-      } else {
-        setGreeting("Good evening");
-      }
-    };
-
-    updateGreeting();
-
-    const interval = setInterval(
-      updateGreeting,
-      60 * 1000
-    );
-
-    return () => clearInterval(interval);
+  const refresh = useCallback(() => {
+    loadController.current?.abort();
+    const controller = new AbortController();
+    loadController.current = controller;
+    const signal = controller.signal;
+    return loadDashboard(signal).then((result) => {
+      if (signal?.aborted) return;
+      setData(result);
+      setError("");
+      const timestamp = new Date();
+      setNow(timestamp);
+      setUpdatedAt(timestamp);
+    }).catch((failure: unknown) => {
+      if (signal?.aborted) return;
+      console.error("Dashboard load failed:", failure);
+      setError("Unable to load current audit information. Check your connection or sign in again, then retry.");
+    }).finally(() => {
+      if (!signal?.aborted) setLoading(false);
+    });
   }, []);
 
-  const activeEngagements =
-    engagements.filter(
-      (engagement) =>
-        engagement.status !== "Completed"
-    ).length;
+  const requestRefresh = () => {
+    setLoading(true);
+    setError("");
+    void refresh();
+  };
 
-  const highRiskEngagements =
-    engagements.filter(
-      (engagement) =>
-        engagement.risk === "High"
-    ).length;
+  useEffect(() => {
+    void refresh();
+    const clock = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => {
+      loadController.current?.abort();
+      window.clearInterval(clock);
+    };
+  }, [refresh]);
+
+  const name = user.first_name.trim() || user.username;
+  const summary = data ? summarizeDashboard(data, now) : null;
+  const myReviewCount = summary?.openReviews.filter((item) => item.reviewer === user.id).length ?? 0;
+  const reviewItems = summary ? [...summary.openReviews].sort((a, b) =>
+    Number(b.reviewer === user.id) - Number(a.reviewer === user.id)
+    || (daysUntil(a.due_date, now) ?? Infinity) - (daysUntil(b.due_date, now) ?? Infinity)
+    || a.id - b.id) : [];
+  const recordUpdates = data ? [
+    ...data.engagements.map((item) => ({
+      key: `engagement-${item.id}`, title: item.engagement_code,
+      description: `${item.client_name} / ${recordLabel(item.status)}`,
+      date: item.updated_at, href: `/engagements/${item.id}`,
+    })),
+    ...data.reviews.map((item) => ({
+      key: `review-${item.id}`, title: item.review_area,
+      description: `Review assignment / ${item.status}`,
+      date: item.updated_at, href: `/engagements/${item.engagement}/conclusion-reporting/summary-review`,
+    })),
+  ].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 5) : [];
+  const portfolio = summary ? [...summary.active].sort((a, b) =>
+    Number(b.risk_level === "high") - Number(a.risk_level === "high")
+    || (daysUntil(a.planned_end_date, now) ?? Infinity) - (daysUntil(b.planned_end_date, now) ?? Infinity)
+    || a.id - b.id).slice(0, 8) : [];
 
   return (
-    <div className="w-full">
-      <div className="w-full space-y-8">
-        {/* =========================================================
-            DASHBOARD HEADER
-        ========================================================= */}
-        <section className="flex w-full flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-600">
-              <Activity size={16} />
-              <span>
-                Audit Management Dashboard
-              </span>
-            </div>
+    <div className="mx-auto max-w-[1600px] space-y-6">
+      <section className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-700">IFS / Audit portfolio</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{greeting(now)}, {name}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Your engagement portfolio, deadlines and review priorities in one place.</p>
+          <p className="mt-2 text-xs text-slate-600">
+            {updatedAt ? `Retrieved ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} / All engagements available to your account` : loading ? "Loading records available to your account" : "Audit information unavailable"}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={requestRefresh} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden="true" />{loading ? "Loading..." : "Refresh"}
+          </button>
+          <Link href="/engagements/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"><Plus size={18} aria-hidden="true" />New Engagement</Link>
+        </div>
+      </section>
 
-            <h1 className="text-3xl font-bold tracking-tight text-slate-950">
-              {greeting}, Samweli
-            </h1>
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+        {error} {data && "The figures below are from the last successful load and may be out of date."}
+        <Link href="/login?next=%2Fdashboard" className="ml-2 font-semibold underline">Sign in</Link>
+      </div>}
+      {!data && loading && <div role="status" className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-600">Loading your audit dashboard...</div>}
+      {!data && !loading && error && <button type="button" onClick={requestRefresh} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white">Try Again</button>}
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Executive overview of your audit portfolio,
-              risk position, deadlines, workflow progress
-              and reporting status.
-            </p>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-3">
-            <Link
-              href="/reports"
-              className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:flex"
-            >
-              <FileText size={17} />
-              Reports
-            </Link>
-
-            <Link
-              href="/engagements/new"
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-            >
-              <Plus size={18} />
-              New Engagement
-            </Link>
-          </div>
+      {data && summary && <>
+        <section aria-label="Portfolio metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            { title: "Total engagements", value: summary.total, detail: `${summary.completed} completed / ${summary.cancelled} cancelled`, icon: BriefcaseBusiness, color: "bg-blue-50 text-blue-700" },
+            { title: "Active engagements", value: summary.active.length, detail: "Excludes completed and cancelled", icon: CalendarDays, color: "bg-blue-50 text-blue-700" },
+            { title: "High-risk active", value: summary.highRisk, detail: "Recorded engagement risk", icon: ShieldAlert, color: "bg-red-50 text-red-700" },
+            { title: "Due within 14 days", value: summary.dueSoon, detail: `${summary.overdue} overdue / ${summary.noDeadline} without a deadline`, icon: CalendarDays, color: "bg-amber-50 text-amber-800" },
+            { title: "Open reviews", value: summary.openReviews.length, detail: `${myReviewCount} assigned to you / Active engagements`, icon: ClipboardCheck, color: "bg-blue-50 text-blue-700" },
+          ].map(({ title, value, detail, icon: Icon, color }) => (
+            <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon size={20} aria-hidden="true" /></span>
+              <h2 className="mt-4 text-sm font-medium text-slate-600">{title}</h2>
+              <p className="mt-1 text-3xl font-bold text-slate-950">{value}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-600">{detail}</p>
+            </article>
+          ))}
         </section>
 
-        {/* =========================================================
-            KPI CARDS
-        ========================================================= */}
-        <section className="grid w-full gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <BriefcaseBusiness size={20} />
-              </div>
+        {data.engagements.length === 0 && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+          <h2 className="font-bold text-slate-900">Start your audit portfolio</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">No engagements are available to your account. Create an engagement to begin planning; your metrics will appear as records are added.</p>
+          <Link href="/engagements/new" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-blue-800">Create an engagement <ArrowRight size={16} aria-hidden="true" /></Link>
+        </section>}
 
-              <TrendingUp
-                size={17}
-                className="text-emerald-500"
-              />
-            </div>
-
-            <p className="mt-5 text-sm font-medium text-slate-500">
-              Total Engagements
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-slate-950">
-              24
-            </p>
-
-            <p className="mt-1 text-xs text-emerald-600">
-              +3 from last period
-            </p>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                <Clock3 size={20} />
-              </div>
-
-              <span className="text-xs font-semibold text-slate-400">
-                {activeEngagements} active
-              </span>
-            </div>
-
-            <p className="mt-5 text-sm font-medium text-slate-500">
-              Active Engagements
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-slate-950">
-              18
-            </p>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Currently in progress
-            </p>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-red-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                <ShieldAlert size={20} />
-              </div>
-
-              <AlertTriangle
-                size={17}
-                className="text-red-500"
-              />
-            </div>
-
-            <p className="mt-5 text-sm font-medium text-slate-500">
-              High Risk
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-slate-950">
-              05
-            </p>
-
-            <p className="mt-1 text-xs text-red-600">
-              Requires close monitoring
-            </p>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <CalendarDays size={20} />
-              </div>
-
-              <Bell
-                size={17}
-                className="text-amber-500"
-              />
-            </div>
-
-            <p className="mt-5 text-sm font-medium text-slate-500">
-              Due Soon
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-slate-950">
-              04
-            </p>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Within the next 14 days
-            </p>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={20} />
-              </div>
-
-              <span className="text-xs font-semibold text-emerald-600">
-                Ready
-              </span>
-            </div>
-
-            <p className="mt-5 text-sm font-medium text-slate-500">
-              Reports Ready
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-slate-950">
-              03
-            </p>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Awaiting final action
-            </p>
-          </div>
-        </section>
-
-        {/* =========================================================
-            PORTFOLIO + DEADLINES
-        ========================================================= */}
-        <section className="grid w-full gap-6 xl:grid-cols-3">
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-slate-950">
-                  Engagement Portfolio
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Current distribution across the audit lifecycle
-                </p>
-              </div>
-
-              <Link
-                href="/engagements"
-                className="ml-4 flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
-              >
-                View all
-                <ArrowRight size={16} />
-              </Link>
-            </div>
-
-            <div className="space-y-6 p-6">
-              {[
-                {
-                  label: "Planning",
-                  count: 6,
-                  percentage: 25,
-                  description:
-                    "Engagements being planned",
-                },
-                {
-                  label: "Risk Assessment",
-                  count: 5,
-                  percentage: 21,
-                  description:
-                    "Risk assessment in progress",
-                },
-                {
-                  label: "Risk Response",
-                  count: 9,
-                  percentage: 38,
-                  description:
-                    "Fieldwork and testing",
-                },
-                {
-                  label: "Reporting",
-                  count: 4,
-                  percentage: 16,
-                  description:
-                    "Conclusion and reporting",
-                },
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="mb-2 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800">
-                        {item.label}
-                      </p>
-
-                      <p className="text-xs text-slate-400">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      <span className="text-lg font-bold text-slate-900">
-                        {item.count}
-                      </span>
-
-                      <span className="ml-1 text-xs text-slate-400">
-                        engagements
-                      </span>
-                    </div>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Review priorities</h2>
+            <p className="mt-1 text-sm text-slate-600">Open assignments on active engagements; your assignments appear first.</p>
+            <ul className="mt-5 divide-y divide-slate-200">
+              {reviewItems.slice(0, 5).map((review) => {
+                const engagement = data.engagements.find((item) => item.id === review.engagement)!;
+                const days = daysUntil(review.due_date, now);
+                return <li key={review.id} className="py-4 first:pt-0">
+                  <Link href={`/engagements/${review.engagement}/conclusion-reporting/summary-review`} className="text-sm font-semibold text-blue-800 hover:underline">{review.review_area}</Link>
+                  <p className="mt-1 text-sm text-slate-600">{engagement.engagement_code} / {engagement.client_name}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{review.status} / {review.reviewer === user.id ? "Assigned to you" : review.reviewer_name} / <span className={days !== null && days < 0 ? "font-semibold text-red-700" : ""}>{deadlineLabel(days)}</span></p>
+                </li>;
+              })}
+            </ul>
+            {reviewItems.length === 0 && <p className="mt-5 text-sm text-slate-600">No open review assignments on active engagements.</p>}
+            {reviewItems.length > 5 && <p className="mt-3 text-xs text-slate-600">Showing 5 of {reviewItems.length} open assignments. Open an engagement&apos;s summary review for its full list.</p>}
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Deadlines & overdue work</h2>
+            <p className="mt-1 text-sm text-slate-600">Planned engagement end dates; overdue work appears first.</p>
+            <ul className="mt-5 divide-y divide-slate-200">
+              {summary.deadlines.slice(0, 5).map(({ engagement, days }) => (
+                <li key={engagement.id} className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0">
+                  <div className="min-w-0">
+                    <Link href={`/engagements/${engagement.id}`} className="text-sm font-semibold text-blue-800 hover:underline">{engagement.client_name}</Link>
+                    <p className="mt-1 text-xs text-slate-600">{engagement.engagement_code} / {formatCalendarDate(engagement.planned_end_date)}</p>
                   </div>
-
-                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-blue-600"
-                      style={{
-                        width: `${item.percentage}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                  <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${days < 0 ? "bg-red-50 text-red-800" : days <= 14 ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-700"}`}>{deadlineLabel(days)}</span>
+                </li>
               ))}
-            </div>
+            </ul>
+            {!summary.deadlines.length && <p className="mt-5 text-sm text-slate-600">No planned deadlines on active engagements.</p>}
+            {summary.noDeadline > 0 && <Link href="/engagements" className="mt-4 block text-sm font-semibold text-blue-800 hover:underline">{summary.noDeadline} active engagement{summary.noDeadline === 1 ? "" : "s"} need a planned end date.</Link>}
+            {summary.deadlines.length > 5 && <p className="mt-3 text-xs text-slate-600">Showing the 5 earliest of {summary.deadlines.length} planned deadlines.</p>}
+          </section>
+        </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <h2 className="text-lg font-bold">Audit workflow</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Active engagements grouped by recorded phase. Progress is the average recorded engagement progress, not approval or assurance.</p>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {summary.phases.map((phase, index) => (
+              <article key={phase.key} className="rounded-xl border border-slate-200 p-4">
+                <p className="text-xs font-bold text-blue-700">PHASE 0{index + 1}</p>
+                <h3 className="mt-2 font-semibold">{phase.title}</h3>
+                <p className="mt-3 text-sm text-slate-600">{phase.count} active engagement{phase.count === 1 ? "" : "s"}</p>
+                {phase.averageProgress === null ? <p className="mt-4 text-xs text-slate-600">No active engagements in this phase.</p> : <>
+                  <p className="mb-2 mt-4 text-xs text-slate-600">Average recorded progress: {phase.averageProgress}%</p>
+                  <ProgressBar value={phase.averageProgress} label={`${phase.title}: average recorded progress`} />
+                </>}
+              </article>
+            ))}
           </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-slate-950">
-                  Upcoming Deadlines
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Key dates requiring attention
-                </p>
-              </div>
-
-              <CalendarDays
-                size={19}
-                className="shrink-0 text-slate-400"
-              />
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {deadlines.map((deadline) => (
-                <div
-                  key={deadline.client}
-                  className="px-6 py-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-800">
-                        {deadline.client}
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        {deadline.task}
-                      </p>
-                    </div>
-
-                    {deadline.urgent && (
-                      <span className="shrink-0 rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-600">
-                        Urgent
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <CalendarDays size={13} />
-                      {deadline.date}
-                    </div>
-
-                    <span className="text-xs font-semibold text-slate-600">
-                      {deadline.days}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {summary.unassignedPhase > 0 && <p className="mt-4 text-sm text-amber-800">{summary.unassignedPhase} active engagement{summary.unassignedPhase === 1 ? "" : "s"} have no recognized active phase; review their records.</p>}
         </section>
 
-        {/* =========================================================
-            AUDIT WORKFLOW
-        ========================================================= */}
-        <section className="w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-6 py-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-slate-950">
-                  Audit Workflow
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Engagement progress across the four-stage
-                  audit methodology
-                </p>
-              </div>
-
-              <Link
-                href="/engagements"
-                className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-blue-600 sm:flex"
-              >
-                Engagements
-                <ArrowRight size={16} />
-              </Link>
-            </div>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-5 sm:p-6">
+            <div><h2 className="text-lg font-bold">Active engagements</h2><p className="mt-1 text-sm text-slate-600">High-risk engagements first, then earliest planned deadline.</p></div>
+            <Link href="/engagements" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-800 hover:underline">View all <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
+          {portfolio.length ? <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <caption className="sr-only">Up to eight active engagements prioritized by risk and deadline</caption>
+              <thead className="border-y border-slate-200 bg-slate-50 text-xs text-slate-700"><tr>{["Engagement / Client", "Status", "Risk", "Recorded progress", "Deadline"].map((title) => <th key={title} scope="col" className="px-5 py-3 font-semibold">{title}</th>)}</tr></thead>
+              <tbody className="divide-y divide-slate-200">{portfolio.map((engagement) => <tr key={engagement.id}>
+                <td className="px-5 py-4"><Link href={`/engagements/${engagement.id}`} className="font-semibold text-blue-800 hover:underline">{engagement.engagement_code}</Link><p className="mt-1 text-xs text-slate-600">{engagement.client_name}</p></td>
+                <td className="px-5 py-4">{recordLabel(engagement.status)}</td>
+                <td className="px-5 py-4"><span className={`rounded-lg px-2 py-1 text-xs font-semibold ${riskClasses(engagement.risk_level)}`}>{recordLabel(engagement.risk_level)}</span></td>
+                <td className="px-5 py-4"><p className="mb-2 text-xs text-slate-700">{engagement.progress_percentage}%</p><ProgressBar value={engagement.progress_percentage} label={`${engagement.engagement_code} recorded progress`} /></td>
+                <td className="px-5 py-4"><p>{formatCalendarDate(engagement.planned_end_date)}</p><p className="mt-1 text-xs text-slate-600">{deadlineLabel(daysUntil(engagement.planned_end_date, now))}</p></td>
+              </tr>)}</tbody>
+            </table>
+          </div> : <p className="px-6 pb-6 text-sm text-slate-600">No active engagements.</p>}
+          {summary.active.length > 8 && <p className="p-5 text-xs text-slate-600">Showing 8 of {summary.active.length} active engagements.</p>}
+        </section>
 
-          <div className="grid divide-y divide-slate-100 md:grid-cols-4 md:divide-x md:divide-y-0">
-            {workflow.map((step) => (
-              <div
-                key={step.number}
-                className="min-w-0 p-6"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold tracking-wider text-blue-600">
-                    PHASE {step.number}
-                  </span>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Active portfolio risk</h2>
+            <p className="mt-1 text-sm text-slate-600">The same active population used by the high-risk metric above.</p>
+            <div className="mt-5 space-y-5">
+              {summary.risks.map(({ risk, count }) => {
+                const percent = summary.active.length ? Math.round(count / summary.active.length * 100) : 0;
+                return <div key={risk}>
+                  <div className="mb-2 flex justify-between text-sm"><span>{recordLabel(risk)} risk</span><span className="font-semibold">{count} / {percent}%</span></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true"><div className={`h-full rounded-full ${risk === "high" ? "bg-red-600" : risk === "medium" ? "bg-amber-600" : "bg-emerald-600"}`} style={{ width: `${percent}%` }} /></div>
+                </div>;
+              })}
+            </div>
+            {summary.unclassifiedRisk > 0 && <p className="mt-4 text-sm text-amber-800">{summary.unclassifiedRisk} active engagements have an unrecognized risk classification.</p>}
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Recent record updates</h2>
+            <p className="mt-1 text-sm text-slate-600">Latest saved engagement and review records; not a complete audit activity log.</p>
+            <ul className="mt-5 divide-y divide-slate-200">{recordUpdates.map((item) => <li key={item.key} className="py-3 first:pt-0">
+              <Link href={item.href} className="text-sm font-semibold text-blue-800 hover:underline">{item.title}</Link>
+              <p className="mt-1 text-xs leading-5 text-slate-600">{item.description}</p>
+              <time dateTime={item.date} className="mt-1 block text-xs text-slate-600">{new Date(item.date).toLocaleString("en-GB")}</time>
+            </li>)}</ul>
+            {!recordUpdates.length && <p className="mt-5 text-sm text-slate-600">No record updates to display.</p>}
+          </section>
+        </div>
 
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600">
-                    {step.count}
-                  </span>
-                </div>
-
-                <h3 className="mt-4 text-base font-semibold text-slate-900">
-                  {step.title}
-                </h3>
-
-                <p className="mt-1 min-h-10 text-xs leading-5 text-slate-500">
-                  {step.description}
-                </p>
-
-                <div className="mt-5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs text-slate-400">
-                      Progress
-                    </span>
-
-                    <span className="text-xs font-bold text-slate-700">
-                      {step.progress}%
-                    </span>
-                  </div>
-
-                  <ProgressBar
-                    value={step.progress}
-                  />
-                </div>
-              </div>
+        <section aria-labelledby="quick-access-heading">
+          <h2 id="quick-access-heading" className="text-lg font-bold">Quick access</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            {[{ href: "/clients", title: "Clients", description: "Manage your client directory", icon: Users }, { href: "/engagements", title: "Engagements", description: "Plan and review audit work", icon: BriefcaseBusiness }, { href: "/financials", title: "Financial audit workspace", description: "Trial balances, adjustments and evidence", icon: CheckCircle2 }].map(({ href, title, description, icon: Icon }) => (
+              <Link key={href} href={href} className="rounded-xl border border-slate-200 bg-white p-5 hover:border-blue-400">
+                <Icon size={20} className="text-blue-700" aria-hidden="true" /><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
+              </Link>
             ))}
           </div>
         </section>
-
-        {/* =========================================================
-            RECENT ENGAGEMENTS + ATTENTION
-        ========================================================= */}
-        <section className="grid w-full gap-6 xl:grid-cols-3">
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-slate-950">
-                  Recent Engagements
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Latest activity across your audit portfolio
-                </p>
-              </div>
-
-              <Link
-                href="/engagements"
-                className="ml-4 flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-600"
-              >
-                View all
-                <ArrowRight size={16} />
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="px-6 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Engagement
-                    </th>
-
-                    <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Status
-                    </th>
-
-                    <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Risk
-                    </th>
-
-                    <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Progress
-                    </th>
-
-                    <th className="px-6 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {engagements
-                    .slice(0, 4)
-                    .map((engagement) => (
-                      <tr
-                        key={engagement.id}
-                        className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                      >
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {engagement.client}
-                          </p>
-
-                          <p className="mt-0.5 text-xs text-blue-600">
-                            {engagement.code}
-                          </p>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-                              engagement.status
-                            )}`}
-                          >
-                            {engagement.status}
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getRiskStyle(
-                              engagement.risk
-                            )}`}
-                          >
-                            {engagement.risk}
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-20">
-                              <ProgressBar
-                                value={
-                                  engagement.progress
-                                }
-                              />
-                            </div>
-
-                            <span className="text-xs font-semibold text-slate-600">
-                              {engagement.progress}%
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <Link
-                            href={`/engagements/${engagement.id}`}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
-                          >
-                            Open
-                            <ChevronRight size={14} />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-slate-950">
-                  Attention Required
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Items requiring action or review
-                </p>
-              </div>
-
-              <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-red-50 px-2 text-xs font-bold text-red-600">
-                04
-              </span>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {attentionItems.map((item) => {
-                const Icon = item.icon;
-
-                return (
-                  <div
-                    key={item.title}
-                    className="flex gap-3 px-6 py-4"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                      <Icon size={17} />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold leading-5 text-slate-800">
-                        {item.title}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        {item.description}
-                      </p>
-
-                      <span className="mt-2 inline-flex rounded-full bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-500">
-                        {item.type}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* =========================================================
-            RECENT ACTIVITY + RISK OVERVIEW
-        ========================================================= */}
-        <section className="grid w-full gap-6 lg:grid-cols-2">
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-6 py-5">
-              <h2 className="font-semibold text-slate-950">
-                Recent Activity
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Latest actions across the platform
-              </p>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {recentActivity.map((activity) => {
-                const Icon = activity.icon;
-
-                return (
-                  <div
-                    key={activity.title}
-                    className="flex items-center gap-4 px-6 py-4"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                      <Icon size={17} />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800">
-                        {activity.title}
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {activity.description}
-                      </p>
-                    </div>
-
-                    <span className="shrink-0 text-xs text-slate-400">
-                      {activity.time}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-6 py-5">
-              <h2 className="font-semibold text-slate-950">
-                Risk Overview
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Current engagement risk distribution
-              </p>
-            </div>
-
-            <div className="p-6">
-              <div className="flex flex-col gap-8 sm:flex-row sm:items-center">
-                <div className="flex h-32 w-32 shrink-0 items-center justify-center self-center rounded-full border-[14px] border-red-100 sm:self-auto">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-slate-950">
-                      {highRiskEngagements}
-                    </p>
-
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                      High Risk
-                    </p>
-                  </div>
-                </div>
-
-                <div className="min-w-0 flex-1 space-y-4">
-                  <div>
-                    <div className="mb-1.5 flex justify-between">
-                      <span className="text-xs font-medium text-slate-600">
-                        High Risk
-                      </span>
-
-                      <span className="text-xs font-bold text-slate-800">
-                        5
-                      </span>
-                    </div>
-
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full w-[21%] rounded-full bg-red-500" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-1.5 flex justify-between">
-                      <span className="text-xs font-medium text-slate-600">
-                        Medium Risk
-                      </span>
-
-                      <span className="text-xs font-bold text-slate-800">
-                        11
-                      </span>
-                    </div>
-
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full w-[46%] rounded-full bg-amber-400" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-1.5 flex justify-between">
-                      <span className="text-xs font-medium text-slate-600">
-                        Low Risk
-                      </span>
-
-                      <span className="text-xs font-bold text-slate-800">
-                        8
-                      </span>
-                    </div>
-
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full w-[33%] rounded-full bg-emerald-500" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex items-center gap-2 rounded-xl bg-slate-50 p-4">
-                <AlertTriangle
-                  size={17}
-                  className="shrink-0 text-amber-500"
-                />
-
-                <p className="text-xs leading-5 text-slate-600">
-                  High-risk engagements should receive
-                  increased management attention and review.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* =========================================================
-            QUICK ACCESS
-        ========================================================= */}
-        <section className="w-full">
-          <div className="mb-4">
-            <h2 className="font-semibold text-slate-950">
-              Quick Access
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Navigate directly to frequently used areas
-            </p>
-          </div>
-
-          <div className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              {
-                title: "Audits",
-                description: "Audit portfolio",
-                href: "/audits",
-                icon: BriefcaseBusiness,
-              },
-              {
-                title: "Clients",
-                description: "Client directory",
-                href: "/clients",
-                icon: Users,
-              },
-              {
-                title: "Engagements",
-                description: "Audit engagements",
-                href: "/engagements",
-                icon: ClipboardListIcon,
-              },
-              {
-                title: "Reports",
-                description: "Audit reports",
-                href: "/reports",
-                icon: FileText,
-              },
-              {
-                title: "Settings",
-                description: "System configuration",
-                href: "/settings",
-                icon: Target,
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition group-hover:bg-blue-50 group-hover:text-blue-600">
-                      <Icon size={19} />
-                    </div>
-
-                    <ArrowRight
-                      size={17}
-                      className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600"
-                    />
-                  </div>
-
-                  <p className="mt-4 text-sm font-semibold text-slate-900">
-                    {item.title}
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    {item.description}
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* =========================================================
-            FOOTER
-        ========================================================= */}
-        <div className="flex w-full flex-col gap-2 border-t border-slate-200 pt-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            AUD Platform • Audit Management System
-          </p>
-
-          <div className="flex items-center gap-2">
-            <span>FY 2026</span>
-            <span>•</span>
-            <span>All systems operational</span>
-          </div>
-        </div>
-      </div>
+      </>}
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
-
-const API_URL = "http://localhost:8000";
+import { API_ORIGIN } from "@/lib/apiConfig";
+const API_URL = `${API_ORIGIN}`;
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -69,6 +69,95 @@ export interface TrialBalanceSummary {
   line_count: number;
 }
 
+export interface FinancialAnalysis {
+  trial_balance_id: number;
+  comparison_id: number | null;
+  currency: string;
+  period_start: string;
+  period_end: string;
+  comparison_period_start: string | null;
+  comparison_period_end: string | null;
+  amount_threshold: string;
+  percent_threshold: string;
+  reconcile_ledger: boolean;
+  total_debit: string;
+  total_credit: string;
+  difference: string;
+  ledger_entry_count: number;
+  journal_entry_count: number;
+  accounts: {
+    account_id: number;
+    account_code: string;
+    account_name: string;
+    account_type: string;
+    current_balance: string;
+    comparison_balance: string | null;
+    movement: string | null;
+    movement_percent: string | null;
+    presence: "both" | "current_only" | "comparison_only";
+    ledger_net: string | null;
+    ledger_difference: string | null;
+  }[];
+  findings: {
+    rule: string;
+    severity: "high" | "medium";
+    message: string;
+    account_id: number | null;
+    account_code: string | null;
+    amount: string | null;
+    ledger_entry_ids: number[];
+    journal_entry_ids: number[];
+  }[];
+  summary: {
+    account_count: number;
+    finding_count: number;
+    high_count: number;
+    medium_count: number;
+  };
+  limitations: string[];
+}
+
+export async function getFinancialAnalysis(
+  trialBalanceId: number,
+  options: {
+    comparisonId?: number;
+    amountThreshold: string;
+    percentThreshold: string;
+    reconcileLedger: boolean;
+  }
+): Promise<FinancialAnalysis> {
+  const params = new URLSearchParams({
+    amount_threshold: options.amountThreshold,
+    percent_threshold: options.percentThreshold,
+    reconcile_ledger: String(options.reconcileLedger),
+  });
+  if (options.comparisonId !== undefined) {
+    params.set("comparison_id", String(options.comparisonId));
+  }
+  return apiRequest<FinancialAnalysis>(
+    `/api/financials/trial-balances/${trialBalanceId}/analysis/?${params}`
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Generate Trial Balance From General Ledger                                 */
+/* -------------------------------------------------------------------------- */
+
+export interface GenerateTrialBalanceFromGLResponse {
+  message: string;
+  trial_balance: number;
+  engagement: number;
+  period_start: string;
+  period_end: string;
+  source: string;
+  gl_entry_count: number;
+  line_count: number;
+  total_debit: number;
+  total_credit: number;
+  difference: number;
+  is_balanced: boolean;
+}
+
 interface ApiListResponse<T> {
   results?: T[];
 }
@@ -106,6 +195,13 @@ async function apiRequest<T>(
   const csrfToken = getCookie("csrftoken");
 
   const headers = new Headers(options.headers);
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("audit-token");
+    if (token) {
+      headers.set("Authorization", `Token ${token}`);
+    }
+  }
 
   /*
    * JSON content type.
@@ -257,7 +353,7 @@ function extractList<T>(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Engagements                                                               */
+/* Engagements                                                                */
 /* -------------------------------------------------------------------------- */
 
 export async function getEngagements(): Promise<
@@ -272,7 +368,7 @@ export async function getEngagements(): Promise<
 }
 
 /* -------------------------------------------------------------------------- */
-/* Chart of Accounts                                                         */
+/* Chart of Accounts                                                          */
 /* -------------------------------------------------------------------------- */
 
 export async function getChartOfAccounts(
@@ -302,7 +398,7 @@ export async function createChartOfAccount(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Trial Balances                                                            */
+/* Trial Balances                                                             */
 /* -------------------------------------------------------------------------- */
 
 export async function getTrialBalances(
@@ -367,6 +463,22 @@ export async function getTrialBalanceSummary(
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Generate Trial Balance From General Ledger                                 */
+/* -------------------------------------------------------------------------- */
+
+export async function generateTrialBalanceFromGL(
+  id: number
+): Promise<GenerateTrialBalanceFromGLResponse> {
+  return apiRequest<GenerateTrialBalanceFromGLResponse>(
+    `/api/financials/trial-balances/${id}/generate-from-gl/`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    }
+  );
+}
+
 export async function lockTrialBalance(
   id: number
 ): Promise<TrialBalance> {
@@ -427,4 +539,3 @@ export async function deleteTrialBalanceLine(
     }
   );
 }
-

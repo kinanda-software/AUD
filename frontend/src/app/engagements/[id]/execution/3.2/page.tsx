@@ -1,4 +1,7 @@
 ﻿"use client";
+import { apiResponse } from "@/lib/api";
+import { isRecord } from "@/lib/typeGuards";
+
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -12,8 +15,6 @@ import {
   Loader2,
   ArrowRight,
 } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:8000/api";
 
 interface InterimYearEndAssessment {
   id?: number;
@@ -35,67 +36,48 @@ interface InterimYearEndAssessment {
   updated_at?: string;
 }
 
-/**
- * Get a browser cookie by name.
- *
- * Django uses the csrftoken cookie for CSRF protection on
- * POST/PATCH requests.
- */
-const getCookie = (name: string): string | null => {
-  if (typeof document === "undefined") {
-    return null;
-  }
+function isInterimYearEndAssessment(
+  value: unknown
+): value is InterimYearEndAssessment {
+  if (!isRecord(value)) return false;
 
-  const cookies = document.cookie.split(";");
+  return (
+    typeof value.engagement === "number" &&
+    (value.id === undefined || typeof value.id === "number") &&
+    [
+      "control_name",
+      "interim_date",
+      "year_end_date",
+      "interim_testing",
+      "control_changes",
+      "remaining_period",
+      "additional_testing",
+      "exceptions",
+      "conclusion",
+    ].every((field) => typeof value[field] === "string")
+  );
+}
 
-  for (const cookie of cookies) {
-    const trimmedCookie = cookie.trim();
-
-    if (trimmedCookie.startsWith(`${name}=`)) {
-      return decodeURIComponent(
-        trimmedCookie.substring(name.length + 1)
-      );
-    }
-  }
-
-  return null;
-};
-
-/**
- * Authenticated fetch helper.
- *
- * credentials: "include"
- * ----------------------
- * Sends the Django session cookie with the request.
- *
- * X-CSRFToken
- * -----------
- * Sends Django's CSRF token for POST/PATCH requests.
- */
 const authenticatedFetch = async (
-  url: string,
+  endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> => {
-  const csrfToken = getCookie("csrftoken");
-
-  const headers = new Headers(options.headers || {});
-
-  headers.set("Accept", "application/json");
-
-  if (options.body) {
-    headers.set("Content-Type", "application/json");
+  try {
+    return await apiResponse(endpoint, {
+      ...options,
+      cache: "no-store",
+    });
+  } catch (err) {
+    if (!(err instanceof Error)) throw err;
+    let data: unknown;
+    try {
+      data = JSON.parse(err.message);
+    } catch (parseError) {
+      if (!(parseError instanceof SyntaxError)) throw parseError;
+      throw err;
+    }
+    throw new Error(formatApiError(data, 0));
   }
-
-  if (csrfToken) {
-    headers.set("X-CSRFToken", csrfToken);
-  }
-
-  return fetch(url, {
-    ...options,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
 };
 
 /**
@@ -104,23 +86,21 @@ const authenticatedFetch = async (
  * Some Django responses are JSON while other error responses
  * can occasionally be plain text.
  */
-const parseResponse = async (response: Response): Promise<any> => {
+const parseResponse = async (response: Response): Promise<unknown> => {
   const contentType = response.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
     return response.json();
   }
 
-  const text = await response.text();
-
-  return text || null;
+  throw new Error("The assessment API returned a non-JSON response.");
 };
 
 /**
  * Convert Django / DRF errors into a readable message.
  */
 const formatApiError = (
-  data: any,
+  data: unknown,
   status: number
 ): string => {
   if (!data) {
@@ -131,19 +111,16 @@ const formatApiError = (
     return data;
   }
 
-  if (data.detail) {
-    return String(data.detail);
-  }
+  if (isRecord(data)) {
+    const detail = data.detail;
+    if (typeof detail === "string") return detail;
 
-  if (data.message) {
-    return String(data.message);
-  }
+    const message = data.message;
+    if (typeof message === "string") return message;
 
-  if (data.error) {
-    return String(data.error);
-  }
+    const error = data.error;
+    if (typeof error === "string") return error;
 
-  if (typeof data === "object") {
     const messages: string[] = [];
 
     Object.entries(data).forEach(([field, value]) => {
@@ -208,18 +185,12 @@ export default function InterimYearEndPage() {
    */
 
   useEffect(() => {
-    if (!engagementId) {
-      setLoading(false);
-      return;
-    }
+    if (!engagementId) return;
 
     const loadAssessment = async () => {
       try {
-        setLoading(true);
-        setError("");
-
         const response = await authenticatedFetch(
-          `${API_BASE_URL}/interim-year-end-assessments/?engagement=${engagementId}`,
+          `/interim-year-end-assessments/?engagement=${encodeURIComponent(engagementId)}`,
           {
             method: "GET",
           }
@@ -227,16 +198,20 @@ export default function InterimYearEndPage() {
 
         const data = await parseResponse(response);
 
-        if (!response.ok) {
-          console.error(
-            "3.2 load API error:",
-            data
-          );
-
-          throw new Error(
-            formatApiError(data, response.status)
-          );
+        if (
+          !(
+            Array.isArray(data) &&
+            data.every(isInterimYearEndAssessment)
+          ) &&
+          !(
+            isRecord(data) &&
+            Array.isArray(data.results) &&
+            data.results.every(isInterimYearEndAssessment)
+          )
+        ) {
+          throw new Error("The assessment API returned an invalid list response.");
         }
+        setError("");
 
         /*
          * DRF can return either:
@@ -254,7 +229,7 @@ export default function InterimYearEndPage() {
         const assessments: InterimYearEndAssessment[] =
           Array.isArray(data)
             ? data
-            : Array.isArray(data?.results)
+            : isRecord(data) && Array.isArray(data.results)
               ? data.results
               : [];
 
@@ -430,8 +405,8 @@ export default function InterimYearEndPage() {
         assessmentId !== null;
 
       const url = isUpdating
-        ? `${API_BASE_URL}/interim-year-end-assessments/${assessmentId}/`
-        : `${API_BASE_URL}/interim-year-end-assessments/`;
+        ? `/interim-year-end-assessments/${assessmentId}/`
+        : `/interim-year-end-assessments/`;
 
       const response =
         await authenticatedFetch(url, {
@@ -445,30 +420,19 @@ export default function InterimYearEndPage() {
       const responseData =
         await parseResponse(response);
 
-      if (!response.ok) {
-        console.error(
-          "3.2 API validation error:",
-          responseData
-        );
-
-        setError(
-          formatApiError(
-            responseData,
-            response.status
-          )
-        );
-
-        return false;
-      }
-
       /*
        * Django returns the saved object.
        */
-      if (responseData?.id) {
-        setAssessmentId(
-          Number(responseData.id)
-        );
+      if (
+        !isRecord(responseData) ||
+        typeof responseData.id !== "number" ||
+        !Number.isInteger(responseData.id) ||
+        responseData.id <= 0
+      ) {
+        throw new Error("The server returned an invalid saved assessment ID. Reload before retrying.");
       }
+
+      setAssessmentId(responseData.id);
 
       setSaved(true);
 
@@ -1047,4 +1011,3 @@ export default function InterimYearEndPage() {
     
   );
 }
-

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
+import { useParams, useRouter } from "next/navigation";
 type MisstatementStatus = "Corrected" | "Uncorrected";
 
 type Misstatement = {
@@ -16,21 +17,7 @@ type Misstatement = {
   managementResponse: string;
 };
 
-type ConclusionStatus = "Not Started" | "In Progress" | "Completed";
-
-const initialMisstatements: Misstatement[] = [
-  {
-    id: 1,
-    reference: "M-001",
-    description: "",
-    financialStatementArea: "",
-    account: "",
-    amount: 0,
-    status: "Uncorrected",
-    qualitative: false,
-    managementResponse: "",
-  },
-];
+const initialMisstatements: Misstatement[] = [];
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -57,64 +44,67 @@ function getVariance(amount: number, threshold: number): number {
 
 export default function EvaluateMisstatementsPage() {
   const params = useParams();
+  const router = useRouter();
 
   const engagementId = String(params.id ?? "");
+  const workpaper = useWorkpaper(engagementId, "evaluate-misstatements");
+  const useField = workpaper.field;
 
-  const [overallMateriality, setOverallMateriality] = useState<number>(0);
+  const [overallMateriality, setOverallMateriality] = useField<number>("overallMateriality", 0);
   const [performanceMateriality, setPerformanceMateriality] =
-    useState<number>(0);
+    useField<number>("performanceMateriality", 0);
   const [clearlyTrivialThreshold, setClearlyTrivialThreshold] =
-    useState<number>(0);
+    useField<number>("clearlyTrivialThreshold", 0);
 
   const [priorPeriodUncorrected, setPriorPeriodUncorrected] =
-    useState<number>(0);
+    useField<number>("priorPeriodUncorrected", 0);
 
   const [misstatements, setMisstatements] =
-    useState<Misstatement[]>(initialMisstatements);
+    useField<Misstatement[]>("misstatements", initialMisstatements);
 
   const [qualitativeConsiderations, setQualitativeConsiderations] =
-    useState("");
+    useField("qualitativeConsiderations", "");
 
   const [managementConclusion, setManagementConclusion] =
-    useState("");
+    useField("managementConclusion", "");
 
   const [auditorConclusion, setAuditorConclusion] =
-    useState("");
+    useField("auditorConclusion", "");
 
-  const [completionStatus, setCompletionStatus] =
-    useState<ConclusionStatus>("Not Started");
+  const completionStatus = workpaper.status;
+  const setCompletionStatus = workpaper.setStatus;
+  const saved = workpaper.saved;
+  const setSaved = workpaper.setSaved;
 
-  const [saved, setSaved] = useState(false);
-
-  const currentPeriodTotal = useMemo(() => {
+  const currentPeriodTotal = (() => {
     return misstatements.reduce(
       (total, item) => total + Math.max(item.amount, 0),
       0
     );
-  }, [misstatements]);
+  })();
 
-  const currentPeriodCorrected = useMemo(() => {
+  const currentPeriodCorrected = (() => {
     return misstatements
       .filter((item) => item.status === "Corrected")
       .reduce(
         (total, item) => total + Math.max(item.amount, 0),
         0
       );
-  }, [misstatements]);
+  })();
 
-  const currentPeriodUncorrected = useMemo(() => {
+  const currentPeriodUncorrected = (() => {
     return misstatements
       .filter((item) => item.status === "Uncorrected")
       .reduce(
         (total, item) => total + Math.max(item.amount, 0),
         0
       );
-  }, [misstatements]);
+  })();
 
   const aggregateUncorrected =
     currentPeriodUncorrected + Math.max(priorPeriodUncorrected, 0);
 
-  const aboveClearlyTrivial = useMemo(() => {
+  const aboveClearlyTrivial = (() => {
     return misstatements
       .filter(
         (item) =>
@@ -124,7 +114,7 @@ export default function EvaluateMisstatementsPage() {
         (total, item) => total + Math.max(item.amount, 0),
         0
       );
-  }, [misstatements, clearlyTrivialThreshold]);
+  })();
 
   const performanceMaterialityVariance = getVariance(
     aggregateUncorrected,
@@ -204,27 +194,8 @@ export default function EvaluateMisstatementsPage() {
     setSaved(false);
   }
 
-  function handleSave() {
-    setSaved(true);
-
-    if (
-      overallMateriality > 0 ||
-      performanceMateriality > 0 ||
-      clearlyTrivialThreshold > 0 ||
-      priorPeriodUncorrected > 0 ||
-      currentPeriodTotal > 0 ||
-      qualitativeConsiderations.trim() ||
-      managementConclusion.trim() ||
-      auditorConclusion.trim()
-    ) {
-      setCompletionStatus("In Progress");
-    }
-  }
-
-  function handleComplete() {
-    setCompletionStatus("Completed");
-    setSaved(true);
-  }
+  function handleSave() { void workpaper.save(); }
+  function handleComplete() { void workpaper.save(true); }
 
   function goBack() {
     window.history.back();
@@ -235,7 +206,7 @@ export default function EvaluateMisstatementsPage() {
       return;
     }
 
-    window.location.href = `/engagements/${engagementId}/conclusion-reporting/financial-statement-procedures`;
+    router.push(`/engagements/${engagementId}/conclusion-reporting/financial-statement-procedures`);
   }
 
   function returnToPhase4() {
@@ -243,12 +214,14 @@ export default function EvaluateMisstatementsPage() {
       return;
     }
 
-    window.location.href = `/engagements/${engagementId}/conclusion-reporting`;
+    router.push(`/engagements/${engagementId}/conclusion-reporting`);
   }
 
   return (
 
       <main className="min-w-0 flex-1 bg-gray-50">
+        <WorkpaperNotice {...workpaper} />
+        <fieldset disabled={workpaper.blocked}>
         <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
           {/* Header */}
           <header className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -904,6 +877,7 @@ export default function EvaluateMisstatementsPage() {
             </div>
           </section>
         </div>
+        </fieldset>
       </main>
 
   );
@@ -1144,7 +1118,7 @@ function FinalMetric({
 function StatusBadge({
   status,
 }: {
-  status: ConclusionStatus;
+  status: string;
 }) {
   const classes =
     status === "Completed"
@@ -1161,4 +1135,3 @@ function StatusBadge({
     </span>
   );
 }
-

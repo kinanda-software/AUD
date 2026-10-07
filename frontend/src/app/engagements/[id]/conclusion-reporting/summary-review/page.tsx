@@ -1,9 +1,12 @@
 "use client";
+import { fetchAllRecords } from "@/lib/dashboard";
+import { isRecord } from "@/lib/typeGuards";
+import { useWorkpaper } from "@/lib/useWorkpaper";
+import { WorkpaperNotice } from "@/components/WorkpaperNotice";
 
-import { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useEffectEvent, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-const API_BASE_URL = "http://localhost:8000/api";
-const DEFAULT_REVIEWER_ID = 2;
 
 type ReviewStatus = "Not Reviewed" | "Reviewed" | "Follow-up Required";
 type AreaStatus = "Open" | "Reviewed" | "Follow-up Required";
@@ -63,10 +66,12 @@ interface ReviewAssignment {
   id: number;
   engagement: number;
   review_area: string;
-  status: AreaStatus;
+  status: "Pending" | "In Progress" | "Completed" | "Returned";
+  reviewer: number;
   reviewer_name?: string | null;
   assigned_date?: string | null;
-  comments?: string | null;
+  review_notes?: string | null;
+  completed_date?: string | null;
 }
 
 const initialReviewAreas: ReviewArea[] = [
@@ -75,55 +80,50 @@ const initialReviewAreas: ReviewArea[] = [
     area: "Revenue Recognition",
     description:
       "Review significant revenue recognition risks, audit procedures performed, conclusions reached, and supporting audit evidence.",
-    status: "Reviewed",
-    reviewer: "Audit Manager",
-    reviewDate: "2026-09-04",
-    comments:
-      "Revenue testing and substantive procedures reviewed. No unresolved matters identified.",
+    status: "Open",
+    reviewer: "",
+    reviewDate: "",
+    comments: "",
   },
   {
     id: "RA002",
     area: "Receivables and Expected Credit Losses",
     description:
       "Review trade receivables, aging analysis, impairment assessment, subsequent receipts, and related audit evidence.",
-    status: "Reviewed",
-    reviewer: "Audit Manager",
-    reviewDate: "2026-09-04",
-    comments:
-      "Expected credit loss methodology and supporting evidence reviewed.",
+    status: "Open",
+    reviewer: "",
+    reviewDate: "",
+    comments: "",
   },
   {
     id: "RA003",
     area: "Inventory",
     description:
       "Review inventory valuation, existence, completeness, count procedures, and obsolescence assessment.",
-    status: "Reviewed",
-    reviewer: "Audit Manager",
-    reviewDate: "2026-09-05",
-    comments:
-      "Inventory procedures and valuation conclusions reviewed.",
+    status: "Open",
+    reviewer: "",
+    reviewDate: "",
+    comments: "",
   },
   {
     id: "RA004",
     area: "Property, Plant and Equipment",
     description:
       "Review additions, disposals, depreciation, impairment indicators, and supporting documentation.",
-    status: "Follow-up Required",
-    reviewer: "Audit Manager",
-    reviewDate: "2026-09-05",
-    comments:
-      "Follow-up required on supporting documentation for selected additions.",
+    status: "Open",
+    reviewer: "",
+    reviewDate: "",
+    comments: "",
   },
   {
     id: "RA005",
     area: "Cash and Bank",
     description:
       "Review bank confirmations, reconciliations, cash balances, and unusual transactions.",
-    status: "Reviewed",
-    reviewer: "Audit Manager",
-    reviewDate: "2026-09-06",
-    comments:
-      "Bank confirmations and reconciliations reviewed.",
+    status: "Open",
+    reviewer: "",
+    reviewDate: "",
+    comments: "",
   },
   {
     id: "RA006",
@@ -131,7 +131,7 @@ const initialReviewAreas: ReviewArea[] = [
     description:
       "Review completeness procedures, supplier balances, subsequent payments, and unrecorded liabilities.",
     status: "Open",
-    reviewer: "Audit Manager",
+    reviewer: "",
     reviewDate: "",
     comments: "",
   },
@@ -140,11 +140,10 @@ const initialReviewAreas: ReviewArea[] = [
     area: "Payroll and Employee Benefits",
     description:
       "Review payroll testing, employee existence, statutory deductions, and employee benefit liabilities.",
-    status: "Reviewed",
-    reviewer: "Audit Manager",
-    reviewDate: "2026-09-06",
-    comments:
-      "Payroll testing and statutory deductions reviewed.",
+    status: "Open",
+    reviewer: "",
+    reviewDate: "",
+    comments: "",
   },
   {
     id: "RA008",
@@ -152,7 +151,7 @@ const initialReviewAreas: ReviewArea[] = [
     description:
       "Review current and deferred taxation, tax exposures, correspondence, and compliance matters.",
     status: "Open",
-    reviewer: "Audit Manager",
+    reviewer: "",
     reviewDate: "",
     comments: "",
   },
@@ -162,7 +161,7 @@ const initialReviewAreas: ReviewArea[] = [
     description:
       "Review financial statement presentation, accounting policies, disclosures, and compliance with the applicable framework.",
     status: "Open",
-    reviewer: "Audit Manager",
+    reviewer: "",
     reviewDate: "",
     comments: "",
   },
@@ -174,20 +173,18 @@ const initialJudgments: JudgmentReview[] = [
     judgment: "Going Concern Assessment",
     description:
       "Review management's going concern assessment, assumptions, forecasts, available financing, and related disclosures.",
-    status: "Reviewed",
-    reviewer: "Engagement Partner",
-    comments:
-      "Going concern assessment reviewed with no unresolved issues identified.",
+    status: "Not Reviewed",
+    reviewer: "",
+    comments: "",
   },
   {
     id: "J002",
     judgment: "Expected Credit Loss Estimate",
     description:
       "Review assumptions, historical loss information, forward-looking information, and management overlays.",
-    status: "Follow-up Required",
-    reviewer: "Audit Manager",
-    comments:
-      "Additional support required for selected assumptions.",
+    status: "Not Reviewed",
+    reviewer: "",
+    comments: "",
   },
   {
     id: "J003",
@@ -200,55 +197,7 @@ const initialJudgments: JudgmentReview[] = [
   },
 ];
 
-const initialComments: ReviewComment[] = [
-  {
-    id: "RC001",
-    area: "Property, Plant and Equipment",
-    comment:
-      "Please provide additional supporting documentation for selected asset additions.",
-    reviewer: "Audit Manager",
-    status: "Open",
-    response: "",
-  },
-];
-
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const cookies = document.cookie.split(";");
-
-  for (const cookie of cookies) {
-    const trimmed = cookie.trim();
-
-    if (trimmed.startsWith(`${name}=`)) {
-      return decodeURIComponent(
-        trimmed.substring(name.length + 1)
-      );
-    }
-  }
-
-  return null;
-}
-
-function getHeaders(includeContentType = false): HeadersInit {
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-
-  if (includeContentType) {
-    headers["Content-Type"] = "application/json";
-
-    const csrfToken = getCookie("csrftoken");
-
-    if (csrfToken) {
-      headers["X-CSRFToken"] = csrfToken;
-    }
-  }
-
-  return headers;
-}
+const initialComments: ReviewComment[] = [];
 
 function extractDateFromNotes(notes: string): string {
   const match = notes.match(
@@ -262,20 +211,6 @@ function cleanReviewNotes(notes: string): string {
   return notes
     .replace(/\[Review Date:\s*\d{4}-\d{2}-\d{2}\]\s*/g, "")
     .trim();
-}
-
-function formatDate(date: string): string {
-  if (!date) {
-    return "";
-  }
-
-  const parsed = new Date(date);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-
-  return parsed.toLocaleDateString();
 }
 
 function StatusBadge({
@@ -404,18 +339,20 @@ function TextAreaField({
 function ReviewConfirmation({
   label,
   description,
+  checked,
+  onChange,
 }: {
   label: string;
   description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
 }) {
-  const [checked, setChecked] = useState(false);
-
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-blue-300">
       <input
         type="checkbox"
         checked={checked}
-        onChange={(event) => setChecked(event.target.checked)}
+        onChange={(event) => onChange(event.target.checked)}
         className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />
 
@@ -448,7 +385,7 @@ function CompletionItem({
             : "bg-gray-100 text-gray-400"
         }`}
       >
-        {completed ? "âœ“" : ""}
+        <span className="sr-only">{completed ? "Completed" : "Pending"}</span>
       </div>
 
       <span
@@ -471,27 +408,27 @@ export default function SummaryReviewPage() {
   const engagementId = Array.isArray(params?.id)
     ? params.id[0]
     : params?.id;
+  const workpaper = useWorkpaper(String(engagementId ?? ""), "summary-review");
 
   const [reviewAreas, setReviewAreas] =
-    useState<ReviewArea[]>(initialReviewAreas);
+    workpaper.field<ReviewArea[]>("reviewAreas", initialReviewAreas);
 
   const [judgments, setJudgments] =
-    useState<JudgmentReview[]>(initialJudgments);
+    workpaper.field<JudgmentReview[]>("judgments", initialJudgments);
 
   const [reviewComments, setReviewComments] =
-    useState<ReviewComment[]>(initialComments);
+    workpaper.field<ReviewComment[]>("reviewComments", initialComments);
 
   const [engagementTeamReview, setEngagementTeamReview] =
-    useState<EngagementTeamReview>({
-      completed: true,
-      completedBy: "Audit Manager",
-      completedDate: "2026-09-06",
-      comments:
-        "Engagement team review completed. Outstanding matters have been identified for follow-up.",
+    workpaper.field<EngagementTeamReview>("engagementTeamReview", {
+      completed: false,
+      completedBy: "",
+      completedDate: "",
+      comments: "",
     });
 
   const [partnerReview, setPartnerReview] =
-    useState<PartnerReview>({
+    workpaper.field<PartnerReview>("partnerReview", {
       completed: false,
       partnerName: "",
       reviewDate: "",
@@ -499,8 +436,8 @@ export default function SummaryReviewPage() {
     });
 
   const [eqrReview, setEqrReview] =
-    useState<EQRReview>({
-      required: true,
+    workpaper.field<EQRReview>("eqrReview", {
+      required: false,
       completed: false,
       reviewerName: "",
       reviewDate: "",
@@ -508,7 +445,7 @@ export default function SummaryReviewPage() {
     });
 
   const [financialStatementProcedures, setFinancialStatementProcedures] =
-    useState({
+    workpaper.field("financialStatementProcedures", {
       completed: false,
       reviewer: "",
       reviewDate: "",
@@ -516,47 +453,66 @@ export default function SummaryReviewPage() {
     });
 
   const [overallConclusion, setOverallConclusion] =
-    useState(
-      "Overall review is in progress. Significant audit areas, judgments, uncorrected misstatements, financial statement procedures, engagement team review, partner review, and EQR should be completed before final approval."
-    );
+    workpaper.field("overallConclusion", "");
 
-  const [completionStatus, setCompletionStatus] =
-    useState<"Draft" | "In Progress" | "Completed">(
-      "In Progress"
-    );
-
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const completionStatus = workpaper.status;
+  const saved = workpaper.saved;
+  const setSaved = workpaper.setSaved;
+  const saving = workpaper.saving;
+  const [uncorrectedMisstatements, setUncorrectedMisstatements] = workpaper.field(
+    "uncorrectedMisstatements",
+    { reviewed: false, aggregateEvaluated: false, representationsObtained: false },
+  );
+  workpaper.field("approvalComments", "");
+  workpaper.field<Record<string, unknown>>("completionChecklist", {});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
+  const [assignmentAttempt, setAssignmentAttempt] = useState(0);
+  const addAssignments = useEffectEvent((assignments: ReviewAssignment[]) => {
+    if (assignments.every((assignment) =>
+      reviewAreas.some((area) => area.id === `assignment-${assignment.id}`))) return;
+    setReviewAreas((current) => {
+      const additions: ReviewArea[] = assignments.filter((assignment) =>
+        !current.some((area) => area.id === `assignment-${assignment.id}`))
+        .map((assignment) => ({
+          id: `assignment-${assignment.id}`,
+          area: assignment.review_area,
+          description: "Engagement review assignment",
+          status: assignment.status === "Completed" ? "Reviewed"
+            : assignment.status === "Returned" ? "Follow-up Required" : "Open",
+          reviewer: assignment.reviewer_name || "",
+          reviewDate: assignment.completed_date || extractDateFromNotes(assignment.review_notes ?? ""),
+          comments: cleanReviewNotes(assignment.review_notes ?? ""),
+        }));
+      return [...current, ...additions];
+    });
+  });
 
   useEffect(() => {
-    if (!engagementId) {
+    if (!engagementId || workpaper.loading) {
       return;
     }
 
+    const controller = new AbortController();
     const loadReviewAssignments = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const response = await fetch(
-          `${API_BASE_URL}/review-assignments/`,
-          {
-            method: "GET",
-            headers: getHeaders(),
-            credentials: "include",
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to load review assignments (${response.status})`
-          );
+        const data = await fetchAllRecords<unknown>("/review-assignments/", controller.signal);
+        if (!data.every((item): item is ReviewAssignment => isRecord(item)
+          && typeof item.id === "number" && Number.isInteger(item.id) && item.id > 0
+          && typeof item.engagement === "number" && Number.isInteger(item.engagement)
+          && typeof item.reviewer === "number" && Number.isInteger(item.reviewer)
+          && typeof item.review_area === "string" && typeof item.status === "string"
+          && ["Pending", "In Progress", "Completed", "Returned"].includes(item.status)
+          && (item.reviewer_name == null || typeof item.reviewer_name === "string")
+          && (item.completed_date == null || typeof item.completed_date === "string")
+          && (item.review_notes == null || typeof item.review_notes === "string"))) {
+          throw new Error("Invalid review assignment data.");
         }
-
-        const data: ReviewAssignment[] =
-          await response.json();
+        if (controller.signal.aborted) return;
 
         const engagementAssignments = data.filter(
           (assignment) =>
@@ -564,59 +520,21 @@ export default function SummaryReviewPage() {
             String(engagementId)
         );
 
-        if (engagementAssignments.length > 0) {
-          setReviewAreas((currentAreas) =>
-            currentAreas.map((area) => {
-              const assignment =
-                engagementAssignments.find(
-                  (item) =>
-                    item.review_area === area.area
-                );
-
-              if (!assignment) {
-                return area;
-              }
-
-              return {
-                ...area,
-                status: assignment.status,
-                reviewer:
-                  assignment.reviewer_name ||
-                  area.reviewer,
-                reviewDate:
-                  assignment.assigned_date
-                    ? extractDateFromNotes(
-                        assignment.comments ?? ""
-                      ) ||
-                      assignment.assigned_date
-                    : area.reviewDate,
-                comments: assignment.comments
-                  ? cleanReviewNotes(
-                      assignment.comments
-                    )
-                  : area.comments,
-              };
-            })
-          );
-
-          setSaved(true);
-        }
+        if (engagementAssignments.length) addAssignments(engagementAssignments);
+        setAssignmentsLoaded(true);
       } catch (err) {
-        console.error(
-          "Failed to load review assignments:",
-          err
-        );
-
+        if (controller.signal.aborted) return;
         setError(
-          "Unable to load review data from the database."
+          err instanceof Error ? err.message : "Unable to load review data from the database."
         );
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
-    loadReviewAssignments();
-  }, [engagementId]);
+    void loadReviewAssignments();
+    return () => controller.abort();
+  }, [engagementId, workpaper.loading, assignmentAttempt]);
 
   const updateReviewArea = <
     K extends keyof ReviewArea
@@ -681,7 +599,7 @@ export default function SummaryReviewPage() {
     setSaved(false);
   };
 
-  const metrics = useMemo(() => {
+  const metrics = (() => {
     const reviewedAreas = reviewAreas.filter(
       (area) => area.status === "Reviewed"
     ).length;
@@ -706,9 +624,9 @@ export default function SummaryReviewPage() {
       totalJudgments: judgments.length,
       openComments,
     };
-  }, [reviewAreas, judgments, reviewComments]);
+  })();
 
-  const reviewReady = useMemo(() => {
+  const reviewReady = (() => {
     const allAreasReviewed =
       reviewAreas.length > 0 &&
       reviewAreas.every(
@@ -747,153 +665,18 @@ export default function SummaryReviewPage() {
       eqrComplete &&
       financialStatementsComplete
     );
-  }, [
-    reviewAreas,
-    judgments,
-    reviewComments,
-    engagementTeamReview,
-    partnerReview,
-    eqrReview,
-    financialStatementProcedures,
-  ]);
+  })();
 
-  const saveWorkpaper = async () => {
-    if (!engagementId) {
-      alert("Engagement ID is missing.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError("");
-
-      for (const area of reviewAreas) {
-        const existingResponse = await fetch(
-          `${API_BASE_URL}/review-assignments/?engagement=${engagementId}`,
-          {
-            method: "GET",
-            headers: getHeaders(),
-            credentials: "include",
-          }
-        );
-
-        if (!existingResponse.ok) {
-          throw new Error(
-            "Unable to check existing review assignments."
-          );
-        }
-
-        const existingData: ReviewAssignment[] =
-          await existingResponse.json();
-
-        const existingAssignment =
-          existingData.find(
-            (item) =>
-              String(item.engagement) ===
-                String(engagementId) &&
-              item.review_area === area.area
-          );
-
-        const reviewNotes = [
-          area.reviewDate
-            ? `[Review Date: ${area.reviewDate}]`
-            : "",
-          area.comments.trim(),
-        ]
-          .filter(Boolean)
-          .join("\n\n");
-
-        const payload = {
-          engagement: Number(engagementId),
-          reviewer: DEFAULT_REVIEWER_ID,
-          review_area: area.area,
-          status: area.status,
-          comments: reviewNotes,
-        };
-
-        let response: Response;
-
-        if (existingAssignment) {
-          response = await fetch(
-            `${API_BASE_URL}/review-assignments/${existingAssignment.id}/`,
-            {
-              method: "PATCH",
-              headers: getHeaders(true),
-              credentials: "include",
-              body: JSON.stringify(payload),
-            }
-          );
-        } else {
-          response = await fetch(
-            `${API_BASE_URL}/review-assignments/`,
-            {
-              method: "POST",
-              headers: getHeaders(true),
-              credentials: "include",
-              body: JSON.stringify(payload),
-            }
-          );
-        }
-
-        if (!response.ok) {
-          let errorMessage =
-            "Failed to save review assignment.";
-
-          try {
-            const errorData =
-              await response.json();
-
-            errorMessage =
-              JSON.stringify(errorData);
-          } catch {
-            // Keep default error message.
-          }
-
-          throw new Error(errorMessage);
-        }
-      }
-
-      setSaved(true);
-      alert("Review workpaper saved successfully.");
-    } catch (err) {
-      console.error(
-        "Review workpaper save error:",
-        err
-      );
-
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to save review workpaper.";
-
-      setError(message);
-      alert(message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const completeWorkpaper = async () => {
-    if (!reviewReady) {
-      alert(
-        "The review is not ready for completion. Please clear all outstanding review items first."
-      );
-
-      return;
-    }
-
-    await saveWorkpaper();
-
-    setCompletionStatus("Completed");
-
-    alert(
-      "Summary review has been marked as completed."
-    );
-  };
+  const saveWorkpaper = () => { void workpaper.save(); };
 
   return (
 
       <main className="w-full bg-gray-50">
+        <WorkpaperNotice {...workpaper} />
+        {error && <div role="alert" className="border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {error} <button type="button" onClick={() => setAssignmentAttempt((current) => current + 1)} className="font-semibold underline">Retry loading assignments</button>
+        </div>}
+        <fieldset disabled={workpaper.blocked || loading || !assignmentsLoaded}>
         {/* Header */}
         <div className="border-b border-gray-200 bg-white">
           <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
@@ -909,7 +692,7 @@ export default function SummaryReviewPage() {
                     }
                     className="transition hover:text-blue-600"
                   >
-                    â† 4.2 Financial Statement Procedures
+                    ← 4.2 Financial Statement Procedures
                   </button>
                 </div>
 
@@ -949,18 +732,14 @@ export default function SummaryReviewPage() {
                   {saving
                     ? "Saving..."
                     : saved
-                    ? "âœ“ Saved"
+                    ? "Saved"
                     : "Save Workpaper"}
                 </button>
 
                 <button
                   type="button"
-                  onClick={completeWorkpaper}
-                  disabled={
-                    saving ||
-                    loading ||
-                    !reviewReady
-                  }
+                  onClick={() => void workpaper.save(true)}
+                  disabled={workpaper.blocked || loading || !assignmentsLoaded}
                   className="rounded-lg border border-green-300 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Complete Review
@@ -982,12 +761,15 @@ export default function SummaryReviewPage() {
           <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-green-800">
-                âœ“ Review data is connected to the database.
+                {loading ? "Loading review area assignments..."
+                  : assignmentsLoaded ? "Review area assignments loaded from the database."
+                  : "Review area assignments could not be loaded."}
               </p>
 
               <p className="mt-1 text-xs text-green-700">
-                Review area assignments are loaded from the
-                Review Workflow API.
+                Area and judgment headings are blank checklist templates, not recorded findings.
+                All sections and confirmations are saved to the database. Workpaper completion
+                requires documented review evidence and does not issue an audit opinion.
               </p>
             </div>
 
@@ -1040,7 +822,7 @@ export default function SummaryReviewPage() {
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Review Ready
+                Working Checklist Ready
               </p>
 
               <p
@@ -1051,8 +833,8 @@ export default function SummaryReviewPage() {
                 }`}
               >
                 {reviewReady
-                  ? "âœ“ READY"
-                  : "âš  NOT READY"}
+                  ? "READY"
+                  : "NOT READY"}
               </p>
             </div>
           </div>
@@ -1132,14 +914,10 @@ export default function SummaryReviewPage() {
 
                       <td className="px-6 py-4 align-top">
                         <input
-                          value={area.reviewer}
-                          onChange={(event) =>
-                            updateReviewArea(
-                              area.id,
-                              "reviewer",
-                              event.target.value
-                            )
-                          }
+                          value={area.reviewer || ""}
+                          readOnly
+                          placeholder="Unassigned"
+                          title="Existing reviewer assignments are preserved. New areas are assigned to the signed-in user when saved."
                           className="w-40 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         />
                       </td>
@@ -1275,16 +1053,22 @@ export default function SummaryReviewPage() {
 
             <div className="space-y-4 p-6">
               <ReviewConfirmation
+                checked={uncorrectedMisstatements.reviewed}
+                onChange={(reviewed) => setUncorrectedMisstatements((current) => ({ ...current, reviewed }))}
                 label="All identified uncorrected misstatements have been reviewed."
                 description="Confirm that the engagement team has communicated identified uncorrected misstatements to those charged with governance where required."
               />
 
               <ReviewConfirmation
+                checked={uncorrectedMisstatements.aggregateEvaluated}
+                onChange={(aggregateEvaluated) => setUncorrectedMisstatements((current) => ({ ...current, aggregateEvaluated }))}
                 label="The aggregate effect of uncorrected misstatements has been evaluated."
                 description="Consider whether uncorrected misstatements, individually or in aggregate, could affect the financial statements."
               />
 
               <ReviewConfirmation
+                checked={uncorrectedMisstatements.representationsObtained}
+                onChange={(representationsObtained) => setUncorrectedMisstatements((current) => ({ ...current, representationsObtained }))}
                 label="Management representations regarding uncorrected misstatements have been obtained."
                 description="Confirm that appropriate representations have been considered as part of the final review."
               />
@@ -1774,7 +1558,7 @@ export default function SummaryReviewPage() {
 
               {reviewComments.length === 0 && (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
-                  No review comments have been raised.
+                  No review comment records are loaded by this page.
                 </div>
               )}
             </div>
@@ -1890,7 +1674,7 @@ export default function SummaryReviewPage() {
                         : "bg-amber-100 text-amber-700"
                     }`}
                   >
-                    {reviewReady ? "âœ“" : "!"}
+                    {reviewReady ? <span className="sr-only">Ready</span> : "!"}
                   </div>
 
                   <div>
@@ -1902,8 +1686,8 @@ export default function SummaryReviewPage() {
                       }`}
                     >
                       {reviewReady
-                        ? "REVIEW READY FOR COMPLETION"
-                        : "REVIEW NOT READY"}
+                        ? "WORKING CHECKLIST READY"
+                        : "WORKING CHECKLIST NOT READY"}
                     </h3>
 
                     <p
@@ -1914,8 +1698,8 @@ export default function SummaryReviewPage() {
                       }`}
                     >
                       {reviewReady
-                        ? "All required review activities have been completed and the workpaper can be marked as completed."
-                        : "One or more required review activities remain outstanding. Complete the remaining items before final approval."}
+                        ? "The working checklist is marked complete. This is not a persisted review sign-off or partner approval."
+                        : "One or more working checklist items remain unmarked. This page does not establish final approval."}
                     </p>
                   </div>
                 </div>
@@ -1950,8 +1734,8 @@ export default function SummaryReviewPage() {
             </button>
           </div>
         </div>
+        </fieldset>
       </main>
 
   );
 }
-

@@ -1,709 +1,96 @@
-
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { ArrowRight, X } from "lucide-react";
+import { RecordsRefresh, RecordsStatus } from "@/components/audit/RecordsStatus";
+import { formatCalendarDate, recordLabel } from "@/lib/dashboard";
 import {
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Download,
-  Eye,
-  FileCheck2,
-  FileText,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
-
-type ReportStatus =
-  | "Draft"
-  | "Under Review"
-  | "Approved"
-  | "Issued";
-
-type OpinionType =
-  | "Unmodified"
-  | "Qualified"
-  | "Adverse"
-  | "Disclaimer"
-  | "Pending";
-
-type AuditReport = {
-  id: string;
-  reportNumber: string;
-  client: string;
-  engagement: string;
-  period: string;
-  opinion: OpinionType;
-  status: ReportStatus;
-  partner: string;
-  manager: string;
-  reportDate: string;
-};
-
-const reports: AuditReport[] = [
-  {
-    id: "rep-001",
-    reportNumber: "REP-2026-001",
-    client: "ABC Manufacturing Ltd",
-    engagement: "AUD-2026-001",
-    period: "Year ended 30 June 2026",
-    opinion: "Pending",
-    status: "Under Review",
-    partner: "James M.",
-    manager: "Sarah K.",
-    reportDate: "30 Sep 2026",
-  },
-  {
-    id: "rep-002",
-    reportNumber: "REP-2026-002",
-    client: "Tanzania Commercial Bank",
-    engagement: "AUD-2026-002",
-    period: "Year ended 31 December 2025",
-    opinion: "Unmodified",
-    status: "Approved",
-    partner: "Michael R.",
-    manager: "David P.",
-    reportDate: "20 Sep 2026",
-  },
-  {
-    id: "rep-003",
-    reportNumber: "REP-2026-003",
-    client: "Greenfield Agro Ltd",
-    engagement: "AUD-2026-003",
-    period: "Year ended 30 June 2026",
-    opinion: "Pending",
-    status: "Draft",
-    partner: "James M.",
-    manager: "Sarah K.",
-    reportDate: "15 Oct 2026",
-  },
-  {
-    id: "rep-004",
-    reportNumber: "REP-2026-004",
-    client: "Kilimanjaro Logistics Ltd",
-    engagement: "AUD-2026-004",
-    period: "Year ended 31 March 2026",
-    opinion: "Pending",
-    status: "Draft",
-    partner: "Robert T.",
-    manager: "Grace N.",
-    reportDate: "30 Nov 2026",
-  },
-  {
-    id: "rep-005",
-    reportNumber: "REP-2026-005",
-    client: "East Africa Holdings PLC",
-    engagement: "AUD-2026-005",
-    period: "Year ended 31 December 2025",
-    opinion: "Unmodified",
-    status: "Issued",
-    partner: "Michael R.",
-    manager: "David P.",
-    reportDate: "31 May 2026",
-  },
-];
-
-const statusOptions: Array<"All" | ReportStatus> = [
-  "All",
-  "Draft",
-  "Under Review",
-  "Approved",
-  "Issued",
-];
-
-const opinionOptions: Array<"All" | OpinionType> = [
-  "All",
-  "Unmodified",
-  "Qualified",
-  "Adverse",
-  "Disclaimer",
-  "Pending",
-];
-
-function getStatusClasses(status: ReportStatus) {
-  switch (status) {
-    case "Draft":
-      return "bg-slate-100 text-slate-700";
-
-    case "Under Review":
-      return "bg-amber-50 text-amber-700";
-
-    case "Approved":
-      return "bg-blue-50 text-blue-700";
-
-    case "Issued":
-      return "bg-emerald-50 text-emerald-700";
-
-    default:
-      return "bg-slate-100 text-slate-700";
-  }
-}
-
-function getOpinionClasses(opinion: OpinionType) {
-  switch (opinion) {
-    case "Unmodified":
-      return "bg-emerald-50 text-emerald-700";
-
-    case "Qualified":
-      return "bg-amber-50 text-amber-700";
-
-    case "Adverse":
-      return "bg-red-50 text-red-700";
-
-    case "Disclaimer":
-      return "bg-purple-50 text-purple-700";
-
-    case "Pending":
-      return "bg-slate-100 text-slate-600";
-
-    default:
-      return "bg-slate-100 text-slate-700";
-  }
-}
+  completionChecks, filterReportingRecords, loadReportingPortfolio, reportingState,
+  type ReportingRow,
+} from "@/lib/reportingPortfolio";
+import { useAuditRecords } from "@/lib/useAuditRecords";
 
 export default function ReportsPage() {
+  const { data, loading, error, retrievedAt, refresh } = useAuditRecords(loadReportingPortfolio);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<"All" | ReportStatus>("All");
-  const [opinionFilter, setOpinionFilter] =
-    useState<"All" | OpinionType>("All");
-
-  const filteredReports = useMemo(() => {
-    const query = search.toLowerCase().trim();
-
-    return reports.filter((report) => {
-      const matchesSearch =
-        !query ||
-        report.client.toLowerCase().includes(query) ||
-        report.reportNumber.toLowerCase().includes(query) ||
-        report.engagement.toLowerCase().includes(query) ||
-        report.partner.toLowerCase().includes(query) ||
-        report.manager.toLowerCase().includes(query);
-
-      const matchesStatus =
-        statusFilter === "All" ||
-        report.status === statusFilter;
-
-      const matchesOpinion =
-        opinionFilter === "All" ||
-        report.opinion === opinionFilter;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesOpinion
-      );
-    });
-  }, [search, statusFilter, opinionFilter]);
-
-  const totalReports = reports.length;
-
-  const issuedReports = reports.filter(
-    (report) => report.status === "Issued"
-  ).length;
-
-  const reviewReports = reports.filter(
-    (report) => report.status === "Under Review"
-  ).length;
-
-  const approvedReports = reports.filter(
-    (report) => report.status === "Approved"
-  ).length;
+  const [state, setState] = useState("all");
+  const [selected, setSelected] = useState<number | null>(null);
+  const filtered = data ? filterReportingRecords(data, search, state) : [];
+  const detail: ReportingRow | undefined = data?.find((row) => row.engagement.id === selected);
+  const completion = detail?.completion;
 
   return (
-    <div className="w-full min-w-0 space-y-8">
-
-      {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <FileText size={23} />
-          </div>
-
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Reports
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Manage audit reports, opinions, approvals, and issued
-              deliverables.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Metrics */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-              <FileText size={20} />
-            </div>
-
-            <span className="text-xs text-slate-400">
-              Portfolio
-            </span>
-          </div>
-
-          <p className="mt-4 text-2xl font-bold text-slate-900">
-            {totalReports}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Total reports
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-              <Clock3 size={20} />
-            </div>
-
-            <span className="text-xs text-amber-600">
-              Review
-            </span>
-          </div>
-
-          <p className="mt-4 text-2xl font-bold text-slate-900">
-            {reviewReports}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Under review
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-              <FileCheck2 size={20} />
-            </div>
-
-            <span className="text-xs text-purple-600">
-              Approval
-            </span>
-          </div>
-
-          <p className="mt-4 text-2xl font-bold text-slate-900">
-            {approvedReports}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Approved reports
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-              <CheckCircle2 size={20} />
-            </div>
-
-            <span className="text-xs text-emerald-600">
-              Final
-            </span>
-          </div>
-
-          <p className="mt-4 text-2xl font-bold text-slate-900">
-            {issuedReports}
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Issued reports
-          </p>
-        </div>
-      </div>
-
-      {/* Reporting workflow */}
-      <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="mx-auto max-w-[1600px] space-y-6">
+      <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            Reporting Workflow
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Reports progress through review, approval, and final
-            issuance.
-          </p>
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-700">IFS / Conclusion and reporting</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-950">Reports</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Engagement reporting workspaces and saved completion-review records. This directory does not represent approved or issued auditor reports.</p>
         </div>
-
-        <div className="mt-6 grid gap-3 md:grid-cols-4">
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700 text-sm font-bold text-white">
-                1
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">
-                  Draft
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  Prepare auditor report
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-600 text-sm font-bold text-white">
-                2
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">
-                  Review
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  Leadership review
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-                3
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">
-                  Approval
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  Final approval
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-                4
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">
-                  Issued
-                </p>
-
-                <p className="text-xs text-slate-500">
-                  Deliver final report
-                </p>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        <RecordsRefresh loading={loading} onRefresh={refresh} />
+      </section>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+        <strong>Reporting status is not report approval.</strong> A completed review record or engagement does not establish an audit opinion, partner authorization, or report issuance. No report numbers, opinions, issue dates or downloads are inferred here.
       </div>
-
-      {/* Reports directory */}
-      <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-        <div className="border-b border-slate-200 p-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                Report Directory
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Search and filter audit reports.
-              </p>
+      <RecordsStatus loading={loading} error={error} hasData={data !== null} retrievedAt={retrievedAt} returnPath="/reports" />
+      {data && <>
+        <section aria-label="Reporting metrics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Engagement workspaces", value: data.length },
+            { label: "No review record", value: data.filter((row) => !row.completion).length },
+            { label: "Reviews not completed", value: data.filter((row) => row.completion && row.completion.status !== "Completed").length },
+            { label: "Recorded completed reviews", value: data.filter((row) => row.completion?.status === "Completed").length },
+          ].map(({ label, value }) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-sm text-slate-600">{label}</h2><p className="mt-2 text-3xl font-bold">{value}</p></article>)}
+        </section>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="space-y-4 p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Reporting workspace directory</h2>
+            <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+              <label className="text-xs font-semibold text-slate-700">Search reporting workspaces<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Engagement code, title or client" className="mt-2 w-full rounded-lg border border-slate-400 p-3 text-sm font-normal placeholder:text-slate-500" /></label>
+              <label className="text-xs font-semibold text-slate-700">Completion review status<select aria-label="Completion review status" value={state} onChange={(event) => setState(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-400 p-3 text-sm font-normal">
+                <option value="all">All review states</option>
+                {["No review record", "Not Started", "In Progress", "Completed"].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select></label>
             </div>
-
-            <div className="flex flex-col gap-3 md:flex-row">
-
-              <div className="relative">
-                <Search
-                  size={17}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
-                  placeholder="Search reports..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:w-64"
-                />
-              </div>
-
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(
-                    event.target.value as
-                      | "All"
-                      | ReportStatus
-                  )
-                }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
-              >
-                {statusOptions.map((status) => (
-                  <option key={status} value={status}>
-                    Status: {status}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={opinionFilter}
-                onChange={(event) =>
-                  setOpinionFilter(
-                    event.target.value as
-                      | "All"
-                      | OpinionType
-                  )
-                }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
-              >
-                {opinionOptions.map((opinion) => (
-                  <option key={opinion} value={opinion}>
-                    Opinion: {opinion}
-                  </option>
-                ))}
-              </select>
-
-            </div>
+            <p className="text-xs text-slate-600">Showing {filtered.length} of {data.length} engagement workspaces, including completed and cancelled engagements. Metrics describe the full directory.</p>
           </div>
-        </div>
-
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[1050px]">
-
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Report
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Client
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Period
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Opinion
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Status
-                </th>
-
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Report Date
-                </th>
-
-                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Action
-                </th>
-
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100">
-
-              {filteredReports.map((report) => (
-                <tr
-                  key={report.id}
-                  className="transition hover:bg-slate-50"
-                >
-
-                  <td className="px-6 py-5">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {report.reportNumber}
-                      </p>
-
-                      <p className="mt-1 text-xs text-blue-600">
-                        {report.engagement}
-                      </p>
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-5">
-                    <p className="text-sm font-semibold text-slate-800">
-                      {report.client}
-                    </p>
-
-                    <p className="mt-1 text-xs text-slate-400">
-                      Partner: {report.partner}
-                    </p>
-                  </td>
-
-                  <td className="px-6 py-5">
-                    <div className="flex items-start gap-2">
-                      <CalendarDays
-                        size={16}
-                        className="mt-0.5 shrink-0 text-slate-400"
-                      />
-
-                      <span className="text-sm text-slate-700">
-                        {report.period}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-5">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getOpinionClasses(
-                        report.opinion
-                      )}`}
-                    >
-                      {report.opinion}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-5">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusClasses(
-                        report.status
-                      )}`}
-                    >
-                      {report.status}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-5">
-                    <span className="text-sm text-slate-700">
-                      {report.reportDate}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-5 text-right">
-                    <Link
-                      href={`/engagements/${report.engagement}/conclusion-reporting/opinion-report`}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                    >
-                      <Eye size={14} />
-                      Open
-                    </Link>
-                  </td>
-
-                </tr>
-              ))}
-
-              {filteredReports.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-16 text-center"
-                  >
-                    <Search
-                      size={32}
-                      className="mx-auto text-slate-300"
-                    />
-
-                    <p className="mt-3 font-semibold text-slate-700">
-                      No reports found
-                    </p>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                      Try changing your search or filters.
-                    </p>
-                  </td>
-                </tr>
-              )}
-
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Quality and reporting controls */}
-      <div className="grid gap-4 md:grid-cols-3">
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <ShieldCheck size={20} />
-          </div>
-
-          <h3 className="mt-4 font-semibold text-slate-900">
-            Report Quality
-          </h3>
-
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Review reporting requirements, opinion decisions, and
-            final engagement conclusions.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <CheckCircle2 size={20} />
-          </div>
-
-          <h3 className="mt-4 font-semibold text-slate-900">
-            Approval Control
-          </h3>
-
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Monitor management and engagement leadership approval
-            before reports are issued.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-            <Download size={20} />
-          </div>
-
-          <h3 className="mt-4 font-semibold text-slate-900">
-            Final Deliverables
-          </h3>
-
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Manage final audit reports and engagement reporting
-            deliverables.
-          </p>
-        </div>
-
-      </div>
-
-      {/* Information banner */}
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-        <div className="flex gap-4">
-
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-            <ShieldCheck size={20} />
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-slate-900">
-              Audit reporting
-            </h3>
-
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              The Reports module provides the portfolio-level view
-              of audit reporting. Detailed opinion formation and
-              report preparation remain inside each engagement&apos;s
-              Phase 4 — Conclusion &amp; Reporting workflow.
-            </p>
-          </div>
-
-        </div>
-      </div>
-
+          {filtered.length ? <div className="overflow-x-auto">
+            <table className="w-full min-w-[950px] text-left text-sm">
+              <caption className="sr-only">Real engagements and their recorded completion reviews</caption>
+              <thead className="border-y border-slate-200 bg-slate-50 text-xs text-slate-700"><tr>{["Engagement / Client", "Period end", "Engagement status", "Completion review", "Review completion date", "Actions"].map((title) => <th key={title} scope="col" className="px-5 py-3">{title}</th>)}</tr></thead>
+              <tbody className="divide-y divide-slate-200">{filtered.map((row) => <tr key={row.engagement.id}>
+                <td className="px-5 py-4"><Link href={`/engagements/${row.engagement.id}`} className="font-semibold text-blue-800 hover:underline">{row.engagement.engagement_code}</Link><p className="mt-1 text-xs text-slate-600">{row.engagement.client_name}</p></td>
+                <td className="px-5 py-4">{formatCalendarDate(row.engagement.financial_year_end)}</td>
+                <td className="px-5 py-4">{recordLabel(row.engagement.status)}</td>
+                <td className="px-5 py-4"><span className={`rounded-lg px-2 py-1 text-xs font-semibold ${row.completion?.status === "Completed" ? "bg-emerald-50 text-emerald-800" : row.completion ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-700"}`}>{reportingState(row)}</span></td>
+                <td className="px-5 py-4">{formatCalendarDate(row.completion?.completion_date ?? null)}</td>
+                <td className="px-5 py-4"><div className="flex flex-col gap-3">
+                  <button type="button" onClick={() => setSelected(row.engagement.id)} aria-expanded={selected === row.engagement.id} aria-controls="completion-record-details" className="text-left text-xs font-semibold text-blue-800 hover:underline">View saved review<span className="sr-only"> for {row.engagement.engagement_code}</span></button>
+                  <Link href={`/engagements/${row.engagement.id}/conclusion-reporting/summary-review`} className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800 hover:underline">Summary workpaper <ArrowRight size={14} aria-hidden="true" /><span className="sr-only"> for {row.engagement.engagement_code}</span></Link>
+                </div></td>
+              </tr>)}</tbody>
+            </table>
+          </div> : <div className="border-t border-slate-200 p-8 text-center">
+            <h3 className="font-semibold">{data.length ? "No workspaces match your filters" : "No reporting workspaces recorded"}</h3>
+            <p className="mt-2 text-sm text-slate-600">{data.length ? "Change your search or review-status filter." : "Create an engagement before preparing reporting work."}</p>
+            {data.length ? <button type="button" onClick={() => { setSearch(""); setState("all"); }} className="mt-4 text-sm font-semibold text-blue-800 underline">Clear filters</button> : <Link href="/engagements/new" className="mt-4 inline-block text-sm font-semibold text-blue-800 underline">Create an engagement</Link>}
+          </div>}
+        </section>
+        {detail && <section id="completion-record-details" aria-labelledby="completion-details-heading" className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3"><div><h2 id="completion-details-heading" className="text-lg font-bold">Saved completion review / {detail.engagement.engagement_code}</h2><p className="mt-1 text-sm text-slate-600">{detail.engagement.client_name}</p></div><button type="button" aria-label="Close saved review details" onClick={() => setSelected(null)} className="rounded-lg p-2 text-slate-700 hover:bg-slate-100"><X size={19} aria-hidden="true" /></button></div>
+          {completion ? <>
+            <p className="mt-5 text-sm text-slate-700">Recorded state: <strong>{completion.status}</strong> / Review completed: {formatCalendarDate(completion.completion_date)}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-600">These are saved checklist values, not independently verified approvals. A false value means not marked complete; applicability must be assessed by the auditor.</p>
+            <dl className="mt-5 grid gap-3 sm:grid-cols-2">{completionChecks.map(({ key, label }) => <div key={key} className="flex flex-wrap justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm"><dt className="text-slate-700">{label}</dt><dd className={`font-semibold ${completion[key] ? "text-emerald-800" : "text-slate-600"}`}>{completion[key] ? "Marked complete" : "Not marked complete"}</dd></div>)}</dl>
+            <h3 className="mt-5 text-sm font-bold">Recorded outstanding matters</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{completion.outstanding_matters.trim() || "No outstanding-matter text recorded; this does not establish that all matters are cleared."}</p>
+            <h3 className="mt-5 text-sm font-bold">Saved final review notes</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{completion.final_review_notes.trim() || "No final review notes recorded."}</p>
+            <h3 className="mt-5 text-sm font-bold">Saved completion conclusion</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{completion.completion_conclusion.trim() || "No completion conclusion recorded."}</p>
+            <p className="mt-4 text-xs text-slate-600">Recorded completed-by user: {completion.completed_by_name ?? "Not recorded"}. This is a saved field, not a verified approval signature.</p>
+            <p className="mt-4 text-xs text-slate-600">Last saved: <time dateTime={completion.updated_at}>{new Date(completion.updated_at).toLocaleString("en-GB")}</time></p>
+          </> : <p className="mt-5 text-sm leading-6 text-slate-600">No saved completion-review record was returned for this engagement. Absence is not approval, completion or a draft report.</p>}
+        </section>}
+      </>}
     </div>
   );
 }
-

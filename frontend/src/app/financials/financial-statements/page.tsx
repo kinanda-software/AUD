@@ -274,6 +274,9 @@ function FinancialStatementsContent() {
                   <p className="mt-1 text-sm text-slate-500">
                     Generated from the Adjusted Trial Balance.
                   </p>
+                  <Link href="/financials/mapped-statements" className="mt-2 inline-block text-sm text-blue-700">
+                    Open custom mappings, comparative reports and saved versions
+                  </Link>
                 </div>
               </div>
             </div>
@@ -1072,4 +1075,3 @@ function ControlMetric({
     </div>
   );
 }
-

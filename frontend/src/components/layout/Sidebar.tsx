@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
@@ -11,19 +12,21 @@ import {
   FileText,
   Settings,
   ShieldCheck,
-  Bot,
   Calculator,
   BookOpen,
   FileEdit,
   ChevronDown,
   Layers3,
   UserCog,
+  X,
 } from "lucide-react";
 
 import type { AuthUser } from "./AppLayout";
 
 type SidebarProps = {
   user: AuthUser;
+  isOpen: boolean;
+  onClose: () => void;
 };
 
 type MenuChild = {
@@ -31,6 +34,7 @@ type MenuChild = {
   href: string;
   icon: typeof BookOpen;
   targetPath?: string;
+  group: string;
 };
 
 type MenuItem = {
@@ -67,50 +71,32 @@ const menuItems: MenuItem[] = [
     href: "/financials/trial-balance",
     icon: Calculator,
     children: [
-      {
-        name: "Chart of Accounts",
-        href: "/financials/chart-of-accounts",
-        icon: BookOpen,
-      },
-      {
-        name: "Trial Balance",
-        href: "/financials/trial-balance",
-        icon: Calculator,
-      },
-      {
-        name: "Adjustments",
-        href: "/financials/adjustments",
-        icon: FileEdit,
-      },
-      {
-        name: "Adjusted Trial Balance",
-        href: "/financials/trial-balance",
-        icon: FileText,
-        targetPath: "/financials/adjusted-trial-balance",
-      },
-      {
-        name: "Lead Schedules",
-        href: "/financials/trial-balance",
-        icon: Layers3,
-        targetPath: "/financials/lead-schedules",
-      },
-      {
-        name: "Financial Statements",
-        href: "/financials/trial-balance",
-        icon: FileText,
-        targetPath: "/financials/financial-statements",
-      },
+      { group: "Financial data", name: "Chart of Accounts", href: "/financials/chart-of-accounts", icon: BookOpen },
+      { group: "Financial data", name: "Trial Balance", href: "/financials/trial-balance", icon: Calculator },
+      { group: "Financial data", name: "General Ledger", href: "/financials/general-ledger", icon: Calculator },
+      { group: "Financial data", name: "Bank Reconciliation", href: "/financials/bank-reconciliation", icon: FileText },
+      { group: "Adjust and report", name: "Adjustments", href: "/financials/adjustments", icon: FileEdit },
+      { group: "Adjust and report", name: "Adjusted Trial Balance", href: "/financials/trial-balance", icon: FileText, targetPath: "/financials/adjusted-trial-balance" },
+      { group: "Adjust and report", name: "Lead Schedules", href: "/financials/trial-balance", icon: Layers3, targetPath: "/financials/lead-schedules" },
+      { group: "Adjust and report", name: "Financial Statements", href: "/financials/trial-balance", icon: FileText, targetPath: "/financials/financial-statements" },
+      { group: "Adjust and report", name: "Mapped & Comparative Statements", href: "/financials/mapped-statements", icon: FileText },
+      { group: "Account support", name: "Invoices, Bills & Tax", href: "/financials/invoices-bills", icon: FileText },
+      { group: "Account support", name: "Fixed Assets", href: "/financials/fixed-assets", icon: Layers3 },
+      { group: "Account support", name: "Inventory", href: "/financials/inventory", icon: Layers3 },
+      { group: "Account support", name: "Budgets vs Actuals", href: "/financials/budgets", icon: FileText },
+      { group: "Audit analysis and evidence", name: "Financial Audit Trace", href: "/financials/audit-trace", icon: BookOpen },
+      { group: "Audit analysis and evidence", name: "Comparisons & Smart Audit", href: "/financials/smart-audit", icon: ShieldCheck },
+      { group: "Audit analysis and evidence", name: "Audit Intelligence", href: "/financials/audit-intelligence", icon: BookOpen },
+      { group: "Audit analysis and evidence", name: "PBC Document Requests", href: "/financials/pbc-requests", icon: FileText },
+      { group: "Controls and history", name: "Accounting Controls", href: "/financials/accounting-controls", icon: ShieldCheck },
+      { group: "Controls and history", name: "Journal Entries", href: "/financials/journal-entries", icon: BookOpen },
+      { group: "Controls and history", name: "Financial Workflow Activity", href: "/financials/activity-log", icon: ShieldCheck },
     ],
   },
   {
     name: "Reports",
     href: "/reports",
     icon: FileText,
-  },
-  {
-    name: "AI Assistant",
-    href: "/ai-assistant",
-    icon: Bot,
   },
   {
     name: "Users & Roles",
@@ -127,6 +113,8 @@ const menuItems: MenuItem[] = [
 
 export default function Sidebar({
   user,
+  isOpen,
+  onClose,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -161,28 +149,29 @@ export default function Sidebar({
   );
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-slate-950 text-white shadow-xl">
+    <aside id="workspace-navigation" role={isOpen ? "dialog" : undefined} aria-modal={isOpen || undefined} aria-label="Workspace navigation" onKeyDown={(event) => { if (event.key === "Escape") onClose(); }} className={`fixed left-0 top-0 z-50 h-dvh w-64 flex-col bg-slate-950 text-white shadow-xl ${isOpen ? "flex" : "hidden"} lg:flex`}>
       {/* Logo */}
-      <div className="flex h-20 shrink-0 items-center border-b border-slate-800 px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20">
-            <ShieldCheck size={23} />
+      <div className="relative flex h-20 shrink-0 items-center border-b border-slate-800 px-4">
+        <Link href="/dashboard" onClick={onClose} aria-label="IFS AUD dashboard" className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+          <div className="shrink-0 rounded-lg bg-white">
+            <Image src="/ifs-logo.png" alt="Innovation Flexible Solutions (IFS)" width={512} height={512} sizes="64px" loading="eager" className="h-16 w-16 object-contain" />
           </div>
 
           <div className="min-w-0">
-            <h1 className="text-lg font-bold tracking-tight">
-              AUD Platform
-            </h1>
+            <p className="text-lg font-bold tracking-tight">
+              AUD
+            </p>
 
             <p className="text-xs text-slate-400">
               Audit Management
             </p>
           </div>
-        </div>
+        </Link>
+        <button type="button" aria-label="Close navigation" onClick={onClose} className="absolute right-2 top-2 rounded-lg p-1 text-slate-300 hover:bg-slate-800 lg:hidden"><X size={19} aria-hidden="true" /></button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-hidden px-4 py-6">
+      <nav aria-label="Main navigation" className="sidebar-navigation min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6">
         <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
           Main Menu
         </p>
@@ -204,6 +193,8 @@ export default function Sidebar({
                 {!hasChildren ? (
                   <Link
                     href={item.href}
+                    onClick={onClose}
+                    aria-current={isActive ? "page" : undefined}
                     className={`group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
                       isActive
                         ? "bg-slate-800 text-white"
@@ -265,7 +256,7 @@ export default function Sidebar({
                       item.children && (
                         <div className="ml-7 mt-1 space-y-1 border-l border-slate-800 pl-3">
                           {item.children.map(
-                            (child) => {
+                            (child, index) => {
                               const ChildIcon =
                                 child.icon;
 
@@ -315,28 +306,36 @@ export default function Sidebar({
                                   : child.href;
 
                               return (
-                                <Link
-                                  key={child.name}
-                                  href={childHref}
-                                  className={`group flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium transition-all duration-200 ${
-                                    childIsActive
-                                      ? "bg-slate-800 text-white"
-                                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                                  }`}
-                                >
-                                  <ChildIcon
-                                    size={15}
-                                    className={`shrink-0 transition-colors ${
+                                <div key={child.name}>
+                                  {(index === 0
+                                    || item.children?.[index - 1]?.group !== child.group) && (
+                                      <p className="mb-1 mt-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500 first:mt-1">
+                                        {child.group}
+                                      </p>
+                                    )}
+                                  <Link
+                                    href={childHref}
+                                    onClick={onClose}
+                                    className={`group flex items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium transition-all duration-200 ${
                                       childIsActive
-                                        ? "text-blue-400"
-                                        : "text-slate-500 group-hover:text-blue-400"
+                                        ? "bg-slate-800 text-white"
+                                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
                                     }`}
-                                  />
+                                  >
+                                    <ChildIcon
+                                      size={15}
+                                      className={`shrink-0 transition-colors ${
+                                        childIsActive
+                                          ? "text-blue-400"
+                                          : "text-slate-500 group-hover:text-blue-400"
+                                      }`}
+                                    />
 
-                                  <span>
-                                    {child.name}
-                                  </span>
-                                </Link>
+                                    <span>
+                                      {child.name}
+                                    </span>
+                                  </Link>
+                                </div>
                               );
                             }
                           )}

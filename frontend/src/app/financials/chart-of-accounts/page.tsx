@@ -1,4 +1,6 @@
 "use client";
+import { apiRequest } from "@/lib/api";
+
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -18,8 +20,6 @@ import {
 } from "lucide-react";
 
 import { getEngagements } from "@/lib/financials";
-
-const API_URL = "http://localhost:8000";
 
 type Engagement = {
   id: number;
@@ -107,91 +107,6 @@ const FINANCIAL_SECTIONS = [
     label: "Other",
   },
 ];
-
-function getCookie(name: string) {
-  if (typeof document === "undefined") {
-    return "";
-  }
-
-  const cookies = document.cookie.split(";");
-
-  for (const cookie of cookies) {
-    const trimmed = cookie.trim();
-
-    if (trimmed.startsWith(`${name}=`)) {
-      return decodeURIComponent(
-        trimmed.substring(name.length + 1)
-      );
-    }
-  }
-
-  return "";
-}
-
-async function apiRequest(
-  endpoint: string,
-  options: RequestInit = {}
-) {
-  const csrfToken = getCookie("csrftoken");
-
-  const headers = new Headers(options.headers);
-
-  headers.set("Content-Type", "application/json");
-
-  if (csrfToken) {
-    headers.set("X-CSRFToken", csrfToken);
-  }
-
-  headers.set("Referer", window.location.origin);
-
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-      headers,
-      credentials: "include",
-    }
-  );
-
-  let data: unknown = null;
-
-  const contentType = response.headers.get("content-type");
-
-  if (contentType?.includes("application/json")) {
-    data = await response.json();
-  } else {
-    const text = await response.text();
-
-    data = text || null;
-  }
-
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}.`;
-
-    if (typeof data === "string" && data.trim()) {
-      message = data;
-    } else if (
-      typeof data === "object" &&
-      data !== null
-    ) {
-      const errorData = data as Record<string, unknown>;
-
-      if (typeof errorData.detail === "string") {
-        message = errorData.detail;
-      } else {
-        try {
-          message = JSON.stringify(errorData);
-        } catch {
-          message = `Request failed with status ${response.status}.`;
-        }
-      }
-    }
-
-    throw new Error(message);
-  }
-
-  return data;
-}
 
 function getEngagementName(engagement: Engagement) {
   return (
@@ -323,8 +238,9 @@ export default function ChartOfAccountsPage() {
         engagementId
       );
 
-      const data = await apiRequest(
-        `/api/financials/chart-of-accounts/?engagement=${engagementId}`
+      const data = await apiRequest<Account[] | { results: Account[] }>(
+        `/financials/chart-of-accounts/?engagement=${engagementId}`,
+        { cache: "no-store" }
       );
 
       console.log(
@@ -346,7 +262,7 @@ export default function ChartOfAccountsPage() {
           (data as { results: Account[] }).results
         );
       } else {
-        setAccounts([]);
+        throw new Error("The server returned an invalid chart-of-accounts response.");
       }
     } catch (err) {
       console.error(
@@ -472,7 +388,7 @@ export default function ChartOfAccountsPage() {
 
       if (editingId) {
         await apiRequest(
-          `/api/financials/chart-of-accounts/${editingId}/`,
+          `/financials/chart-of-accounts/${editingId}/`,
           {
             method: "PATCH",
             body: JSON.stringify(payload),
@@ -484,7 +400,7 @@ export default function ChartOfAccountsPage() {
         );
       } else {
         await apiRequest(
-          "/api/financials/chart-of-accounts/",
+          "/financials/chart-of-accounts/",
           {
             method: "POST",
             body: JSON.stringify(payload),
@@ -532,7 +448,7 @@ export default function ChartOfAccountsPage() {
       setSuccess("");
 
       await apiRequest(
-        `/api/financials/chart-of-accounts/${account.id}/`,
+        `/financials/chart-of-accounts/${account.id}/`,
         {
           method: "DELETE",
         }

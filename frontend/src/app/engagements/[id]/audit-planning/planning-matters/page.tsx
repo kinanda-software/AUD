@@ -1,7 +1,7 @@
 ﻿
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -22,6 +22,7 @@ import {
   getPlanningMattersByEngagement,
   PlanningMatter,
   updatePlanningMatter,
+  type Engagement,
 } from "@/lib/api";
 
 const MATTER_TYPES = [
@@ -107,15 +108,21 @@ export default function PlanningMattersPage() {
   const router = useRouter();
 
   const engagementId = Number(params.id);
+  const isValidEngagementId =
+    Number.isFinite(engagementId) && engagementId > 0;
 
-  const [engagement, setEngagement] = useState<any>(null);
+  const [engagement, setEngagement] =
+    useState<Engagement | null>(null);
   const [matters, setMatters] = useState<PlanningMatter[]>([]);
 
   const [form, setForm] = useState<FormState>(emptyForm);
 
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  const [loading, setLoading] = useState(true);
+  const [loadedEngagementId, setLoadedEngagementId] =
+    useState<number | null>(null);
+  const loading =
+    isValidEngagementId && loadedEngagementId !== engagementId;
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [continuing, setContinuing] = useState(false);
@@ -125,26 +132,14 @@ export default function PlanningMattersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    if (!Number.isFinite(engagementId)) {
-      setError("Invalid engagement ID.");
-      setLoading(false);
-      return;
-    }
-
-    loadData();
-  }, [engagementId]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      setError("");
-
       const [engagementData, mattersData] = await Promise.all([
         getEngagement(engagementId),
         getPlanningMattersByEngagement(engagementId),
       ]);
 
+      setError("");
       setEngagement(engagementData);
       setMatters(mattersData);
     } catch (err) {
@@ -156,9 +151,19 @@ export default function PlanningMattersPage() {
           : "Failed to load Planning Matters."
       );
     } finally {
-      setLoading(false);
+      setLoadedEngagementId(engagementId);
     }
-  }
+  }, [engagementId]);
+
+  useEffect(() => {
+    if (isValidEngagementId) {
+      void loadData();
+    }
+  }, [isValidEngagementId, loadData]);
+
+  const pageError = isValidEngagementId
+    ? error
+    : "Invalid engagement ID.";
 
   function openNewMatter() {
     setEditingId(null);
@@ -456,7 +461,6 @@ export default function PlanningMattersPage() {
                   Engagement:{" "}
                   <span className="font-semibold text-gray-800">
                     {engagement.engagement_code ||
-                      engagement.code ||
                       engagement.title ||
                       `#${engagementId}`}
                   </span>
@@ -476,9 +480,9 @@ export default function PlanningMattersPage() {
         </div>
 
         {/* Messages */}
-        {error && (
+        {pageError && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+            {pageError}
           </div>
         )}
 
@@ -912,7 +916,8 @@ export default function PlanningMattersPage() {
               type="button"
               onClick={handleContinueToPlanningProcedures}
               disabled={continuing || showForm}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Continue to 1.6 Planning Procedures"
+              className="inline-flex w-fit self-end items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {continuing ? (
                 <>
@@ -921,7 +926,7 @@ export default function PlanningMattersPage() {
                 </>
               ) : (
                 <>
-                  Continue to 1.6 Planning Procedures
+                  Continue to 1.6
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -951,6 +956,3 @@ function SummaryCard({
     </div>
   );
 }
-
-
-
