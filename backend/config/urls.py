@@ -2,6 +2,8 @@
 URL configuration for config project.
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
@@ -84,4 +86,110 @@ urlpatterns = [
     include("apps.financials.urls"),
 ),
 
+    # ========================================================
+    # Audit Scheduling API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.scheduling.urls"),
+    ),
+
+    # ========================================================
+    # Evidence Management API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.evidence.urls"),
+    ),
+
+    # ========================================================
+    # Non-Conformance (CAPA) API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.nonconformance.urls"),
+    ),
+
+    # ========================================================
+    # Checklist Library API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.checklists.urls"),
+    ),
+
+    # ========================================================
+    # Reporting (PDF export) API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.reporting.urls"),
+    ),
+
+    # ========================================================
+    # Review Points (clearance notes) API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.review_points.urls"),
+    ),
+
+    # ========================================================
+    # Time Tracking API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.timetracking.urls"),
+    ),
+
+    # ========================================================
+    # Audit Request Intake API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.audit_requests.urls"),
+    ),
+
+    # ========================================================
+    # Client Portal (self-registration + OTP) API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.client_portal.urls"),
+    ),
+
+    # ========================================================
+    # Continuous Monitoring API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.monitoring.urls"),
+    ),
+
+    # ========================================================
+    # Audit Analytics API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.analysis.urls"),
+    ),
+
+    # ========================================================
+    # Fraud Reporting (public whistleblowing) API
+    # ========================================================
+    path(
+        "api/",
+        include("apps.fraud_reports.urls"),
+    ),
+
 ]
+
+
+# ========================================================
+# Media files (development only)
+# ========================================================
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.MEDIA_URL,
+        document_root=settings.MEDIA_ROOT,
+    )

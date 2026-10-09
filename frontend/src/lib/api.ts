@@ -427,6 +427,25 @@ export async function getEngagement(
   );
 }
 
+export async function rollForwardEngagement(
+  id: number,
+  data: {
+    engagement_code: string;
+    title?: string;
+    start_date: string;
+    planned_end_date?: string;
+    financial_year_end?: string;
+  }
+): Promise<Engagement> {
+  return apiRequest<Engagement>(
+    `/engagements/${id}/roll_forward/`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
 /* =========================================================
    CLIENTS
 ========================================================= */

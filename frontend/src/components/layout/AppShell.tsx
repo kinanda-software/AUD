@@ -15,6 +15,8 @@ export default function AppShell({
   const isPublicRoute =
     pathname === "/login" ||
     pathname === "/forgot-password" ||
+    pathname === "/register-client" ||
+    pathname === "/report-fraud" ||
     pathname.startsWith("/reset-password/");
 
   if (isPublicRoute) {

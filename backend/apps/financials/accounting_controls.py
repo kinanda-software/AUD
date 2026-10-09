@@ -12,6 +12,7 @@ from .models import (
     SupportingDetail, TrialBalance, TrialBalanceLine,
     FinancialContact, FinancialTaxCode, FinancialDocument, FinancialDocumentLine, FinancialPayment,
     FinancialBudget, BankStatement, FixedAsset, FixedAssetEvent, InventoryItem, InventoryMovement,
+    FinancialAccountMapping,
 )
 
 
@@ -21,6 +22,7 @@ CORE_MODELS = (
     JournalLine, LeadSchedule, SupportingDetail, TrialBalance, TrialBalanceLine,
     FinancialContact, FinancialTaxCode, FinancialDocument, FinancialDocumentLine, FinancialPayment,
     FixedAsset, FixedAssetEvent, InventoryItem, InventoryMovement,
+    FinancialAccountMapping,
 )
 
 

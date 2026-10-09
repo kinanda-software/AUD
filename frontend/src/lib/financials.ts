@@ -162,6 +162,113 @@ interface ApiListResponse<T> {
   results?: T[];
 }
 
+export interface FinancialDataImport {
+  id: number;
+  engagement: number;
+  source_system: string;
+  source_name: string;
+  source_format: string;
+  source_fingerprint: string;
+  period_start: string;
+  period_end: string;
+  currency: string;
+  column_mapping: Record<string, string>;
+  row_count: number;
+  total_debit: string;
+  total_credit: string;
+  status: "needs_review" | "validated" | "imported";
+  validation_errors: { row: number | null; field: string; message: string }[];
+  validation_error_count: number;
+  preview_rows: {
+    source_row: number;
+    external_code: string;
+    account_code: string;
+    account_name: string;
+    debit: string;
+    credit: string;
+  }[];
+  trial_balance_id: number | null;
+  created_by: number | null;
+  created_at: string;
+  imported_at: string | null;
+}
+
+export interface FinancialAccountMapping {
+  id: number;
+  engagement: number;
+  source_system: string;
+  external_code: string;
+  account: number;
+  account_code: string;
+  account_name: string;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getFinancialAccountMappings(
+  engagementId: number
+): Promise<FinancialAccountMapping[]> {
+  const data = await apiRequest<
+    FinancialAccountMapping[] | ApiListResponse<FinancialAccountMapping>
+  >(`/api/financials/account-mappings/?engagement=${engagementId}`);
+  return extractList(data);
+}
+
+export async function createFinancialAccountMapping(input: {
+  engagement: number;
+  source_system: string;
+  external_code: string;
+  account: number;
+}): Promise<FinancialAccountMapping> {
+  return apiRequest<FinancialAccountMapping>("/api/financials/account-mappings/", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getFinancialDataImports(
+  engagementId?: number
+): Promise<FinancialDataImport[]> {
+  const endpoint = engagementId
+    ? `/api/financials/data-imports/?engagement=${engagementId}`
+    : "/api/financials/data-imports/";
+  const data = await apiRequest<FinancialDataImport[] | ApiListResponse<FinancialDataImport>>(endpoint);
+  return extractList(data);
+}
+
+export async function createFinancialDataImport(input: {
+  engagement: number;
+  source_system: string;
+  period_start: string;
+  period_end: string;
+  currency: string;
+  column_mapping: Record<string, string>;
+  file: File;
+}): Promise<FinancialDataImport> {
+  const form = new FormData();
+  form.set("engagement", String(input.engagement));
+  form.set("source_system", input.source_system);
+  form.set("period_start", input.period_start);
+  form.set("period_end", input.period_end);
+  form.set("currency", input.currency);
+  form.set("column_mapping", JSON.stringify(input.column_mapping));
+  form.set("file", input.file);
+  return apiRequest<FinancialDataImport>("/api/financials/data-imports/", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function commitFinancialDataImport(
+  id: number
+): Promise<FinancialDataImport> {
+  return apiRequest<FinancialDataImport>(
+    `/api/financials/data-imports/${id}/commit/`,
+    { method: "POST", body: JSON.stringify({}) }
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Cookie helper                                                              */
 /* -------------------------------------------------------------------------- */
@@ -209,7 +316,11 @@ async function apiRequest<T>(
    * We only need this for requests with a body, but keeping it here
    * is compatible with the current Django REST API.
    */
-  headers.set("Content-Type", "application/json");
+  if (typeof FormData === "undefined" || !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  } else {
+    headers.delete("Content-Type");
+  }
 
   /*
    * Django CSRF token.

@@ -38,6 +38,12 @@ const moduleGroups = [
         icon: Scale,
       },
       {
+        title: "Client Data Import",
+        description: "Map client ledger exports, validate account codes, and reconcile balances before importing.",
+        href: "/financials/data-import",
+        icon: Database,
+      },
+      {
         title: "General Ledger",
         description: "Inspect transaction-level postings by account, date, reference, and source.",
         href: "/financials/general-ledger",

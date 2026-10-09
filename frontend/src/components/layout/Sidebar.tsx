@@ -18,6 +18,16 @@ import {
   ChevronDown,
   Layers3,
   UserCog,
+  CalendarDays,
+  FolderOpen,
+  ListChecks,
+  Flag,
+  MessageSquareText,
+  Clock,
+  Inbox,
+  Building2,
+  Activity,
+  ShieldAlert,
   X,
 } from "lucide-react";
 
@@ -67,6 +77,56 @@ const menuItems: MenuItem[] = [
     icon: BriefcaseBusiness,
   },
   {
+    name: "Scheduling",
+    href: "/scheduling",
+    icon: CalendarDays,
+  },
+  {
+    name: "Checklists",
+    href: "/checklists",
+    icon: ListChecks,
+  },
+  {
+    name: "Evidence",
+    href: "/evidence",
+    icon: FolderOpen,
+  },
+  {
+    name: "Non-Conformance",
+    href: "/nonconformance",
+    icon: Flag,
+  },
+  {
+    name: "Review Points",
+    href: "/review-points",
+    icon: MessageSquareText,
+  },
+  {
+    name: "Time Tracking",
+    href: "/time-tracking",
+    icon: Clock,
+  },
+  {
+    name: "Audit Requests",
+    href: "/audit-requests",
+    icon: Inbox,
+  },
+  {
+    name: "Registrations",
+    href: "/client-registrations",
+    icon: Building2,
+  },
+  {
+    name: "Monitoring",
+    href: "/monitoring",
+    icon: Activity,
+  },
+  {
+    name: "Fraud Reports",
+    href: "/fraud-reports",
+    icon: ShieldAlert,
+  },
+  {
     name: "Financials",
     href: "/financials/trial-balance",
     icon: Calculator,
@@ -85,6 +145,7 @@ const menuItems: MenuItem[] = [
       { group: "Account support", name: "Inventory", href: "/financials/inventory", icon: Layers3 },
       { group: "Account support", name: "Budgets vs Actuals", href: "/financials/budgets", icon: FileText },
       { group: "Audit analysis and evidence", name: "Financial Audit Trace", href: "/financials/audit-trace", icon: BookOpen },
+      { group: "Audit analysis and evidence", name: "Audit Analytics", href: "/financials/audit-analytics", icon: Layers3 },
       { group: "Audit analysis and evidence", name: "Comparisons & Smart Audit", href: "/financials/smart-audit", icon: ShieldCheck },
       { group: "Audit analysis and evidence", name: "Audit Intelligence", href: "/financials/audit-intelligence", icon: BookOpen },
       { group: "Audit analysis and evidence", name: "PBC Document Requests", href: "/financials/pbc-requests", icon: FileText },

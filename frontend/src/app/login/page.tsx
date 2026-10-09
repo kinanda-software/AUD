@@ -847,6 +847,22 @@ function LoginForm() {
               </Link>
             </div>
 
+            <div className="text-center">
+              <Link
+                href="/register-client"
+                className="text-xs font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+              >
+                New client? Register your company
+              </Link>
+              <span className="mx-2 text-xs text-slate-400">·</span>
+              <Link
+                href="/report-fraud"
+                className="text-xs font-semibold text-red-600 transition hover:text-red-700 hover:underline"
+              >
+                Report fraud or irregularity
+              </Link>
+            </div>
+
             {/* Sign In */}
 
             <button

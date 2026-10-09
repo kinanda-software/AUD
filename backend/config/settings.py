@@ -93,6 +93,22 @@ INSTALLED_APPS = [
     "apps.financials",
 
     # --------------------------------------------------------
+    # NEW AUDIT MANAGEMENT MODULES
+    # --------------------------------------------------------
+    "apps.scheduling",
+    "apps.evidence",
+    "apps.nonconformance",
+    "apps.checklists",
+    "apps.reporting",
+    "apps.review_points",
+    "apps.timetracking",
+    "apps.audit_requests",
+    "apps.client_portal",
+    "apps.monitoring",
+    "apps.analysis",
+    "apps.fraud_reports",
+
+    # --------------------------------------------------------
     # AI ASSISTANT
     # --------------------------------------------------------
 ]
@@ -259,6 +275,15 @@ USE_TZ = True
 # ============================================================
 
 STATIC_URL = "static/"
+
+
+# ============================================================
+# MEDIA FILES (audit evidence uploads)
+# ============================================================
+
+MEDIA_URL = "media/"
+
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 # ============================================================

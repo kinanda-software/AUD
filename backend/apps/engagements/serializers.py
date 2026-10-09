@@ -35,6 +35,7 @@ class EngagementSerializer(serializers.ModelSerializer):
             "actual_end_date",
             "financial_year_end",
             "progress_percentage",
+            "rolled_forward_from",
             "created_at",
             "updated_at",
         ]
@@ -45,4 +46,5 @@ class EngagementSerializer(serializers.ModelSerializer):
             "updated_at",
             "client_name",
             "lead_auditor_username",
+            "rolled_forward_from",
         ]

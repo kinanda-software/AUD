@@ -287,6 +287,9 @@ class AdjustmentSerializer(serializers.ModelSerializer):
             "amount",
             "status",
 
+            # Memorandum (disclosure-only) flag
+            "is_memorandum",
+
             "created_at",
             "updated_at",
         ]

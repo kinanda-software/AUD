@@ -480,7 +480,8 @@ class TrialBalanceViewSet(FinancialControlMixin, viewsets.ModelViewSet):
         # -------------------------------------------------
         # POSTED ADJUSTMENTS
         # -------------------------------------------------
-
+        # Memorandum entries are recorded for disclosure
+        # purposes only and never enter the adjusted TB.
         posted_adjustments = (
             Adjustment.objects
             .select_related(
@@ -490,6 +491,9 @@ class TrialBalanceViewSet(FinancialControlMixin, viewsets.ModelViewSet):
             .filter(
                 trial_balance=trial_balance,
                 status=Adjustment.Status.POSTED,
+            )
+            .exclude(
+                is_memorandum=True,
             )
             .order_by("id")
         )

@@ -1,12 +1,167 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { getEngagements, type Engagement } from "@/lib/financials";
 import {
   getFinancialAuditEvents,
   type FinancialAuditEvent,
 } from "@/lib/financialWorkflows";
+
+/* =========================================================
+   READABLE EVENT DETAILS
+========================================================= */
+
+const MONEY_FIELDS = new Set([
+  "debit", "credit", "amount", "base_amount", "base_net", "base_tax",
+  "net_amount", "tax_amount", "total_debit", "total_credit", "cost",
+  "residual_value", "opening_depreciation", "budgeted_hours", "hours",
+  "weight", "fx_difference", "control_base_amount",
+]);
+
+const SKIP_FIELDS = new Set(["updated_at"]);
+
+function isDateField(key: string) {
+  return key.endsWith("_at") || key.endsWith("_date") || key === "closed_through";
+}
+
+function humanize(key: string) {
+  return key
+    .replace(/_id$/, " ID")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatValue(key: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number" || typeof value === "string") {
+    if (MONEY_FIELDS.has(key)) {
+      const numeric = Number(value);
+      if (!Number.isNaN(numeric)) {
+        return numeric.toLocaleString("en-TZ", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      }
+    }
+    if (isDateField(key)) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          ...(key.endsWith("_at")
+            ? { hour: "2-digit", minute: "2-digit" as const }
+            : {}),
+        });
+      }
+    }
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+type Snapshot = Record<string, unknown>;
+
+function SnapshotRows({ snapshot }: { snapshot: Snapshot }) {
+  const entries = Object.entries(snapshot).filter(
+    ([key]) => !SKIP_FIELDS.has(key)
+  );
+  return (
+    <dl className="grid grid-cols-[minmax(0,auto)_1fr] gap-x-3 gap-y-0.5">
+      {entries.map(([key, value]) => (
+        <Fragment key={key}>
+          <dt className="whitespace-nowrap text-slate-500">{humanize(key)}</dt>
+          <dd className="break-words font-medium text-slate-800">
+            {formatValue(key, value)}
+          </dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+function DiffRows({ before, after }: { before: Snapshot; after: Snapshot }) {
+  const keys = Array.from(
+    new Set([...Object.keys(before), ...Object.keys(after)])
+  ).filter(
+    (key) =>
+      !SKIP_FIELDS.has(key) &&
+      JSON.stringify(before[key]) !== JSON.stringify(after[key])
+  );
+  if (!keys.length) {
+    return <p className="text-slate-500">No field values changed.</p>;
+  }
+  return (
+    <dl className="space-y-1">
+      {keys.map((key) => (
+        <div key={key} className="break-words">
+          <dt className="inline font-medium text-slate-700">{humanize(key)}: </dt>
+          <dd className="inline">
+            <span className="text-red-700 line-through">
+              {formatValue(key, before[key])}
+            </span>{" "}
+            <span aria-hidden="true">→</span>{" "}
+            <span className="font-medium text-emerald-700">
+              {formatValue(key, after[key])}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function EventDetails({ event }: { event: FinancialAuditEvent }) {
+  const details = (event.details ?? {}) as {
+    operation?: string;
+    reason?: string | null;
+    before?: Snapshot | null;
+    after?: Snapshot | null;
+    before_dimension_ids?: number[];
+    dimension_ids?: number[];
+  };
+
+  const operation = details.operation
+    ? details.operation.replaceAll("_", " ")
+    : null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {operation && (
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold capitalize text-slate-700">
+            {operation}
+          </span>
+        )}
+        {details.reason && (
+          <span className="text-slate-600">Reason: {details.reason}</span>
+        )}
+      </div>
+
+      {event.action === "created" && details.after && (
+        <SnapshotRows snapshot={details.after} />
+      )}
+      {event.action === "deleted" && details.before && (
+        <SnapshotRows snapshot={details.before} />
+      )}
+      {event.action === "updated" && details.before && details.after && (
+        <DiffRows before={details.before} after={details.after} />
+      )}
+      {event.action === "dimensions_changed" && (
+        <p className="text-slate-700">
+          Dimensions: {(details.before_dimension_ids ?? []).join(", ") || "none"} →{" "}
+          {(details.dimension_ids ?? []).join(", ") || "none"}
+        </p>
+      )}
+      {!details.after && !details.before && !details.dimension_ids && (
+        <p className="text-slate-500">No snapshot recorded.</p>
+      )}
+    </div>
+  );
+}
 
 export default function FinancialActivityLogPage() {
   const [engagements, setEngagements] = useState<Engagement[]>([]);
@@ -64,7 +219,7 @@ export default function FinancialActivityLogPage() {
                 <td className="p-3">{event.actor_name || "System"}</td>
                 <td className="p-3">{event.action.replaceAll("_", " ")}</td>
                 <td className="p-3">{event.object_type.replaceAll("_", " ")} #{event.object_id}</td>
-                <td className="max-w-xl whitespace-pre-wrap p-3 text-xs">{JSON.stringify(event.details, null, 2)}</td>
+                <td className="max-w-xl p-3 text-xs"><EventDetails event={event} /></td>
               </tr>
             ))}</tbody>
           </table>

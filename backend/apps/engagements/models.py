@@ -21,6 +21,22 @@ class Engagement(models.Model):
             "it_audit",
             "IT Audit",
         )
+        PERFORMANCE = (
+            "performance",
+            "Performance Audit",
+        )
+        FORENSIC = (
+            "forensic",
+            "Forensic Audit",
+        )
+        SPECIAL = (
+            "special",
+            "Special Audit",
+        )
+        ENVIRONMENTAL = (
+            "environmental",
+            "Environmental Audit",
+        )
         OTHER = (
             "other",
             "Other",
@@ -116,6 +132,18 @@ class Engagement(models.Model):
 
     progress_percentage = models.PositiveSmallIntegerField(
         default=0,
+    )
+
+    rolled_forward_from = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rolled_forward_engagements",
+        help_text=(
+            "The prior-period engagement this one was "
+            "rolled forward from, if any."
+        ),
     )
 
     created_at = models.DateTimeField(

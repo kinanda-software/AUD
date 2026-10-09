@@ -7,6 +7,7 @@ class User(AbstractUser):
         ("admin", "Administrator"),
         ("auditor", "Auditor"),
         ("manager", "Manager"),
+        ("reviewer", "Peer Reviewer (Read Only)"),
         ("staff", "Staff"),
         ("guest", "Guest"),
     ]

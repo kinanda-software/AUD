@@ -647,6 +647,22 @@ export default function NewEngagementPage() {
                 IT Audit
               </option>
 
+              <option value="performance">
+                Performance Audit
+              </option>
+
+              <option value="forensic">
+                Forensic Audit
+              </option>
+
+              <option value="special">
+                Special Audit
+              </option>
+
+              <option value="environmental">
+                Environmental Audit
+              </option>
+
               <option value="other">
                 Other
               </option>

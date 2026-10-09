@@ -46,6 +46,17 @@ class Client(models.Model):
         blank=True,
     )
 
+    license_authority = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Authority that issued the trade/practice license.",
+    )
+
+    license_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
     tax_identification_number = models.CharField(
         max_length=100,
         blank=True,

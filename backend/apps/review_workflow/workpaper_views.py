@@ -6,13 +6,17 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.engagements.access import ReadOnlyReviewerPermission
 from apps.engagements.models import Engagement
 from .models import EngagementWorkpaper, SummaryReview
 from .workpaper_serializers import SCHEMAS, SUMMARY_FIELDS, WorkpaperInputSerializer, validate_shape
 
 
 class EngagementWorkpaperView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated,
+        ReadOnlyReviewerPermission,
+    ]
 
     def engagement(self, request, engagement_id, section):
         if section not in SCHEMAS:

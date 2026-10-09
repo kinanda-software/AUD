@@ -8,6 +8,7 @@ from .finding_review_views import FindingReviewViewSet
 from .pbc_views import PBCRequestViewSet, PBCEventViewSet
 from .statement_views import StatementLineViewSet, StatementMappingViewSet, StatementVersionViewSet
 from .subledger_views import ContactViewSet, TaxCodeViewSet, DocumentViewSet, PaymentViewSet, SubledgerReportViewSet
+from .data_import_views import FinancialAccountMappingViewSet, FinancialDataImportViewSet
 
 from .views import (
     AdjustmentViewSet,
@@ -40,6 +41,8 @@ router.register(r"finding-reviews", FindingReviewViewSet, basename="financial-fi
 router.register(r"evidence", EvidenceViewSet, basename="financial-evidence")
 router.register(r"evidence-links", EvidenceLinkViewSet, basename="financial-evidence-link")
 router.register(r"intelligence-runs", FinancialIntelligenceViewSet, basename="financial-intelligence")
+router.register(r"data-imports", FinancialDataImportViewSet, basename="financial-data-import")
+router.register(r"account-mappings", FinancialAccountMappingViewSet, basename="financial-account-mapping")
 router.register(r"inventory-items", InventoryItemViewSet, basename="inventory-item")
 router.register(r"inventory-movements", InventoryMovementViewSet, basename="inventory-movement")
 router.register(r"fixed-assets", FixedAssetViewSet, basename="fixed-asset")

@@ -312,6 +312,15 @@ class Adjustment(models.Model):
         default=Status.PROPOSED,
     )
 
+    is_memorandum = models.BooleanField(
+        default=False,
+        help_text=(
+            "Memorandum entries are recorded for disclosure "
+            "or informational purposes and are excluded from "
+            "the adjusted trial balance even when posted."
+        ),
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -1883,3 +1892,83 @@ class FinancialStatementApproval(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Statement approvals cannot be deleted.")
+
+
+class FinancialAccountMapping(models.Model):
+    engagement = models.ForeignKey("engagements.Engagement", on_delete=models.CASCADE)
+    source_system = models.CharField(max_length=100)
+    external_code = models.CharField(max_length=100)
+    account = models.ForeignKey(ChartOfAccount, on_delete=models.PROTECT, related_name="import_mappings")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["source_system", "external_code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["engagement", "source_system", "external_code"],
+                name="unique_financial_account_import_mapping",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.source_system = self.source_system.strip().casefold()
+        self.external_code = self.external_code.strip()
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        if self.account_id and self.account.engagement_id != self.engagement_id:
+            raise ValidationError({"account": "Mapped account must belong to the same engagement."})
+
+
+class FinancialDataImport(models.Model):
+    class Status(models.TextChoices):
+        NEEDS_REVIEW = "needs_review", "Needs review"
+        VALIDATED = "validated", "Validated"
+        IMPORTED = "imported", "Imported"
+
+    engagement = models.ForeignKey("engagements.Engagement", on_delete=models.PROTECT)
+    source_system = models.CharField(max_length=100)
+    source_name = models.CharField(max_length=255)
+    source_format = models.CharField(max_length=10)
+    source_fingerprint = models.CharField(max_length=64)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    currency = models.CharField(max_length=10)
+    column_mapping = models.JSONField(default=dict)
+    rows = models.JSONField(default=list)
+    validation_errors = models.JSONField(default=list)
+    row_count = models.PositiveIntegerField(default=0)
+    total_debit = models.DecimalField(max_digits=24, decimal_places=2, default=0)
+    total_credit = models.DecimalField(max_digits=24, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEEDS_REVIEW)
+    trial_balance = models.OneToOneField(
+        TrialBalance, null=True, blank=True, on_delete=models.PROTECT, related_name="source_import",
+    )
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    imported_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["engagement", "created_at"]),
+            models.Index(fields=["source_fingerprint"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            previous = type(self).objects.get(pk=self.pk)
+            immutable_fields = (
+                "engagement_id", "source_system", "source_name", "source_format",
+                "source_fingerprint", "period_start", "period_end", "currency",
+                "column_mapping", "rows", "validation_errors", "row_count",
+                "total_debit", "total_credit", "created_by_id",
+            )
+            if any(getattr(previous, field) != getattr(self, field) for field in immutable_fields):
+                raise ValidationError("Import source data is immutable. Create a new import to preserve history.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Import history cannot be deleted.")
